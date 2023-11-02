@@ -13,8 +13,8 @@ This API is mounted at v2 path, so all calls should be of a format `/v2/<path>`
 ### Endpoints
 
 #### GET `/hosted_happs/?quantity=<quantity>&usage_interval=<usage_interval>`
-- quantity - max number of happs to return, if omited all happs will be returned [TODO: is it even used? sounds like a half-baked pagination attempt]
-- usage_interval - (required) include statistics from last `<usage_interval>` days
+- ~~`quantity` - max number of happs to return, if omited all happs will be returned [TODO: is it even used? sounds like a half-baked pagination attempt]~~
+- `usage_interval` - (required) include statistics from last `<usage_interval>` days
 ```
 Vec<HappDetails>
 ```
@@ -50,3 +50,4 @@ HappDetails {
 #### POST `/hosted_happs/<id>/enable`
 200 OK
 
+- requires additional check in holo-auto-installer
