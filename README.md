@@ -13,8 +13,8 @@ This API is mounted at v2 path, so all calls should be of a format `/v2/<path>`
 ### Endpoints
 
 #### GET `/hosted_happs/?quantity=<quantity>&usage_interval=<usage_interval>`
-- ~~`quantity` - max number of happs to return, if omited all happs will be returned [TODO: is it even used? sounds like a half-baked pagination attempt]~~
-- `usage_interval` - (required) include statistics from last `<usage_interval>` days
+- `quantity: u32` - max number of happs to return, if omitted all happs will be returned
+- `usage_interval: u32` - (required) include statistics from last `<usage_interval>` seconds
 ```
 Vec<HappDetails>
 ```
@@ -35,10 +35,11 @@ HappDetails {
       last7Days: number    // From holofuel
       averageWeekly: number    // From holofuel
   }
-  last7DaysUsage: {
+  usage: {
       bandwidth: number // from SL
       cpu: number // from SL - now set to 0
       storage: number // from SL - now set to 0
+      interval: number // number of seconds this usage is calculated over, defaults to 7 days = 604800 seconds
   }
   hostingPlan: 'paid' | 'free' // in hha - settings set to 0 (get happ preferences, all 3 == 0)
 }
