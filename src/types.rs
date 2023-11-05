@@ -1,3 +1,5 @@
+use holochain_types::dna::ActionHashB64;
+
 use rocket::{
     response::{Debug, Responder},
     serde::{Deserialize, Serialize},
@@ -10,6 +12,12 @@ use anyhow::Error;
 #[serde(rename_all = "camelCase")]
 pub struct HappDetails {
 
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HappAndHost {
+    pub happ_id: ActionHashB64,
+    pub holoport_id: String,
 }
 
 // [rocket::response::Debug](https://api.rocket.rs/v0.5-rc/rocket/response/struct.Debug.html) implements Responder to Error
