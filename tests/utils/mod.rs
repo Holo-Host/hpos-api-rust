@@ -4,15 +4,14 @@ use hpos_config_seed_bundle_explorer::unlock;
 use holochain_env_setup::{
     environment::{setup_environment, Environment},
     holochain::{create_log_dir, create_tmp_dir},
-    storage_helpers::download_file,
+    // storage_helpers::download_file,
 };
-use holochain_types::prelude::{HoloHash, hash_type::Agent};
-use holochain_client::{AdminWebsocket, AppInfo, AppWebsocket, ZomeCall};
-use log::info;
+use holochain_types::prelude::AgentPubKey;
+use holochain_client::{AdminWebsocket, AppWebsocket};
 use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
 use rocket::serde::json::serde_json;
-use ed25519_dalek::Keypair
+use ed25519_dalek::Keypair;
 
 pub struct Test {
     pub hc_env: Environment,
@@ -23,11 +22,11 @@ pub struct Test {
 impl Test {
     /// Set up an environment resembling HPOS
     pub async fn init() -> Self {
-        const password: &str = "pass";
+        const PASSWORD: &str = "pass";
 
         // Env vars required for runnig stuff that imitates HPOS
-        env::set_var("HOLOCHAIN_DEFAULT_PASSWORD", password); // required by holochain_env_setup crate
-        env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", password); // required by holochain_env_setup crate
+        env::set_var("HOLOCHAIN_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
+        env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
         env::set_var("CORE_HAPP_FILE", "TODO: ");
         env::set_var("DEV_UID_OVERRIDE", "123456789");
         let path = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -36,9 +35,10 @@ impl Test {
 
         // Get device_bundle from hpos-config and pass it to setup_environment so that lair
         // can import a keypar for an agent from hpos-config
-        let (agent_string, device_bundle) = from_config(hpos_config_path.into(), password.into()).await.unwrap();
+        let (agent_string, device_bundle) = from_config(hpos_config_path.into(), PASSWORD.into()).await.unwrap();
 
-        info!("agent: {}, bundle: {}", agent_string, device_bundle);
+        // let agent: AgentPubKey = &agent_string.into();
+        println!("agent: {}, bundle: {}", agent_string, device_bundle);
 
         let tmp_dir = create_tmp_dir();
         let log_dir = create_log_dir();
@@ -48,7 +48,7 @@ impl Test {
             .await
             .expect("Error spinning up Holochain environment");
 
-        info!("Started holochain in tmp dir {:?}", &tmp_dir);
+        println!("Started holochain in tmp dir {:?}", &tmp_dir);
 
         let mut admin_ws = AdminWebsocket::connect(format!("ws://localhost:{}", ADMIN_PORT))
             .await
@@ -83,7 +83,7 @@ async fn from_config(config_path: PathBuf, password: String) -> Result<(String, 
                         "unable to unlock the device bundle from {}",
                         &config_path.to_string_lossy()
                     ))?;
-            Ok((public_key::to_base36_id(&public), device_bundle))
+            Ok((public_key::to_holochain_encoded_agent_key(&public), device_bundle))
         },
         _ => Err(anyhow!("Unsupported version of hpos config"))
     }
