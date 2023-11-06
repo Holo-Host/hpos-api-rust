@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use holochain_types::dna::ActionHashB64;
 use rocket::serde::{Deserialize, Serialize};
@@ -13,7 +15,7 @@ pub struct HappDetails {}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HappAndHost {
     happ_id: ActionHashB64,
-    holoport_id: String, // in base36 encoding
+    pub holoport_id: String, // in base36 encoding
 }
 
 impl HappAndHost {
@@ -32,3 +34,7 @@ impl HappAndHost {
         })
     }
 }
+
+pub type AllEarnings = HashMap<&'static str, HappEarninrs>;
+
+pub struct HappEarninrs {}
