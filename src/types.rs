@@ -1,47 +1,34 @@
+use anyhow::Result;
 use holochain_types::dna::ActionHashB64;
+use rocket::serde::{Deserialize, Serialize};
 
-use rocket::{
-    response::{Debug, Responder},
-    serde::{Deserialize, Serialize},
-};
-use anyhow::Error;
+use crate::hpos::Ws;
 
 // Return value of hosted_happs
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
-pub struct HappDetails {
-
-}
+pub struct HappDetails {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HappAndHost {
-    pub happ_id: ActionHashB64,
-    pub holoport_id: String,
+    happ_id: ActionHashB64,
+    holoport_id: String, // in base36 encoding
 }
 
-// [rocket::response::Debug](https://api.rocket.rs/v0.5-rc/rocket/response/struct.Debug.html) implements Responder to Error
-pub type Result<T, E = Debug<Error>> = std::result::Result<T, E>;
+impl HappAndHost {
+    pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
+        // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
+        // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
+        let (_, pub_key) = ws.get_cell(ws.core_app_id.clone(), "hha").await?;
 
-// Debug errors default to 500
-pub type Error500 = Debug<Error>;
+        let a = pub_key.get_raw_32();
 
-#[derive(Responder, Debug)]
-#[response(status = 400)]
-pub enum Error400 {
-    Info(String),
-    Message(&'static str),
-}
+        let holoport_id = base36::encode(a);
 
-#[derive(Responder, Debug)]
-#[response(status = 404)]
-pub enum Error404 {
-    Info(String),
-    Message(&'static str),
-}
-
-#[derive(Responder, Debug)]
-pub enum ApiError {
-    BadRequest(Error400),
-    NotFound(Error404),
+        Ok(HappAndHost {
+            happ_id: ActionHashB64::from_b64_str(happ_id)?,
+            holoport_id,
+        })
+    }
 }
