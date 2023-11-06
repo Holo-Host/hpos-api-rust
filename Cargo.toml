@@ -22,3 +22,6 @@ hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev =
 hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "bfaced6044ae570bf20d4528fa9aaafcc43ddeec" }
 ed25519-dalek = { version = "1.0.0-pre.1" }
 base64 = "0.13.0"
+url = "2.4.0"
+getrandom = "0.2.7"
+holofuel_types = "0.4"
