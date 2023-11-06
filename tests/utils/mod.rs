@@ -37,8 +37,13 @@ impl Test {
         // can import a keypar for an agent from hpos-config
         let (agent_string, device_bundle) = from_config(hpos_config_path.into(), PASSWORD.into()).await.unwrap();
 
-        // let agent: AgentPubKey = &agent_string.into();
-        println!("agent: {}, bundle: {}", agent_string, device_bundle);
+        let bytes = base64::decode_config(&agent_string, base64::URL_SAFE_NO_PAD).unwrap();
+
+        let agent: AgentPubKey = AgentPubKey::from_raw_39(bytes).unwrap();
+
+        println!("in: {}, out: {}", &agent_string, agent);
+
+        //println!("agent: {}, bundle: {}", agent_string, device_bundle);
 
         let tmp_dir = create_tmp_dir();
         let log_dir = create_log_dir();
