@@ -18,4 +18,6 @@ serde = "1.0"
 hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "e1d1baa0c9741a46a29626ce33d9e019c1391db8" }
 base36 = "=0.0.1"
 holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "e1d1baa0c9741a46a29626ce33d9e019c1391db8" }
-
+hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev = "bfaced6044ae570bf20d4528fa9aaafcc43ddeec" }
+hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "bfaced6044ae570bf20d4528fa9aaafcc43ddeec" }
+ed25519-dalek = { version = "1.0.0-pre.1" }
