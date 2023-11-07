@@ -43,9 +43,10 @@ impl Test {
         // Env vars required for runnig stuff that imitates HPOS
         env::set_var("HOLOCHAIN_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
         env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
-        let path = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let hpos_config_path = format!("{}/resources/test/hpos-config.json", path);
+        let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let hpos_config_path = format!("{}/resources/test/hpos-config.json", &manifets_path);
         env::set_var("HPOS_CONFIG_PATH", &hpos_config_path);
+        env::set_var("CORE_HAPP_FILE", format!("{}/resources/test/config.yaml", &manifets_path));
 
         // Get device_bundle from hpos-config and pass it to setup_environment so that lair
         // can import a keypar for an agent from hpos-config
@@ -60,6 +61,8 @@ impl Test {
 
         let tmp_dir = create_tmp_dir();
         let log_dir = create_log_dir();
+
+        env::set_var("HOLOCHAIN_WORKING_DIR", &tmp_dir);
 
         // Set up holochain environment
         let hc_env = setup_environment(&tmp_dir, &log_dir, Some(&device_bundle), None)
