@@ -45,7 +45,7 @@ mod test {
 
     #[test]
     fn decode_hash() {
-        let str = "uhC0kScSLugaW9nXtMn9DHvL_ubJ2atkd0WkmoMh_KPDCj5kZoS9l";
+        let str = "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC";
         ActionHashB64::from_b64_str(str).unwrap();
     }
 }

@@ -34,7 +34,7 @@ async fn install_components() {
 
     // enable test happ in hha
     let payload = HappAndHost {
-        happ_id: test_hosted_happ_id,
+        happ_id: test_hosted_happ_id.clone(),
         holoport_id: "my_holoport".to_string(),
     };
     let _: () = test
@@ -51,12 +51,23 @@ async fn install_components() {
     let client = Client::tracked(rocket().await).await.expect("valid rocket instance");
 
     // Make some calls, starting with `/`
+    info!("calling /");
     let response = client.get("/").dispatch().await;
 
     info!("status: {}", response.status());
     info!("body: {:#?}", response.into_string().await);
 
     // enable test_hosted_happ_id
+    let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    info!("status: {}", response.status());
+    info!("body: {:#?}", response.into_string().await);
 
     // disable test_hosted_happ_id
+    let path = format!("/hosted_happs/{}/disable", &test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    info!("status: {}", response.status());
+    info!("body: {:#?}", response.into_string().await);
 }

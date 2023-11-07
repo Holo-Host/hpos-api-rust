@@ -17,7 +17,7 @@ async fn index(wsm: &State<WsMutex>) -> String {
 
     // Construct sample HappAndHost just to retrieve holoport_id
     let sample = HappAndHost::init(
-        "uhCkkinFSJP_yrv469jrFjzpAMS3toP4bctbbqmtzcEXUUSX5vL3i",
+        "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC",
         &mut ws,
     )
     .await
