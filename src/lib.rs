@@ -54,11 +54,11 @@ async fn get_all_hosted_happs(
 // }
 
 #[post("/hosted_happs/<id>/enable")]
-async fn enable_happ(id: String, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
     let core_app_id = ws.core_app_id.clone();
 
-    let payload = HappAndHost::init(&id, &mut ws)
+    let payload = HappAndHost::init(id, &mut ws)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
@@ -71,11 +71,11 @@ async fn enable_happ(id: String, wsm: &State<WsMutex>) -> Result<(), (Status, St
 }
 
 #[post("/hosted_happs/<id>/disable")]
-async fn disable_happ(id: String, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
     let core_app_id = ws.core_app_id.clone();
 
-    let payload = HappAndHost::init(&id, &mut ws)
+    let payload = HappAndHost::init(id, &mut ws)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 

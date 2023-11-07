@@ -60,14 +60,14 @@ async fn install_components() {
     // enable test_hosted_happ_id
     let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
     info!("calling {}", &path);
-    let response = client.get(path).dispatch().await;
+    let response = client.post(path).dispatch().await;
     info!("status: {}", response.status());
     info!("body: {:#?}", response.into_string().await);
 
     // disable test_hosted_happ_id
     let path = format!("/hosted_happs/{}/disable", &test_hosted_happ_id);
     info!("calling {}", &path);
-    let response = client.get(path).dispatch().await;
+    let response = client.post(path).dispatch().await;
     info!("status: {}", response.status());
     info!("body: {:#?}", response.into_string().await);
 }
