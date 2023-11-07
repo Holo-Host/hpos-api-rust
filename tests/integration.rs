@@ -3,6 +3,7 @@ mod utils;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
 use log::{debug, info};
+use rocket::http::Status;
 use rocket::local::asynchronous::Client;
 use rocket::{tokio};
 use utils::Test;
@@ -53,21 +54,25 @@ async fn install_components() {
     // Make some calls, starting with `/`
     info!("calling /");
     let response = client.get("/").dispatch().await;
-
-    info!("status: {}", response.status());
-    info!("body: {:#?}", response.into_string().await);
+    debug!("status: {}", &response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", &response_body);
+    assert!(response_body.contains("5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq"));
 
     // enable test_hosted_happ_id
     let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
-    info!("status: {}", response.status());
-    info!("body: {:#?}", response.into_string().await);
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    debug!("body: {:#?}", response.into_string().await);
 
     // disable test_hosted_happ_id
     let path = format!("/hosted_happs/{}/disable", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
-    info!("status: {}", response.status());
-    info!("body: {:#?}", response.into_string().await);
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    debug!("body: {:#?}", response.into_string().await);
 }
