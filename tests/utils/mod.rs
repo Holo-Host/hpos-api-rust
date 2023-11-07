@@ -1,3 +1,5 @@
+mod consts;
+
 use std::{env, path::PathBuf, fs::File, sync::Arc, collections::HashMap, fmt};
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
 use hpos_config_core::*;
@@ -19,11 +21,7 @@ use serde::{Serialize, Deserialize};
 use url::Url;
 use std::time::Duration;
 use std::fmt::Debug;
-
-// https://github.com/Holo-Host/holo-nixpkgs/blob/develop/profiles/logical/happ-releases.nix#L9C5-L9C5
-pub const HHA_URL: &str = "https://holo-host.github.io/holo-hosting-app-rsm/releases/downloads/core-app/0_5_13/core-app.0_5_13-skip-proof.happ";
-pub const SL_URL: &str = "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_4_18/servicelogger.0_4_18.happ";
-
+use consts::{HHA_URL, SL_URL}
 
 pub struct Test {
     pub hc_env: Environment,
@@ -39,8 +37,6 @@ impl Test {
         // Env vars required for runnig stuff that imitates HPOS
         env::set_var("HOLOCHAIN_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
         env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
-        env::set_var("CORE_HAPP_FILE", "TODO: ");
-        env::set_var("DEV_UID_OVERRIDE", "123456789");
         let path = env::var("CARGO_MANIFEST_DIR").unwrap();
         let hpos_config_path = format!("{}/resources/test/hpos-config.json", path);
         env::set_var("HPOS_CONFIG_PATH", &hpos_config_path);

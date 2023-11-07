@@ -1,11 +1,11 @@
 mod utils;
 
 // use log::{debug, info};
-use rocket::tokio;
+use rocket::{tokio, local::blocking::Client};
 use utils::Test;
 use log::{debug, info};
-
-use crate::utils::{Happ, to_cell, PresentedHappBundle, HappInput, HappAndHost};
+use utils::{Happ, to_cell, PresentedHappBundle, HappInput, HappAndHost};
+use hpos_api_rust::rocket;
 
 #[tokio::test]
 async fn install_components() {
@@ -38,13 +38,13 @@ async fn install_components() {
 
     info!("Hosted happ enabled in hha - OK");
 
-    // I do not have to actually install hosted happ because I am insterested only in service logger records
-
     // Install SL for hosted happ with host_agent key
     let sl_app_info = test.install_app(Happ::SL).await;
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
-    // Start API
+    // Test API
+    let client = Client::tracked(rocket().await).expect("valid rocket instance");
+    let mut response = client.get("/").dispatch();
 
     // Make some calls, starting with `/`
 }
