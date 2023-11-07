@@ -64,7 +64,7 @@ async fn enable_happ(id: String, wsm: &State<WsMutex>) -> Result<(), (Status, St
 
     debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
     let _: () = ws
-        .call_zome(core_app_id, "hha", "hha", "enable_happ", payload)
+        .call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(())
@@ -81,7 +81,7 @@ async fn disable_happ(id: String, wsm: &State<WsMutex>) -> Result<(), (Status, S
 
     debug!("calling zome hha/disable_happ with payload: {:?}", &payload);
     let _: () = ws
-        .call_zome(core_app_id, "hha", "hha", "disable_happ", payload)
+        .call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(())

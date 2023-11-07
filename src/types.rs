@@ -22,7 +22,7 @@ impl HappAndHost {
     pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
         // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
         // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
-        let (_, pub_key) = ws.get_cell(ws.core_app_id.clone(), "hha").await?;
+        let (_, pub_key) = ws.get_cell(ws.core_app_id.clone(), "core-app").await?;
 
         let a = pub_key.get_raw_32();
 
@@ -38,3 +38,14 @@ impl HappAndHost {
 pub type AllEarnings = HashMap<&'static str, HappEarninrs>;
 
 pub struct HappEarninrs {}
+
+#[cfg(test)]
+mod test {
+    use holochain_types::dna::ActionHashB64;
+
+    #[test]
+    fn decode_hash() {
+        let str = "uhC0kScSLugaW9nXtMn9DHvL_ubJ2atkd0WkmoMh_KPDCj5kZoS9l";
+        ActionHashB64::from_b64_str(str).unwrap();
+    }
+}

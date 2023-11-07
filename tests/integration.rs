@@ -6,7 +6,8 @@ use log::{debug, info};
 use rocket::local::asynchronous::Client;
 use rocket::{tokio};
 use utils::Test;
-use utils::{to_cell, Happ, HappAndHost, HappInput, PresentedHappBundle};
+use utils::{to_cell, HappAndHost, HappInput, PresentedHappBundle};
+use utils::core_apps::{Happ};
 
 #[tokio::test]
 async fn install_components() {
@@ -29,6 +30,7 @@ async fn install_components() {
         .await;
 
     let test_hosted_happ_id = hha_bundle.id;
+    info!("Publushed hosted happ in hha with id {}", &test_hosted_happ_id);
 
     // enable test happ in hha
     let payload = HappAndHost {

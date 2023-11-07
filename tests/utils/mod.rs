@@ -1,7 +1,7 @@
-mod consts;
+pub mod core_apps;
 
 use anyhow::{anyhow, Context, Result};
-use consts::{HHA_URL, SL_URL};
+use core_apps::{HHA_URL, SL_URL};
 use ed25519_dalek::Keypair;
 use holochain_client::{AdminWebsocket, AppInfo, AppWebsocket, InstallAppPayload, ZomeCall};
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
@@ -26,8 +26,9 @@ use rocket::serde::json::serde_json;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::time::Duration;
-use std::{collections::HashMap, env, fmt, fs::File, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
+use core_apps::Happ;
 
 pub struct Test {
     pub hc_env: Environment,
@@ -209,19 +210,6 @@ pub fn to_cell(mut hha_app_info: AppInfo, role_name: &str) -> ProvisionedCell {
     match a.pop() {
         Some(CellInfo::Provisioned(hha_cell)) => hha_cell,
         _ => panic!("Couldn't find cell for hha"),
-    }
-}
-
-pub enum Happ {
-    HHA,
-    SL,
-}
-impl fmt::Display for Happ {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Happ::HHA => write!(f, "hha"),
-            Happ::SL => write!(f, "servicelogger"),
-        }
     }
 }
 
