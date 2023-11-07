@@ -8,7 +8,7 @@ use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
 use rocket::serde::json::Json;
-use rocket::{self, get, post, State, Rocket, Build};
+use rocket::{self, get, post, Build, Rocket, State};
 use types::{HappAndHost, HappDetails};
 
 #[get("/")]
@@ -16,7 +16,12 @@ async fn index(wsm: &State<WsMutex>) -> String {
     let mut ws = wsm.lock().await;
 
     // Construct sample HappAndHost just to retrieve holoport_id
-    let sample = HappAndHost::init("uhCkkinFSJP_yrv469jrFjzpAMS3toP4bctbbqmtzcEXUUSX5vL3i", &mut ws).await.unwrap();
+    let sample = HappAndHost::init(
+        "uhCkkinFSJP_yrv469jrFjzpAMS3toP4bctbbqmtzcEXUUSX5vL3i",
+        &mut ws,
+    )
+    .await
+    .unwrap();
 
     format!("🤖 I'm your holoport {}", sample.holoport_id)
 }
@@ -83,7 +88,12 @@ async fn disable_happ(id: String, wsm: &State<WsMutex>) -> Result<(), (Status, S
 }
 
 pub async fn rocket() -> Rocket<Build> {
-    env_logger::init();
+    if let Err(e) = env_logger::try_init() {
+        debug!(
+            "Looks like env logger is already initialized {}. Maybe in testing harness?",
+            e
+        );
+    };
 
     let keystore = Keystore::init().await.unwrap();
     let wsm = WsMutex::new(Ws::connect(&keystore).await.unwrap());

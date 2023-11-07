@@ -1,27 +1,33 @@
 mod consts;
 
-use std::{env, path::PathBuf, fs::File, sync::Arc, collections::HashMap, fmt};
+use anyhow::{anyhow, Context, Result};
+use consts::{HHA_URL, SL_URL};
+use ed25519_dalek::Keypair;
+use holochain_client::{AdminWebsocket, AppInfo, AppWebsocket, InstallAppPayload, ZomeCall};
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
-use hpos_config_core::*;
-use hpos_config_seed_bundle_explorer::unlock;
 use holochain_env_setup::{
     environment::{setup_environment, Environment},
     holochain::{create_log_dir, create_tmp_dir},
     storage_helpers::download_file,
 };
-use holochain_types::{prelude::{AgentPubKey, ExternIO, holochain_serial, ZomeCallUnsigned, SerializedBytes, Timestamp, UnsafeBytes, AppBundleSource, Nonce256Bits}, dna::{ActionHashB64, AgentPubKeyB64}};
-use holochain_client::{AdminWebsocket, AppWebsocket, ZomeCall, AppInfo, InstallAppPayload};
+use holochain_types::{
+    dna::{ActionHashB64, AgentPubKeyB64},
+    prelude::{
+        holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
+        Timestamp, UnsafeBytes, ZomeCallUnsigned,
+    },
+};
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
-use anyhow::{anyhow, Context, Result};
-use rocket::serde::json::serde_json;
-use ed25519_dalek::Keypair;
+use hpos_config_core::*;
+use hpos_config_seed_bundle_explorer::unlock;
 use log::{debug, info, trace};
-use serde::{Serialize, Deserialize};
-use url::Url;
-use std::time::Duration;
+use rocket::serde::json::serde_json;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use consts::{HHA_URL, SL_URL}
+use std::time::Duration;
+use std::{collections::HashMap, env, fmt, fs::File, path::PathBuf, sync::Arc};
+use url::Url;
 
 pub struct Test {
     pub hc_env: Environment,
@@ -43,7 +49,9 @@ impl Test {
 
         // Get device_bundle from hpos-config and pass it to setup_environment so that lair
         // can import a keypar for an agent from hpos-config
-        let (agent_string, device_bundle) = from_config(hpos_config_path.into(), PASSWORD.into()).await.unwrap();
+        let (agent_string, device_bundle) = from_config(hpos_config_path.into(), PASSWORD.into())
+            .await
+            .unwrap();
 
         let bytes = base64::decode_config(&agent_string[1..], base64::URL_SAFE_NO_PAD).unwrap();
         let agent: AgentPubKey = AgentPubKey::from_raw_39(bytes).unwrap();
@@ -158,7 +166,10 @@ impl Test {
 }
 
 async fn from_config(config_path: PathBuf, password: String) -> Result<(String, String)> {
-    let config_file = File::open(&config_path).context(format!("failed to open file {}", &config_path.to_string_lossy()))?;
+    let config_file = File::open(&config_path).context(format!(
+        "failed to open file {}",
+        &config_path.to_string_lossy()
+    ))?;
     match serde_json::from_reader(config_file)? {
         Config::V2 { device_bundle, .. } => {
             // take in password
@@ -169,9 +180,12 @@ async fn from_config(config_path: PathBuf, password: String) -> Result<(String, 
                         "unable to unlock the device bundle from {}",
                         &config_path.to_string_lossy()
                     ))?;
-            Ok((public_key::to_holochain_encoded_agent_key(&public), device_bundle))
-        },
-        _ => Err(anyhow!("Unsupported version of hpos config"))
+            Ok((
+                public_key::to_holochain_encoded_agent_key(&public),
+                device_bundle,
+            ))
+        }
+        _ => Err(anyhow!("Unsupported version of hpos config")),
     }
 }
 
