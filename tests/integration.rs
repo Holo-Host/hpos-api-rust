@@ -3,12 +3,15 @@ mod utils;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
 use log::{debug, info};
-use rocket::{local::blocking::Client, tokio};
+use rocket::local::asynchronous::Client;
+use rocket::{tokio};
 use utils::Test;
 use utils::{to_cell, Happ, HappAndHost, HappInput, PresentedHappBundle};
 
 #[tokio::test]
 async fn install_components() {
+    env_logger::init();
+
     let mut test = Test::init().await;
 
     let hha_app_info = test.install_app(Happ::HHA).await;
@@ -43,13 +46,13 @@ async fn install_components() {
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
     // Test API
-    let client = Client::tracked(rocket().await).expect("valid rocket instance");
+    let client = Client::tracked(rocket().await).await.expect("valid rocket instance");
 
     // Make some calls, starting with `/`
-    let mut response = client.get("/").dispatch();
+    let response = client.get("/").dispatch().await;
 
     info!("status: {}", response.status());
-    info!("body: {:#?}", response.into_string());
+    info!("body: {:#?}", response.into_string().await);
 
     // enable test_hosted_happ_id
 
