@@ -1,7 +1,7 @@
 pub mod consts;
 mod handlers;
 mod hpos;
-mod types;
+pub mod types;
 
 use handlers::handle_get_all;
 use hpos::{Keystore, Ws, WsMutex};

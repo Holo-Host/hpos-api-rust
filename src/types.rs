@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use anyhow::Result;
 use holochain_types::dna::ActionHashB64;
+use holofuel_types::fuel::Fuel;
 use rocket::serde::{Deserialize, Serialize};
 
 use crate::hpos::Ws;
@@ -10,11 +11,59 @@ use crate::hpos::Ws;
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
-pub struct HappDetails {}
+pub struct HappDetails {
+    id: String,
+    name: String,
+    description: String,
+    categories: Vec<String>,
+    enabled: bool,
+    is_paused: bool,
+    source_chains: u16,
+    days_hosted: u16,
+    earnings: Earnings,
+    usage: RecentUsage,
+    hosting_plan: HostingPlan,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub struct Earnings {
+    total: Fuel,
+    last_7_days: Fuel,
+    average_weekly: Fuel
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub struct RecentUsage {
+    bandwidth: u64, // in bytes?
+    cpu: u64,       // now always set to 0
+    storage: u64,   // now always set to 0
+    interval: u32,  // in seconds
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub enum HostingPlan {
+    Free,
+    Paid
+}
+
+impl fmt::Display for HostingPlan {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            HostingPlan::Free => write!(f, "free"),
+            HostingPlan::Paid => write!(f, "paid"),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HappAndHost {
-    happ_id: ActionHashB64,
+    pub happ_id: ActionHashB64,
     pub holoport_id: String, // in base36 encoding
 }
 

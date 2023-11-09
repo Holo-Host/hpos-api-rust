@@ -2,13 +2,14 @@ mod utils;
 
 // use log::{debug, info};
 use hpos_api_rust::rocket;
+use hpos_api_rust::types::HappAndHost;
 use log::{debug, info};
 use rocket::http::Status;
 use rocket::local::asynchronous::Client;
-use rocket::{tokio};
+use rocket::tokio;
+use utils::core_apps::Happ;
 use utils::Test;
-use utils::{to_cell, HappAndHost, HappInput, PresentedHappBundle};
-use utils::core_apps::{Happ};
+use utils::{to_cell, HappInput, PresentedHappBundle};
 
 #[tokio::test]
 async fn install_components() {
@@ -31,13 +32,17 @@ async fn install_components() {
         .await;
 
     let test_hosted_happ_id = hha_bundle.id;
-    info!("Publushed hosted happ in hha with id {}", &test_hosted_happ_id);
+    info!(
+        "Publushed hosted happ in hha with id {}",
+        &test_hosted_happ_id
+    );
 
     // enable test happ in hha
     let payload = HappAndHost {
         happ_id: test_hosted_happ_id.clone(),
-        holoport_id: "my_holoport".to_string(),
+        holoport_id: "5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq".to_string(),
     };
+    info!("payload: {:?}", payload);
     let _: () = test
         .call_zome(&hha_cell, "hha", "enable_happ", payload)
         .await;
@@ -49,7 +54,9 @@ async fn install_components() {
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
     // Test API
-    let client = Client::tracked(rocket().await).await.expect("valid rocket instance");
+    let client = Client::tracked(rocket().await)
+        .await
+        .expect("valid rocket instance");
 
     // Make some calls, starting with `/`
     info!("calling /");

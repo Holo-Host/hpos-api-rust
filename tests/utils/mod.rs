@@ -1,6 +1,7 @@
 pub mod core_apps;
 
 use anyhow::{anyhow, Context, Result};
+use core_apps::Happ;
 use core_apps::{HHA_URL, SL_URL};
 use ed25519_dalek::Keypair;
 use holochain_client::{AdminWebsocket, AppInfo, AppWebsocket, InstallAppPayload, ZomeCall};
@@ -28,7 +29,6 @@ use std::fmt::Debug;
 use std::time::Duration;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
-use core_apps::Happ;
 
 pub struct Test {
     pub hc_env: Environment,
@@ -47,7 +47,10 @@ impl Test {
         let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
         let hpos_config_path = format!("{}/resources/test/hpos-config.json", &manifets_path);
         env::set_var("HPOS_CONFIG_PATH", &hpos_config_path);
-        env::set_var("CORE_HAPP_FILE", format!("{}/resources/test/config.yaml", &manifets_path));
+        env::set_var(
+            "CORE_HAPP_FILE",
+            format!("{}/resources/test/config.yaml", &manifets_path),
+        );
 
         // Get device_bundle from hpos-config and pass it to setup_environment so that lair
         // can import a keypar for an agent from hpos-config
@@ -279,10 +282,4 @@ pub struct DnaResource {
     pub hash: String, // hash of the dna, not a stored dht address
     pub src_url: String,
     pub nick: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct HappAndHost {
-    pub happ_id: ActionHashB64,
-    pub holoport_id: String,
 }
