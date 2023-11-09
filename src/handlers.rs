@@ -1,18 +1,19 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr, time::Duration};
 
 use crate::{
     hpos::Ws,
     types::{
-        Earnings, HappDetails, HostingPlan, PresentedHappBundle, RecentUsage,
-        ServiceloggerHappPreferences,
+        Earnings, HappDetails, HostingPlan, InvoiceNote, PresentedHappBundle, RecentUsage,
+        ServiceloggerHappPreferences, Transaction, POS,
     },
 };
 use anyhow::{anyhow, Result};
 use holochain_client::AppInfo;
-use holochain_types::dna::ActionHashB64;
+use holochain_types::{dna::ActionHashB64, prelude::Timestamp};
 use holofuel_types::fuel::Fuel;
-use hpos_hc_connect::holofuel_types::Transaction;
 use log::debug;
+
+type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
 pub async fn handle_get_all(
     usage_interval: u32,
@@ -28,6 +29,7 @@ pub async fn handle_get_all(
         .await?;
 
     // Ask holofuel for all transactions so that I can calculate earings - isn't it ridiculous?
+    let mut all_transactions = get_all_transactions(ws).await?;
 
     let mut result: Vec<HappDetails> = vec![];
     // for each happ
@@ -41,8 +43,8 @@ pub async fn handle_get_all(
             enabled: happ.host_settings.is_enabled,                     // from hha
             is_paused: happ.is_paused,                                  // from hha
             source_chains: count_instances(happ.id.clone(), ws).await?, // counting instances of a given happ by it's name (id)
-            days_hosted: 0, // TODO: how do I get timestamp on a link of enable happ?
-            earnings: todo!(), // From holofuel
+            days_hosted: 1, // TODO: how do I get timestamp on a link of enable happ?
+            earnings: count_earnings(&mut all_transactions, happ.id.clone()).await?, // from holofuel
             usage: RecentUsage::default(), // from SL TODO: actually query SL for this value
             hosting_plan: get_plan(happ.id.clone(), ws).await?, // in hha - settings set to 0 (get happ preferences, all 3 == 0) - call get_happ_preferences
         };
@@ -62,12 +64,18 @@ pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<HostingPlan
     let core_app_id = ws.core_app_id.clone();
 
     let s: ServiceloggerHappPreferences = ws
-        .call_zome(core_app_id, "core-app", "hha", "get_happ_preferences", ())
+        .call_zome(
+            core_app_id,
+            "core-app",
+            "hha",
+            "get_happ_preferences",
+            happ_id,
+        )
         .await?;
 
-    if (s.price_compute == Fuel::new(0)
+    if s.price_compute == Fuel::new(0)
         && s.price_storage == Fuel::new(0)
-        && s.price_bandwidth == Fuel::new(0))
+        && s.price_bandwidth == Fuel::new(0)
     {
         Ok(HostingPlan::Free)
     } else {
@@ -92,28 +100,64 @@ pub async fn count_instances(happ_id: ActionHashB64, ws: &mut Ws) -> Result<u16>
         }))
 }
 
-pub async fn count_earnings(ws: &mut Ws) -> () { //Result<Earnings> {
+// TODO: average_weekly still needs to be calculated - from total and days_hosted?
+pub async fn count_earnings(
+    all_transactions: &mut AllTransactions,
+    happ_id: ActionHashB64,
+) -> Result<Earnings> {
+    let mut e = Earnings::default();
+    if let Some(payments) = all_transactions.remove(&happ_id) {
+        for p in payments.iter() {
+            let amount_fuel = Fuel::from_str(&p.amount)?;
+            e.total = (e.total + amount_fuel)?;
+            // if completed_date is within last week then add fuel to last_7_days, too
+            let week = Duration::from_secs(7 * 24 * 60 * 60);
+            if (Timestamp::now() - week)? < p.completed_date.unwrap() {
+                e.last_7_days = (e.last_7_days + amount_fuel)?
+            };
+        }
+        Ok(e)
+    } else {
+        Ok(e)
+    }
 }
 
-// pub async fn get_all_transactions(ws: &mut Ws) -> Result<(HashMap<ActionHashB64, Vec<Transaction>>)> {
-//     let core_app_id = ws.core_app_id.clone();
+/// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note
+pub async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
+    let core_app_id = ws.core_app_id.clone();
+    let mut return_map: HashMap<ActionHashB64, Vec<Transaction>> = HashMap::new();
 
-//     debug!("calling zome hha/get_happs");
-//     let mut return_map: HashMap<ActionHashB64, Vec<Transaction>> = HashMap::new();
+    debug!("calling zome holofuel/transactor/get_completed_transactions");
+    let mut a = ws
+        .call_zome::<(), Vec<Transaction>>(
+            core_app_id,
+            "holofuel",
+            "transactor",
+            "get_completed_transactions",
+            (),
+        )
+        .await?;
 
-//     Ok(ws
-//         .call_zome::<(), Vec<Transaction>>(core_app_id, "holofuel", "transactor", "get_completed_transactions", ())
-//         .await?
-//         .iter()
-//         .fold(return_map, |acc, tx| {
-//             if let Some(note) = tx.note.clone() {
-//                 let
-//                 acc
-//             } else {
-//                 acc
-//             }
-//         }))
-// }
+    while let Some(tx) = a.pop() {
+        // only add happ to list if it is a valid hosting invoice
+        if let Some(pos) = tx.proof_of_service.clone() {
+            if let POS::Hosting(_) = pos {
+                if let Some(note) = tx.note.clone() {
+                    if let Ok((_, n)) = serde_yaml::from_str::<(String, InvoiceNote)>(&note) {
+                        if let Some(mut vec) = return_map.remove(&n.hha_id) {
+                            vec.push(tx);
+                            return_map.insert(n.hha_id, vec);
+                        } else {
+                            return_map.insert(n.hha_id, vec![tx]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(return_map)
+}
 
 #[cfg(test)]
 mod test {
