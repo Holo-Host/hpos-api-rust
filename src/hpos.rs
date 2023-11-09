@@ -25,7 +25,7 @@ pub type WsMutex = Mutex<Ws>;
 /// Opens a single websocket connection to holochain using pre-initiated keystore
 pub struct Ws {
     app: AppWebsocket,
-    admin: AdminWebsocket,
+    pub admin: AdminWebsocket,
     keystore: MetaLairClient,
     pub core_app_id: String,
 }

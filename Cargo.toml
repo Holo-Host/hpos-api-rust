@@ -15,6 +15,7 @@ holochain_client = "0.4.2"
 holochain_types = {version = "0.2.2", features = ["chc"]}
 holochain_conductor_api = { version = "0.2.2", features = ["chc"]}
 serde = "1.0"
+serde_yaml = "0.9.27"
 hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "e1d1baa0c9741a46a29626ce33d9e019c1391db8" }
 base36 = "=0.0.1"
 holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "e1d1baa0c9741a46a29626ce33d9e019c1391db8" }
