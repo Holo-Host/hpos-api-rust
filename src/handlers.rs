@@ -49,13 +49,34 @@ pub async fn handle_get_all(
         result.truncate(q);
     }
 
-    Ok(vec![])
+    Ok(result)
+}
+
+pub async fn handle_get_one(id: ActionHashB64, ws: &mut Ws) -> Result<HappDetails> {
+    let core_app_id = ws.core_app_id.clone();
+
+    // TODO: convert id to ActionHash?
+
+    debug!("calling zome hha/get_happs");
+    let happ: PresentedHappBundle = ws
+        .call_zome(core_app_id, "core-app", "hha", "get_happ", id)
+        .await?;
+
+    // Ask holofuel for all transactions so that I can calculate earings - isn't it ridiculous?
+    let mut all_transactions = get_all_transactions(ws).await?;
+
+    Ok(HappDetails::init(
+        &happ,
+        all_transactions.remove(&happ.id).unwrap_or(vec![]),
+        ws,
+    )
+    .await)
 }
 
 /// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note
 pub async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
     let core_app_id = ws.core_app_id.clone();
-    let mut return_map: HashMap<ActionHashB64, Vec<Transaction>> = HashMap::new();
+    let mut return_map: AllTransactions = HashMap::new();
 
     debug!("calling zome holofuel/transactor/get_completed_transactions");
     let mut a = ws

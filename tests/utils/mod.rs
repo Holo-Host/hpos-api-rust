@@ -11,12 +11,9 @@ use holochain_env_setup::{
     holochain::{create_log_dir, create_tmp_dir},
     storage_helpers::download_file,
 };
-use holochain_types::{
-    dna::{ActionHashB64, AgentPubKeyB64},
-    prelude::{
-        holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
-        Timestamp, UnsafeBytes, ZomeCallUnsigned,
-    },
+use holochain_types::prelude::{
+    holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
+    Timestamp, UnsafeBytes, ZomeCallUnsigned,
 };
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
@@ -214,27 +211,6 @@ pub fn to_cell(mut hha_app_info: AppInfo, role_name: &str) -> ProvisionedCell {
         Some(CellInfo::Provisioned(hha_cell)) => hha_cell,
         _ => panic!("Couldn't find cell for hha"),
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct PresentedHappBundle {
-    pub id: ActionHashB64,
-    pub provider_pubkey: AgentPubKeyB64,
-    pub is_draft: bool,
-    pub is_paused: bool,
-    pub uid: Option<String>,
-    pub bundle_url: String,
-    pub ui_src_url: Option<String>,
-    pub dnas: Vec<DnaResource>,
-    pub hosted_urls: Vec<String>,
-    pub name: String,
-    pub logo_url: Option<String>,
-    pub description: String,
-    pub categories: Vec<String>,
-    pub jurisdictions: Vec<String>,
-    pub exclude_jurisdictions: bool,
-    pub login_config: LoginConfig,
-    pub special_installed_app_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]

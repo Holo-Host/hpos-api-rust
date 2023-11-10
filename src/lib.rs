@@ -3,7 +3,8 @@ mod handlers;
 mod hpos;
 pub mod types;
 
-use handlers::handle_get_all;
+use handlers::{handle_get_all, handle_get_one};
+use holochain_types::dna::ActionHashB64;
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
@@ -42,16 +43,20 @@ async fn get_all_hosted_happs(
     ))
 }
 
-// #[get("/hosted_happs/<id>")]
-// async fn get_hosted_happ(
-//     id: String,
-//     wsm: &State<WsMutex>,
-// ) -> Result<Json<HappDetails>, (Status, String)> {
-//     // Any anyhow error results in a 500 Respons Code
-//     // 404 if <id> not found
-//     // 400 for malformatted <id>
-//     Ok("I'm your holoport 🤖")
-// }
+#[get("/hosted_happs/<id>")]
+async fn get_hosted_happ(
+    id: String,
+    wsm: &State<WsMutex>,
+) -> Result<Json<HappDetails>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    // Validate format of happ id
+    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+
+    Ok(Json(handle_get_one(id, &mut ws).await.map_err(|e| {
+        (Status::InternalServerError, e.to_string())
+    })?))
+}
 
 #[post("/hosted_happs/<id>/enable")]
 async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
@@ -103,7 +108,7 @@ pub async fn rocket() -> Rocket<Build> {
         rocket::routes![
             index,
             get_all_hosted_happs,
-            //get_hosted_happ,
+            get_hosted_happ,
             enable_happ,
             disable_happ
         ],

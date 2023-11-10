@@ -2,14 +2,14 @@ mod utils;
 
 // use log::{debug, info};
 use hpos_api_rust::rocket;
-use hpos_api_rust::types::HappAndHost;
+use hpos_api_rust::types::{HappAndHost, PresentedHappBundle};
 use log::{debug, info};
 use rocket::http::Status;
 use rocket::local::asynchronous::Client;
 use rocket::tokio;
 use utils::core_apps::Happ;
 use utils::Test;
-use utils::{to_cell, HappInput, PresentedHappBundle};
+use utils::{to_cell, HappInput};
 
 #[tokio::test]
 async fn install_components() {
@@ -66,6 +66,14 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", &response_body);
     assert!(response_body.contains("5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq"));
+
+    // get all hosted happs
+    let path = format!("/hosted_happs?usage_interval=5");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    debug!("body: {:#?}", response.into_string().await);
 
     // enable test_hosted_happ_id
     let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
