@@ -76,7 +76,9 @@ impl Test {
             .await
             .expect("failed to connect to holochain's admin interface");
 
-        let _ = admin_ws.attach_app_interface(APP_PORT).await
+        let _ = admin_ws
+            .attach_app_interface(APP_PORT)
+            .await
             .expect("failed to attach app interface");
 
         let app_ws = AppWebsocket::connect(format!("ws://localhost:{}", APP_PORT))
