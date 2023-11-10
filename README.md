@@ -22,26 +22,26 @@ Vec<HappDetails>
 #### GET `/hosted_happs/<id>`
 ```
 HappDetails {
-  id: string // from hha
-  name: string // from hha
-  description: string // from hha
-  categories: string[] // from hha
-  enabled: boolean // from hha
-  isPaused: boolean // from hha
-  sourceChains: number // counting instances of a given happ by it's name (id)
-  daysHosted: number // timestamp on a link of enable happ
+  id: string
+  name: string
+  description: string
+  categories: string[]
+  enabled: boolean
+  isPaused: boolean
+  sourceChains: number | null     // null when calculation has failed
+  daysHosted: number | null       // null when calculation has failed
   earnings: {
-      total: number    // From holofuel
-      last7Days: number    // From holofuel
-      averageWeekly: number    // From holofuel
-  }
+      total: number
+      last7Days: number
+      averageWeekly: number
+  } | null                        // null when calculation has failed
   usage: {
-      bandwidth: number // from SL
-      cpu: number // from SL - now set to 0
-      storage: number // from SL - now set to 0
-      interval: number // number of seconds this usage is calculated over, defaults to 7 days = 604800 seconds
-  }
-  hostingPlan: 'paid' | 'free' // in hha - settings set to 0 (get happ preferences, all 3 == 0)
+      bandwidth: number
+      cpu: number
+      storage: number
+      interval: number            // number of seconds this usage is calculated over, defaults to 7 days = 604800 seconds
+  } | null                        // null when calculation has failed
+  hostingPlan: 'paid' | 'free' | null // free if all 3 hosting prefs are set to 0 - when calculation has failed
 }
 ```
 

@@ -1,12 +1,13 @@
-use std::{collections::HashMap, fmt, time::Duration};
+use std::{collections::HashMap, fmt, str::FromStr, time::Duration};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
     dna::{ActionHashB64, AgentPubKeyB64, EntryHashB64},
     prelude::{holochain_serial, CapSecret, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
+use log::warn;
 use rocket::serde::{Deserialize, Serialize};
 
 use crate::hpos::Ws;
@@ -22,14 +23,46 @@ pub struct HappDetails {
     pub categories: Vec<String>,
     pub enabled: bool,
     pub is_paused: bool,
-    pub source_chains: u16,
-    pub days_hosted: u16,
-    pub earnings: Earnings,
-    pub usage: RecentUsage,
-    pub hosting_plan: HostingPlan,
+    pub source_chains: Option<u16>,
+    pub days_hosted: Option<u16>,
+    pub earnings: Option<Earnings>,
+    pub usage: Option<RecentUsage>,
+    pub hosting_plan: Option<HostingPlan>,
+}
+impl HappDetails {
+    pub async fn init(
+        happ: &PresentedHappBundle,
+        transactions: Vec<Transaction>,
+        ws: &mut Ws,
+    ) -> Self {
+        HappDetails {
+            id: happ.id.clone(),
+            name: happ.name.clone(),
+            description: happ.name.clone(),
+            categories: happ.categories.clone(),
+            enabled: happ.host_settings.is_enabled,
+            is_paused: happ.is_paused,
+            source_chains: count_instances(happ.id.clone(), ws)
+                .await
+                .unwrap_or_else(|e| {
+                    warn!("error counting instances for happ {}: {}", &happ.id, e);
+                    None
+                }),
+            days_hosted: Some(1), // TODO: how do I get timestamp on a link of enable happ?
+            earnings: count_earnings(transactions).await.unwrap_or_else(|e| {
+                warn!("error counting earnings for happ {}: {}", &happ.id, e);
+                None
+            }),
+            usage: None, // from SL TODO: actually query SL for this value
+            hosting_plan: get_plan(happ.id.clone(), ws).await.unwrap_or_else(|e| {
+                warn!("error getting plan for happ {}: {}", &happ.id, e);
+                None
+            }),
+        }
+    }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 pub struct Earnings {
@@ -145,6 +178,62 @@ impl HappAndHost {
             holoport_id,
         })
     }
+}
+
+pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<HostingPlan>> {
+    let core_app_id = ws.core_app_id.clone();
+
+    let s: ServiceloggerHappPreferences = ws
+        .call_zome(
+            core_app_id,
+            "core-app",
+            "hha",
+            "get_happ_preferences",
+            happ_id,
+        )
+        .await?;
+
+    if s.price_compute == Fuel::new(0)
+        && s.price_storage == Fuel::new(0)
+        && s.price_bandwidth == Fuel::new(0)
+    {
+        Ok(Some(HostingPlan::Free))
+    } else {
+        Ok(Some(HostingPlan::Paid))
+    }
+}
+
+pub async fn count_instances(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<u16>> {
+    // What filter shall I use in list_happs()? Is None correct?
+    Ok(Some(
+        ws.admin
+            .list_apps(None)
+            .await
+            .map_err(|err| anyhow!("{:?}", err))?
+            .iter()
+            .fold(0, |acc, info| {
+                if info.installed_app_id.contains(&format!("{}:uhCA", happ_id)) {
+                    acc + 1
+                } else {
+                    acc
+                }
+            }),
+    ))
+}
+
+// TODO: average_weekly still needs to be calculated - from total and days_hosted?
+pub async fn count_earnings(transactions: Vec<Transaction>) -> Result<Option<Earnings>> {
+    let mut e = Earnings::default();
+    for p in transactions.iter() {
+        let amount_fuel = Fuel::from_str(&p.amount)?;
+        e.total = (e.total + amount_fuel)?;
+        // if completed_date is within last week then add fuel to last_7_days, too
+        let week = Duration::from_secs(7 * 24 * 60 * 60);
+        if (Timestamp::now() - week)? < p.completed_date.unwrap() {
+            e.last_7_days = (e.last_7_days + amount_fuel)?
+        };
+    }
+    Ok(Some(e))
 }
 
 // return type of a zome call to hha/get_happ_preferences
