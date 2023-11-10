@@ -30,7 +30,7 @@ async fn index(wsm: &State<WsMutex>) -> String {
 #[get("/hosted_happs?<usage_interval>&<quantity>")]
 async fn get_all_hosted_happs(
     usage_interval: u32,
-    quantity: Option<u32>,
+    quantity: Option<usize>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
     let mut ws = wsm.lock().await;

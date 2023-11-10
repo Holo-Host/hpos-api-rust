@@ -13,7 +13,7 @@ This API is mounted at v2 path, so all calls should be of a format `/v2/<path>`
 ### Endpoints
 
 #### GET `/hosted_happs/?quantity=<quantity>&usage_interval=<usage_interval>`
-- `quantity: u32` - max number of happs to return, if omitted all happs will be returned
+- `quantity: u32` - max number of happs to return ordered by earnings within last 7 days, if omitted all happs will be returned
 - `usage_interval: u32` - (required) include statistics from last `<usage_interval>` seconds
 ```
 Vec<HappDetails>

@@ -8,7 +8,6 @@ use crate::{
     },
 };
 use anyhow::{anyhow, Result};
-use holochain_client::AppInfo;
 use holochain_types::{dna::ActionHashB64, prelude::Timestamp};
 use holofuel_types::fuel::Fuel;
 use log::debug;
@@ -17,7 +16,7 @@ type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
 pub async fn handle_get_all(
     usage_interval: u32,
-    quantity: Option<u32>,
+    quantity: Option<usize>,
     ws: &mut Ws,
 ) -> Result<Vec<HappDetails>> {
     // get all the hosted happs from this holoport
@@ -36,27 +35,30 @@ pub async fn handle_get_all(
     for happ in all_hosted_happs.iter() {
         // HappDetails::new(happ, ws) - async won't work because ws is &mut
         let h = HappDetails {
-            id: happ.id.clone(),                                        // from hha
-            name: happ.name.clone(),                                    // from hha
-            description: happ.name.clone(),                             // from hha
-            categories: happ.categories.clone(),                        // from hha
-            enabled: happ.host_settings.is_enabled,                     // from hha
-            is_paused: happ.is_paused,                                  // from hha
-            source_chains: count_instances(happ.id.clone(), ws).await?, // counting instances of a given happ by it's name (id)
+            id: happ.id.clone(),
+            name: happ.name.clone(),
+            description: happ.name.clone(),
+            categories: happ.categories.clone(),
+            enabled: happ.host_settings.is_enabled,
+            is_paused: happ.is_paused,
+            source_chains: count_instances(happ.id.clone(), ws).await?,
             days_hosted: 1, // TODO: how do I get timestamp on a link of enable happ?
-            earnings: count_earnings(&mut all_transactions, happ.id.clone()).await?, // from holofuel
+            earnings: count_earnings(&mut all_transactions, happ.id.clone()).await?,
             usage: RecentUsage::default(), // from SL TODO: actually query SL for this value
-            hosting_plan: get_plan(happ.id.clone(), ws).await?, // in hha - settings set to 0 (get happ preferences, all 3 == 0) - call get_happ_preferences
+            hosting_plan: get_plan(happ.id.clone(), ws).await?,
         };
 
         result.push(h);
     }
 
-    // order vec by ???
+    // sort vec by earnings.last_7_days in decreasing order
+    result.sort_by(|a, b| a.earnings.last_7_days.cmp(&b.earnings.last_7_days));
 
     // take first quantity only
+    if let Some(q) = quantity {
+        result.truncate(q);
+    }
 
-    // return vec
     Ok(vec![])
 }
 
