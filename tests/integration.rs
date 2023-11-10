@@ -74,6 +74,16 @@ async fn install_components() {
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
     debug!("body: {:#?}", response.into_string().await);
+    assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
+
+    // get one hosted happ
+    let path = format!("/hosted_happs/{}", &test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    debug!("body: {:#?}", response.into_string().await);
+    assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // enable test_hosted_happ_id
     let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
