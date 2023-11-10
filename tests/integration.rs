@@ -73,7 +73,8 @@ async fn install_components() {
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-    debug!("body: {:#?}", response.into_string().await);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // get one hosted happ
@@ -82,7 +83,8 @@ async fn install_components() {
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-    debug!("body: {:#?}", response.into_string().await);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // enable test_hosted_happ_id
