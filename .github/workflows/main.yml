@@ -1,0 +1,91 @@
+name: Testing
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint Check
+    timeout-minutes: 50
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: ⚡ Restore Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: 🔨 Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          components: rustfmt, clippy
+
+      - name: 🔎 Run cargo linting
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  test:
+    name: Test Suite
+    timeout-minutes: 120
+    runs-on: ubuntu-latest
+    environment:
+      name: develop
+    steps:
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@v1
+        with:
+          remove-android: "true"
+          remove-haskell: "true"
+      - name: Fetch source code
+        uses: actions/checkout@v3
+
+      - name: Install nix
+        uses: cachix/install-nix-action@v22
+
+      - name: Set up cachix
+        uses: cachix/cachix-action@v12
+        with:
+          name: holochain-ci
+
+      - name: Build Nix packages
+        run: nix develop -c $SHELL -c "echo Nix packages built"
+
+      - name: ⚡ Restore cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            .cargo
+            target
+          key: ${{ runner.os }}-build-happ-${{ hashFiles('Cargo.lock') }}
+
+      - name: 🔎 Run Cargo Tests
+        run: |
+          nix develop --command bash -c "cargo test -- --nocapture"
+
+      - name: Save build to cache
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            .cargo
+            target
+          key: ${{ runner.os }}-build-happ-${{ hashFiles('Cargo.lock') }}
