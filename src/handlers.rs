@@ -138,10 +138,6 @@ mod test {
         })
         .unwrap();
 
-        println!("{}", &string);
-
-        let out: Out = serde_yaml::from_str(&string).unwrap();
-
-        println!("{:?}", out);
+        let _: Out = serde_yaml::from_str(&string).unwrap();
     }
 }

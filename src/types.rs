@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, str::FromStr, time::Duration};
+use std::{fmt, str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;

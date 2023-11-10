@@ -76,13 +76,12 @@ impl Test {
             .await
             .expect("failed to connect to holochain's admin interface");
 
-        let _ = admin_ws.attach_app_interface(APP_PORT).await;
+        let _ = admin_ws.attach_app_interface(APP_PORT).await
+            .expect("failed to attach app interface");
 
         let app_ws = AppWebsocket::connect(format!("ws://localhost:{}", APP_PORT))
             .await
             .expect("failed to connect to holochain's app interface");
-
-        // Now install SL and core-app and activte them
 
         Self {
             hc_env,
@@ -255,7 +254,7 @@ pub struct LoginConfig {
 
 #[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
 pub struct DnaResource {
-    pub hash: String, // hash of the dna, not a stored dht address
+    pub hash: String,
     pub src_url: String,
     pub nick: String,
 }
