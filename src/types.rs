@@ -48,7 +48,10 @@ impl HappDetails {
                     warn!("error counting instances for happ {}: {}", &happ.id, e);
                     None
                 }),
-            days_hosted: Some(1), // TODO: how do I get timestamp on a link of enable happ?
+            days_hosted: count_days_hosted(happ.last_edited.clone()).unwrap_or_else(|e| {
+                warn!("error counting earnings for happ {}: {}", &happ.id, e);
+                None
+            }),
             earnings: count_earnings(transactions).await.unwrap_or_else(|e| {
                 warn!("error counting earnings for happ {}: {}", &happ.id, e);
                 None
@@ -234,6 +237,10 @@ pub async fn count_earnings(transactions: Vec<Transaction>) -> Result<Option<Ear
         };
     }
     Ok(Some(e))
+}
+
+pub fn count_days_hosted(since: Timestamp) -> Result<Option<u16>> {
+    Ok(Some((Timestamp::now() - since)?.num_days() as u16))
 }
 
 // return type of a zome call to hha/get_happ_preferences

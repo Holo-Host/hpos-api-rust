@@ -55,8 +55,6 @@ pub async fn handle_get_all(
 pub async fn handle_get_one(id: ActionHashB64, ws: &mut Ws) -> Result<HappDetails> {
     let core_app_id = ws.core_app_id.clone();
 
-    // TODO: convert id to ActionHash?
-
     debug!("calling zome hha/get_happs");
     let happ: PresentedHappBundle = ws
         .call_zome(core_app_id, "core-app", "hha", "get_happ", id)
