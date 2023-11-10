@@ -13,8 +13,8 @@ This API is mounted at v2 path, so all calls should be of a format `/v2/<path>`
 ### Endpoints
 
 #### GET `/hosted_happs/?quantity=<quantity>&usage_interval=<usage_interval>`
-- quantity - max number of happs to return, if omited all happs will be returned [TODO: is it even used? sounds like a half-baked pagination attempt]
-- usage_interval - (required) include statistics from last `<usage_interval>` days
+- `quantity: u32` - max number of happs to return ordered by earnings within last 7 days, if omitted all happs will be returned
+- `usage_interval: u32` - (required) include statistics from last `<usage_interval>` seconds
 ```
 Vec<HappDetails>
 ```
@@ -22,25 +22,26 @@ Vec<HappDetails>
 #### GET `/hosted_happs/<id>`
 ```
 HappDetails {
-  id: string // from hha
-  name: string // from hha
-  description: string // from hha
-  categories: string[] // from hha
-  enabled: boolean // from hha
-  isPaused: boolean // from hha
-  sourceChains: number // counting instances of a given happ by it's name (id)
-  daysHosted: number // timestamp on a link of enable happ
+  id: string
+  name: string
+  description: string
+  categories: string[]
+  enabled: boolean
+  isPaused: boolean
+  sourceChains: number | null     // null when calculation has failed
+  daysHosted: number | null       // null when calculation has failed
   earnings: {
-      total: number    // From holofuel
-      last7Days: number    // From holofuel
-      averageWeekly: number    // From holofuel
-  }
-  last7DaysUsage: {
-      bandwidth: number // from SL
-      cpu: number // from SL - now set to 0
-      storage: number // from SL - now set to 0
-  }
-  hostingPlan: 'paid' | 'free' // in hha - settings set to 0 (get happ preferences, all 3 == 0)
+      total: number
+      last7Days: number
+      averageWeekly: number
+  } | null                        // null when calculation has failed
+  usage: {
+      bandwidth: number
+      cpu: number
+      storage: number
+      interval: number            // number of seconds this usage is calculated over, defaults to 7 days = 604800 seconds
+  } | null                        // null when calculation has failed
+  hostingPlan: 'paid' | 'free' | null // free if all 3 hosting prefs are set to 0 - when calculation has failed
 }
 ```
 
@@ -50,3 +51,4 @@ HappDetails {
 #### POST `/hosted_happs/<id>/enable`
 200 OK
 
+- requires additional check in holo-auto-installer

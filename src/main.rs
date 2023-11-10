@@ -1,12 +1,7 @@
-use rocket::{self, get, launch};
+use hpos_api_rust::rocket;
 
-#[get("/")]
-async fn index() -> &'static str {
-    "I'm your holoport 🤖"
-}
-
-#[launch]
-async fn rocket() -> _ {
-    rocket::build()
-        .mount("/", rocket::routes![index])
+#[rocket::main]
+async fn main() {
+    // entire rocket() is moved to module so that I can call it in integration test
+    let _ = rocket().await.launch().await;
 }
