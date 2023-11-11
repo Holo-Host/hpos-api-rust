@@ -2,13 +2,25 @@
 
 An API for interacting with holochain services running on HPOS.
 
+## Service
+
+Binary requires the following env vars for running and being fully aware of its environment:
+```
+HOLOCHAIN_DEFAULT_PASSWORD
+DEVICE_SEED_DEFAULT_PASSWORD
+HPOS_CONFIG_PATH - set by hpos-init
+CORE_HAPP_FILE
+HOLOCHAIN_WORKING_DIR
+DEV_UID_OVERRIDE
+```
+
 ## Authentication
 
 This API is relying on an authentication mechanism [hp-admin-crypto](https://github.com/Holo-Host/hp-admin-crypto).
 
 ## API
 
-This API is mounted at v2 path, so all calls should be of a format `/v2/<path>`
+This API is mounted on HPOS at v2 path of API, so all the calls should be of a format `/api/v2/<path>`, e.g. to get all hosted happs with usage calculated over last 7 days you would call `/api/v2/hosted_happs/?usage_interval=604800`.
 
 ### Endpoints
 
