@@ -26,13 +26,14 @@ pub struct HappDetails {
     pub source_chains: Option<u16>,
     pub days_hosted: Option<u16>,
     pub earnings: Option<Earnings>,
-    pub usage: Option<RecentUsage>,
+    pub usage: Option<HappStats>,
     pub hosting_plan: Option<HostingPlan>,
 }
 impl HappDetails {
     pub async fn init(
         happ: &PresentedHappBundle,
         transactions: Vec<Transaction>,
+        usage_interval: i64,
         ws: &mut Ws,
     ) -> Self {
         HappDetails {
@@ -56,7 +57,12 @@ impl HappDetails {
                 warn!("error counting earnings for happ {}: {}", &happ.id, e);
                 None
             }),
-            usage: None, // from SL TODO: actually query SL for this value
+            usage: get_usage(happ.id.clone(), usage_interval, ws)
+                .await
+                .unwrap_or_else(|e| {
+                    warn!("error getting plan for happ {}: {}", &happ.id, e);
+                    None
+                }), // from SL TODO: actually query SL for this value
             hosting_plan: get_plan(happ.id.clone(), ws).await.unwrap_or_else(|e| {
                 warn!("error getting plan for happ {}: {}", &happ.id, e);
                 None
@@ -83,14 +89,42 @@ impl Default for Earnings {
     }
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+pub struct UsageTimeInterval {
+    pub duration_unit: String,
+    pub amount: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
-pub struct RecentUsage {
-    bandwidth: u64, // in bytes?
-    cpu: u64,       // now always set to 0
-    storage: u64,   // now always set to 0
-    interval: u32,  // in seconds
+pub struct HappStats {
+    // we can return this is you want to return all source_chain that were running on this holoport
+    // pub source_chain_count: u32,
+    pub cpu: u64,
+    pub bandwidth: u64, // payload size,
+    pub disk_usage: u64,
+}
+
+async fn get_usage(
+    happ_id: ActionHashB64,
+    usage_interval: i64,
+    ws: &mut Ws,
+) -> Result<Option<HappStats>> {
+    log::debug!("Calling get_stats for happ: {}::servicelogger", happ_id);
+    let result: HappStats = ws
+        .call_zome(
+            format!("{}::servicelogger", happ_id),
+            "servicelogger",
+            "service",
+            "get_stats",
+            UsageTimeInterval {
+                duration_unit: "DAY".to_string(),
+                amount: usage_interval,
+            },
+        )
+        .await?;
+    Ok(Some(result))
 }
 
 #[derive(Serialize, Deserialize)]
