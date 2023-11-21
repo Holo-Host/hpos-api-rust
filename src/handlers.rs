@@ -11,7 +11,7 @@ use log::debug;
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
 pub async fn handle_get_all(
-    usage_interval: u32,
+    usage_interval: i64,
     quantity: Option<usize>,
     ws: &mut Ws,
 ) -> Result<Vec<HappDetails>> {
@@ -31,6 +31,7 @@ pub async fn handle_get_all(
             HappDetails::init(
                 happ,
                 all_transactions.remove(&happ.id).unwrap_or(vec![]),
+                usage_interval,
                 ws,
             )
             .await,
@@ -52,7 +53,11 @@ pub async fn handle_get_all(
     Ok(result)
 }
 
-pub async fn handle_get_one(id: ActionHashB64, ws: &mut Ws) -> Result<HappDetails> {
+pub async fn handle_get_one(
+    id: ActionHashB64,
+    usage_interval: i64,
+    ws: &mut Ws,
+) -> Result<HappDetails> {
     let core_app_id = ws.core_app_id.clone();
 
     debug!("calling zome hha/get_happs");
@@ -66,6 +71,7 @@ pub async fn handle_get_one(id: ActionHashB64, ws: &mut Ws) -> Result<HappDetail
     Ok(HappDetails::init(
         &happ,
         all_transactions.remove(&happ.id).unwrap_or(vec![]),
+        usage_interval,
         ws,
     )
     .await)

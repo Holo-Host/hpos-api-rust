@@ -31,7 +31,7 @@ This API is mounted on HPOS at v2 path of API, so all the calls should be of a f
 Vec<HappDetails>
 ```
 
-#### GET `/hosted_happs/<id>`
+#### GET `/hosted_happs/<id>?usage_interval=<usage_interval>`
 ```
 HappDetails {
   id: string
@@ -50,8 +50,7 @@ HappDetails {
   usage: {
       bandwidth: number
       cpu: number
-      storage: number
-      interval: number            // number of seconds this usage is calculated over, defaults to 7 days = 604800 seconds
+      disk_usage: number
   } | null                        // null when calculation has failed
   hostingPlan: 'paid' | 'free' | null // free if all 3 hosting prefs are set to 0 - when calculation has failed
 }

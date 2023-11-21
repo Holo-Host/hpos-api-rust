@@ -30,7 +30,7 @@ async fn index(wsm: &State<WsMutex>) -> String {
 // Rocket will return 400 if query params are of a wrong type
 #[get("/hosted_happs?<usage_interval>&<quantity>")]
 async fn get_all_hosted_happs(
-    usage_interval: u32,
+    usage_interval: i64,
     quantity: Option<usize>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
@@ -43,19 +43,22 @@ async fn get_all_hosted_happs(
     ))
 }
 
-#[get("/hosted_happs/<id>")]
+#[get("/hosted_happs/<id>?<usage_interval>")]
 async fn get_hosted_happ(
     id: String,
+    usage_interval: Option<i64>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<HappDetails>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
     // Validate format of happ id
     let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
-
-    Ok(Json(handle_get_one(id, &mut ws).await.map_err(|e| {
-        (Status::InternalServerError, e.to_string())
-    })?))
+    let usage_interval = usage_interval.unwrap_or(7); // 7 days
+    Ok(Json(
+        handle_get_one(id, usage_interval, &mut ws)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
 }
 
 #[post("/hosted_happs/<id>/enable")]
