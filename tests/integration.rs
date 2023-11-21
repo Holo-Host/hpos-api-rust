@@ -112,4 +112,16 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
+
+    // get default happ hosting preferences
+    let path = format!("/hosted_happs/default_happ_preferences");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert!(response_body.contains(&format!(
+        "\"price_compute\":\"0\",\"price_storage\":\"0\",\"price_bandwidth\":\"0\""
+    ))); // HHA is initialised with default price of zero.
 }

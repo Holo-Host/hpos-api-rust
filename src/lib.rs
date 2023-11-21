@@ -12,6 +12,8 @@ use rocket::serde::json::Json;
 use rocket::{self, get, post, Build, Rocket, State};
 use types::{HappAndHost, HappDetails};
 
+use crate::types::{DefaultHappPreferences, HappPreferences};
+
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
     let mut ws = wsm.lock().await;
@@ -92,6 +94,30 @@ async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Str
     Ok(())
 }
 
+#[get("/hosted_happs/default_happ_preferences")]
+async fn get_default_happ_preferences(
+    wsm: &State<WsMutex>,
+) -> Result<Json<DefaultHappPreferences>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let core_app_id = ws.core_app_id.clone();
+
+    debug!("calling zome hha/get_default_happ_preferences");
+    let happ_preferences: HappPreferences = ws
+        .call_zome(
+            core_app_id,
+            "core-app",
+            "hha",
+            "get_default_happ_preferences",
+            (),
+        )
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+
+    let default_happ_preferences: DefaultHappPreferences = happ_preferences.into();
+
+    Ok(Json(default_happ_preferences))
+}
+
 pub async fn rocket() -> Rocket<Build> {
     if let Err(e) = env_logger::try_init() {
         debug!(
@@ -110,7 +136,8 @@ pub async fn rocket() -> Rocket<Build> {
             get_all_hosted_happs,
             get_hosted_happ,
             enable_happ,
-            disable_happ
+            disable_happ,
+            get_default_happ_preferences
         ],
     )
 }

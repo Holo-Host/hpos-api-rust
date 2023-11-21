@@ -64,3 +64,15 @@ HappDetails {
 200 OK
 
 - requires additional check in holo-auto-installer
+
+#### GET `/hosted_happs/get_default_preferences`
+```
+HappPreferences {
+    timestamp: Timestamp,
+    maxFuelBeforeInvoice: Fuel, 
+    priceCompute: Fuel, // 0 for free hosting plans
+    priceStorage: Fuel, // 0 for free hosting plans
+    priceBandwidth: Fuel, // 0 for free hosting plans
+    maxTimeBeforeInvoice: Duration,
+}
+```

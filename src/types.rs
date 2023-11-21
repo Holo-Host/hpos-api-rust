@@ -307,6 +307,42 @@ pub enum POS {
     Redemption(String), // Contains wallet address
 }
 
+// Return type of hha/get_default_happ_preferences
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+pub struct HappPreferences {
+    pub timestamp: Timestamp,
+    pub max_fuel_before_invoice: Fuel,
+    pub price_compute: Fuel,
+    pub price_storage: Fuel,
+    pub price_bandwidth: Fuel,
+    pub max_time_before_invoice: Duration,
+}
+
+// Return type of GET /default_happ_preferences endpoint
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[serde(crate = "rocket::serde")]
+pub struct DefaultHappPreferences {
+    pub timestamp: Timestamp,
+    pub max_fuel_before_invoice: Fuel,
+    pub price_compute: Fuel,
+    pub price_storage: Fuel,
+    pub price_bandwidth: Fuel,
+    pub max_time_before_invoice: Duration,
+}
+
+impl From<HappPreferences> for DefaultHappPreferences {
+    fn from(happ_prefs: HappPreferences) -> Self {
+        DefaultHappPreferences {
+            timestamp: happ_prefs.timestamp,
+            max_fuel_before_invoice: happ_prefs.max_fuel_before_invoice,
+            price_compute: happ_prefs.price_compute,
+            price_storage: happ_prefs.price_storage,
+            price_bandwidth: happ_prefs.price_bandwidth,
+            max_time_before_invoice: happ_prefs.max_time_before_invoice,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use holochain_types::dna::ActionHashB64;
