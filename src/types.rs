@@ -97,7 +97,6 @@ pub struct UsageTimeInterval {
 
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 #[serde(crate = "rocket::serde")]
-#[serde(rename_all = "camelCase")]
 pub struct HappStats {
     // we can return this is you want to return all source_chain that were running on this holoport
     // pub source_chain_count: u32,
