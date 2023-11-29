@@ -11,10 +11,11 @@ use holochain_env_setup::{
     holochain::{create_log_dir, create_tmp_dir},
     storage_helpers::download_file,
 };
-use holochain_types::dna::ActionHashB64;
+use holochain_types::app::AppManifest;
+use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
     holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
-    Timestamp, UnsafeBytes, ZomeCallUnsigned,
+    Timestamp, UnsafeBytes, YamlProperties, ZomeCallUnsigned,
 };
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
@@ -94,6 +95,42 @@ impl Test {
         }
     }
 
+    /// Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
+    pub async fn create_servicelogger_source(&mut self, path: PathBuf) -> Result<AppBundleSource> {
+        let mut source = AppBundleSource::Path(path);
+        use mr_bundle::Bundle;
+        let bundle = match source {
+            AppBundleSource::Bundle(bundle) => bundle.into_inner(),
+            AppBundleSource::Path(path) => Bundle::read_from_file(&path).await.unwrap(),
+        };
+        let AppManifest::V1(mut manifest) = bundle.manifest().clone();
+        let place_holder_dna =
+            DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP").unwrap();
+        let place_holder_pubkey =
+            AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC").unwrap();
+        let place_holder_happ_id =
+            ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy").unwrap();
+
+        for role_manifest in &mut manifest.roles {
+            let json = format!(
+                r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
+                place_holder_happ_id.to_string(),
+                place_holder_dna.to_string(),
+                place_holder_dna.to_string(),
+                place_holder_pubkey
+            );
+            let properties = Some(YamlProperties::new(serde_yaml::from_str(&json).unwrap()));
+            role_manifest.dna.modifiers.properties = properties
+        }
+        source = AppBundleSource::Bundle(
+            bundle
+                .update_manifest(AppManifest::V1(manifest))
+                .unwrap()
+                .into(),
+        );
+        Ok(source)
+    }
+
     pub async fn install_app(&mut self, happ: Happ, happ_id: Option<ActionHashB64>) -> AppInfo {
         let url = match happ {
             Happ::HHA => HHA_URL,
@@ -106,20 +143,23 @@ impl Test {
             happ.to_string(),
             Arc::new(SerializedBytes::from(UnsafeBytes::from(vec![0]))),
         );
-        let hha_path =
+        let happ_path =
             download_file(&Url::parse(url).expect(&format!("failed to parse {}", stringify!(url))))
                 .await
                 .expect("failed to download happ bundle");
 
-        let installed_app_id = match happ_id {
-            Some(id) => Some(format!("{}::servicelogger", id)),
-            None => Some(happ.to_string()),
+        let (installed_app_id, source) = match happ_id {
+            Some(id) => {
+                let sl_source = self.create_servicelogger_source(happ_path).await.unwrap();
+                (Some(format!("{}::servicelogger", id)), sl_source)
+            }
+            None => (Some(happ.to_string()), AppBundleSource::Path(happ_path)),
         };
 
         let payload = InstallAppPayload {
             agent_key: self.agent.clone(),
             installed_app_id,
-            source: AppBundleSource::Path(hha_path),
+            source,
             membrane_proofs,
             network_seed: None,
             ignore_genesis_failure: false,

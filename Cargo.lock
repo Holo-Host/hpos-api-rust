@@ -2699,9 +2699,9 @@ dependencies = [
 
 [[package]]
 name = "holochain_util"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c507f39c150414b64bb2fe8da311dc4e925435be887f8dfc3a97f8183d829878"
+checksum = "fc771b636f31071efee6840b421c9fafe8bbe16559e62fa72f859803fb1aaf74"
 dependencies = [
  "backtrace",
  "cfg-if 0.1.10",
@@ -2872,6 +2872,7 @@ dependencies = [
  "hpos-config-seed-bundle-explorer",
  "hpos_hc_connect",
  "log",
+ "mr_bundle",
  "rocket",
  "serde",
  "serde_yaml",
@@ -4007,9 +4008,9 @@ checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
 
 [[package]]
 name = "mr_bundle"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07707c320cdf007f36f450de93074425885fad116d55bda2b87e96bd216d6a0"
+checksum = "0d101996f9edc5228cf670a06ada7f53348fe409796df84b5f44cc0c8e648a60"
 dependencies = [
  "arbitrary",
  "bytes",
