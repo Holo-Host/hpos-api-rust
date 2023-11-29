@@ -110,7 +110,7 @@ async fn get_service_logs(
     let days = days.unwrap_or(7); // 7 days
     let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
-    log::debug!("Calling get_logs for happ: {}::servicelogger", id);
+    log::debug!("getting logs for happ: {}::servicelogger", id);
     let result: Vec<Record> = ws
         .call_zome(
             format!("{}::servicelogger", id),
@@ -127,6 +127,8 @@ async fn get_service_logs(
         .expect("Time went backwards")
         .as_secs()
         - (days as u64 * 24 * 60 * 60)) as i64;
+
+    log::debug!("filtering logs from {}", id);
 
     let filtered_result: Vec<Record> = result
         .into_iter()
