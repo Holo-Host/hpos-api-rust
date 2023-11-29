@@ -11,6 +11,7 @@ use holochain_env_setup::{
     holochain::{create_log_dir, create_tmp_dir},
     storage_helpers::download_file,
 };
+use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{
     holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
     Timestamp, UnsafeBytes, ZomeCallUnsigned,
@@ -93,7 +94,7 @@ impl Test {
         }
     }
 
-    pub async fn install_app(&mut self, happ: Happ) -> AppInfo {
+    pub async fn install_app(&mut self, happ: Happ, happ_id: Option<ActionHashB64>) -> AppInfo {
         let url = match happ {
             Happ::HHA => HHA_URL,
             Happ::SL => SL_URL,
@@ -110,9 +111,14 @@ impl Test {
                 .await
                 .expect("failed to download happ bundle");
 
+        let installed_app_id = match happ_id {
+            Some(id) => Some(format!("{}::servicelogger", id)),
+            None => Some(happ.to_string()),
+        };
+
         let payload = InstallAppPayload {
             agent_key: self.agent.clone(),
-            installed_app_id: Some(happ.to_string()),
+            installed_app_id,
             source: AppBundleSource::Path(hha_path),
             membrane_proofs,
             network_seed: None,
