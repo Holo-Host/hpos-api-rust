@@ -4,8 +4,8 @@ mod hpos;
 pub mod types;
 
 use handlers::{handle_get_all, handle_get_one};
-use holochain_types::dna::{ActionHashB64, EntryHash};
-use holochain_types::prelude::{ChainQueryFilter, Record};
+use holochain_types::dna::ActionHashB64;
+use holochain_types::prelude::Record;
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
@@ -108,10 +108,10 @@ async fn get_service_logs(
     // Validate format of happ id
     let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let days = days.unwrap_or(7); // 7 days
-    let filter = ChainQueryFilter::new().include_entries(true);
+    let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
     log::debug!("getting logs for happ: {}::servicelogger", id);
-    let source_chain: Vec<Record> = ws
+    let result: Vec<Record> = ws
         .call_zome(
             format!("{}::servicelogger", id),
             "servicelogger",
@@ -130,38 +130,12 @@ async fn get_service_logs(
 
     log::debug!("filtering logs from {}", id);
 
-    let filtered_result: Vec<Record> = source_chain
+    let filtered_result: Vec<Record> = result
         .into_iter()
         .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
         .collect();
 
-    //? We need to get all the entries as well
-    //? For this currently we will need to fetch the details again
-    //? in the future we should just be able to get the entry in the first query call by passing include_entries = true
-    let filter = ChainQueryFilter::new()
-        .entry_hashes(
-            filtered_result
-                .iter()
-                .filter_map(|f| f.action().entry_hash())
-                .collect::<Vec<&EntryHash>>()
-                .into_iter()
-                .map(|f| f.to_owned())
-                .collect(),
-        )
-        .include_entries(true); // This needs to be true to get the actual entry back
-    let result: Vec<Record> = ws
-        .call_zome(
-            format!("{}::servicelogger", id),
-            "servicelogger",
-            "service",
-            "querying_chain",
-            filter,
-        )
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-    log::trace!("loaded records: {}", result.len());
-
-    Ok(Json(result))
+    Ok(Json(filtered_result))
 }
 
 pub async fn rocket() -> Rocket<Build> {
