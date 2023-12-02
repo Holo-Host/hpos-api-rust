@@ -4,25 +4,26 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rocket = { version = "0.5.0-rc.3", features = ["json"] }
-env_logger = "0.10.0"
-log = "0.4.17"
 anyhow = "1.0"
+base36 = "=0.0.1"
+base64 = "0.13.0"
+ed25519-dalek = { version = "1.0.0-pre.1" }
+env_logger = "0.10.0"
+getrandom = "0.2.7"
 holochain_keystore = "0.2.2"
-sodoken = "0.0.9"
-url2 = "0.0.6"
 holochain_client = "0.4.2"
 holochain_types = {version = "0.2.2", features = ["chc"]}
 holochain_conductor_api = { version = "0.2.2", features = ["chc"]}
-serde = "1.0"
-serde_yaml = "0.9.25"
+holofuel_types = "0.5.2"
 hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "e1d1baa0c9741a46a29626ce33d9e019c1391db8" }
-base36 = "=0.0.1"
 holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "e1d1baa0c9741a46a29626ce33d9e019c1391db8" }
 hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev = "bfaced6044ae570bf20d4528fa9aaafcc43ddeec" }
 hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "bfaced6044ae570bf20d4528fa9aaafcc43ddeec" }
-ed25519-dalek = { version = "1.0.0-pre.1" }
-base64 = "0.13.0"
+mr_bundle = "0.2.3"
+log = "0.4.17"
+rocket = { version = "0.5.0-rc.3", features = ["json"] }
+serde = "1.0"
+serde_yaml = "0.9.25"
+sodoken = "0.0.9"
+url2 = "0.0.6"
 url = "2.4.0"
-getrandom = "0.2.7"
-holofuel_types = "0.5.2"

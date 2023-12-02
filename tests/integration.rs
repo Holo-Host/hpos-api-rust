@@ -50,7 +50,9 @@ async fn install_components() {
     info!("Hosted happ enabled in hha - OK");
 
     // Install SL for hosted happ with host_agent key
-    let sl_app_info = test.install_app(Happ::SL, Some(test_hosted_happ_id.clone())).await;
+    let sl_app_info = test
+        .install_app(Happ::SL, Some(test_hosted_happ_id.clone()))
+        .await;
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
     // Test API
