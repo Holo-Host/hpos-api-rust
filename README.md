@@ -62,4 +62,13 @@ HappDetails {
 #### POST `/hosted_happs/<id>/enable`
 200 OK
 
-- requires additional check in holo-auto-installer
+#### GET `/hosted_happs/<id>/logs?<days>`
+```
+Record {
+    /// The signed action for this record
+    pub signed_action: SignedActionHashed,
+    /// If there is an entry associated with this action it will be here.
+    /// If not, there will be an enum variant explaining the reason.
+    pub entry: `Hidden` | `NA` | `NotStored` | `Present`: <Entry>,
+}
+```
