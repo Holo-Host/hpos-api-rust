@@ -17,7 +17,7 @@ async fn install_components() {
 
     let mut test = Test::init().await;
 
-    let hha_app_info = test.install_app(Happ::HHA).await;
+    let hha_app_info = test.install_app(Happ::HHA, None).await;
     let hha_cell = to_cell(hha_app_info, "core-app");
 
     // publish test happ to hha
@@ -50,7 +50,9 @@ async fn install_components() {
     info!("Hosted happ enabled in hha - OK");
 
     // Install SL for hosted happ with host_agent key
-    let sl_app_info = test.install_app(Happ::SL).await;
+    let sl_app_info = test
+        .install_app(Happ::SL, Some(test_hosted_happ_id.clone()))
+        .await;
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
     // Test API
@@ -112,4 +114,14 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
+
+    // get service logs for happ
+    let path = format!("/hosted_happs/{}/logs", &test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    //assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 }

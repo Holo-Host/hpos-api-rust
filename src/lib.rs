@@ -5,11 +5,13 @@ pub mod types;
 
 use handlers::{handle_get_all, handle_get_one};
 use holochain_types::dna::ActionHashB64;
+use holochain_types::prelude::Record;
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::{self, get, post, Build, Rocket, State};
+use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails};
 
 #[get("/")]
@@ -95,6 +97,47 @@ async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Str
     Ok(())
 }
 
+#[get("/hosted_happs/<id>/logs?<days>")]
+async fn get_service_logs(
+    id: &str,
+    days: Option<i32>,
+    wsm: &State<WsMutex>,
+) -> Result<Json<Vec<Record>>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    // Validate format of happ id
+    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let days = days.unwrap_or(7); // 7 days
+    let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
+
+    log::debug!("getting logs for happ: {}::servicelogger", id);
+    let result: Vec<Record> = ws
+        .call_zome(
+            format!("{}::servicelogger", id),
+            "servicelogger",
+            "service",
+            "querying_chain",
+            filter,
+        )
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+
+    let four_weeks_ago = (SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
+        - (days as u64 * 24 * 60 * 60)) as i64;
+
+    log::debug!("filtering logs from {}", id);
+
+    let filtered_result: Vec<Record> = result
+        .into_iter()
+        .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
+        .collect();
+
+    Ok(Json(filtered_result))
+}
+
 pub async fn rocket() -> Rocket<Build> {
     if let Err(e) = env_logger::try_init() {
         debug!(
@@ -113,7 +156,8 @@ pub async fn rocket() -> Rocket<Build> {
             get_all_hosted_happs,
             get_hosted_happ,
             enable_happ,
-            disable_happ
+            disable_happ,
+            get_service_logs
         ],
     )
 }
