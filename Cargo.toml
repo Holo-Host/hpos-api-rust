@@ -21,8 +21,10 @@ hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev =
 hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "bfaced6044ae570bf20d4528fa9aaafcc43ddeec" }
 mr_bundle = "0.2.3"
 log = "0.4.17"
+rand = "0.8.5"
 rocket = { version = "0.5.0-rc.3", features = ["json"] }
 serde = "1.0"
+serde_bytes = "0.11"
 serde_yaml = "0.9.25"
 sodoken = "0.0.9"
 url2 = "0.0.6"

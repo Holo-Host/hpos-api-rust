@@ -5,7 +5,7 @@ pub mod types;
 
 use handlers::{handle_get_all, handle_get_one};
 use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::{Record, RecordEntry, Entry};
+use holochain_types::prelude::{Entry, Record, RecordEntry};
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
