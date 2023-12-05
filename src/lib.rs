@@ -5,7 +5,7 @@ pub mod types;
 
 use handlers::{handle_get_all, handle_get_one};
 use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::Record;
+use holochain_types::prelude::{Record, RecordEntry, Entry};
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
@@ -133,6 +133,16 @@ async fn get_service_logs(
     let filtered_result: Vec<Record> = result
         .into_iter()
         .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
+        // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),
+        // not holochain system entries
+        .filter(|record| {
+            if let RecordEntry::Present(e) = &record.entry {
+                if let Entry::App(_) = e {
+                    return true;
+                }
+            }
+            return false;
+        })
         .collect();
 
     Ok(Json(filtered_result))
