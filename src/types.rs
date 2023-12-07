@@ -341,7 +341,14 @@ pub enum POS {
 }
 
 // --------servicelogger data types---------
-// https://github.com/Holo-Host/servicelogger-rsm/blob/develop/zomes/service_integrity/src/entries/activity_log.rs#L6
+// https://github.com/Holo-Host/servicelogger-rsm/blob/develop/zomes/service_integrity/src/entries/mod.rs
+
+// Possible Servicelogger entry types
+#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
+pub enum LogEntry {
+    DiskUsageLog(DiskUsageLog),
+    ActivityLog(ActivityLog),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
 pub struct ActivityLog {
@@ -409,12 +416,6 @@ pub struct File {
     pub extension: String,
     /// File size in bytes
     pub size: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
-pub enum LogEntry {
-    DiskUsageLog(DiskUsageLog),
-    ActivityLog(ActivityLog),
 }
 
 #[cfg(test)]
