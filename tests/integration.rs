@@ -1,5 +1,6 @@
 mod utils;
 
+use holochain_types::dna::ActionHashB64;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
 use hpos_api_rust::types::{HappAndHost, PresentedHappBundle};
@@ -33,7 +34,7 @@ async fn install_components() {
 
     let test_hosted_happ_id = hha_bundle.id;
     info!(
-        "Publushed hosted happ in hha with id {}",
+        "Published hosted happ in hha with id {}",
         &test_hosted_happ_id
     );
 
@@ -54,6 +55,16 @@ async fn install_components() {
         .install_app(Happ::SL, Some(test_hosted_happ_id.clone()))
         .await;
     debug!("sl_app_info: {:#?}", &sl_app_info);
+
+    // Generate some SL activity
+    let sl_cell = to_cell(sl_app_info, "servicelogger");
+    for _ in 1..10 {
+        let payload = test.generate_sl_payload(&sl_cell).await;
+        let sl_response: ActionHashB64 = test
+            .call_zome(&sl_cell, "service", "log_activity", payload)
+            .await;
+        debug!("logged activity: {}", sl_response);
+    }
 
     // Test API
     let client = Client::tracked(rocket().await)

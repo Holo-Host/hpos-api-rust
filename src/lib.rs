@@ -5,7 +5,7 @@ pub mod types;
 
 use handlers::{handle_get_all, handle_get_one};
 use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::Record;
+use holochain_types::prelude::{Entry, Record, RecordEntry};
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
@@ -13,6 +13,8 @@ use rocket::serde::json::Json;
 use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails};
+
+use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
@@ -73,8 +75,7 @@ async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Stri
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
     debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
-    let _: () = ws
-        .call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
+    ws.call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(())
@@ -90,8 +91,7 @@ async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Str
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
     debug!("calling zome hha/disable_happ with payload: {:?}", &payload);
-    let _: () = ws
-        .call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
+    ws.call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(())
@@ -102,11 +102,11 @@ async fn get_service_logs(
     id: &str,
     days: Option<i32>,
     wsm: &State<WsMutex>,
-) -> Result<Json<Vec<Record>>, (Status, String)> {
+) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
     // Validate format of happ id
-    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let id = ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let days = days.unwrap_or(7); // 7 days
     let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
@@ -130,9 +130,22 @@ async fn get_service_logs(
 
     log::debug!("filtering logs from {}", id);
 
-    let filtered_result: Vec<Record> = result
+    let filtered_result: Vec<LogEntry> = result
         .into_iter()
         .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
+        // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),
+        // not holochain system entries
+        // and deserialize them into service logger's entries
+        .filter_map(|record| {
+            if let RecordEntry::Present(Entry::App(bytes)) = record.entry() {
+                if let Ok(log_entry) = ActivityLog::try_from(bytes.clone().into_sb()) {
+                    return Some(LogEntry::ActivityLog(Box::new(log_entry)));
+                } else if let Ok(log_entry) = DiskUsageLog::try_from(bytes.clone().into_sb()) {
+                    return Some(LogEntry::DiskUsageLog(log_entry));
+                }
+            }
+            None
+        })
         .collect();
 
     Ok(Json(filtered_result))

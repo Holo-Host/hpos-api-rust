@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     hpos::Ws,
-    types::{Earnings, HappDetails, InvoiceNote, PresentedHappBundle, Transaction, POS},
+    types::{HappDetails, InvoiceNote, PresentedHappBundle, Transaction, POS},
 };
 use anyhow::Result;
 use holochain_types::dna::ActionHashB64;
@@ -40,8 +40,8 @@ pub async fn handle_get_all(
 
     // sort vec by earnings.last_7_days in decreasing order
     result.sort_by(|a, b| {
-        let a = a.earnings.clone().unwrap_or(Earnings::default());
-        let b = b.earnings.clone().unwrap_or(Earnings::default());
+        let a = a.earnings.clone().unwrap_or_default();
+        let b = b.earnings.clone().unwrap_or_default();
         a.last_7_days.cmp(&b.last_7_days)
     });
 
@@ -95,16 +95,14 @@ pub async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
 
     while let Some(tx) = a.pop() {
         // only add happ to list if it is a valid hosting invoice
-        if let Some(pos) = tx.proof_of_service.clone() {
-            if let POS::Hosting(_) = pos {
-                if let Some(note) = tx.note.clone() {
-                    if let Ok((_, n)) = serde_yaml::from_str::<(String, InvoiceNote)>(&note) {
-                        if let Some(mut vec) = return_map.remove(&n.hha_id) {
-                            vec.push(tx);
-                            return_map.insert(n.hha_id, vec);
-                        } else {
-                            return_map.insert(n.hha_id, vec![tx]);
-                        }
+        if let Some(POS::Hosting(_)) = tx.proof_of_service.clone() {
+            if let Some(note) = tx.note.clone() {
+                if let Ok((_, n)) = serde_yaml::from_str::<(String, InvoiceNote)>(&note) {
+                    if let Some(mut vec) = return_map.remove(&n.hha_id) {
+                        vec.push(tx);
+                        return_map.insert(n.hha_id, vec);
+                    } else {
+                        return_map.insert(n.hha_id, vec![tx]);
                     }
                 }
             }

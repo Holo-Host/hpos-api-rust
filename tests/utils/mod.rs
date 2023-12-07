@@ -15,10 +15,14 @@ use holochain_types::app::AppManifest;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
     holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
-    Timestamp, UnsafeBytes, YamlProperties, ZomeCallUnsigned,
+    Signature, Timestamp, UnsafeBytes, YamlProperties, ZomeCallUnsigned,
 };
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
+use hpos_api_rust::types::{
+    ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
+    RequestPayload,
+};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use log::{debug, info, trace};
@@ -92,6 +96,59 @@ impl Test {
             agent,
             admin_ws,
             app_ws,
+        }
+    }
+
+    /// Generate SL activity Payload
+    pub async fn generate_sl_payload(&mut self, sl_cell: &ProvisionedCell) -> ActivityLog {
+        use rand::seq::SliceRandom;
+
+        let hosts = vec![
+            "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9",
+        ];
+        let ips = vec![
+            "IP1", "IP2", "IP3", "IP4", "IP5", "IP6", "IP7", "IP8", "IP9",
+        ];
+
+        let fake_action_hash: ActionHash = ActionHash::try_from(
+            "uhCkkMpS5xUbci4IiBXpmlFCAJF3unOq-ZBkMrbJTsuiieTllOLtY".to_string(),
+        )
+        .unwrap();
+
+        // create signature of a call spec
+        let request = RequestPayload {
+            host_id: hosts.choose(&mut rand::thread_rng()).unwrap().to_string(),
+            timestamp: Timestamp::now(),
+            hha_pricing_pref: fake_action_hash.clone(),
+            call_spec: CallSpec {
+                args_hash: vec![0 as u8; 10],
+                function: "function".to_string(),
+                zome: "zome".to_string(),
+                role_name: "role_name".to_string(),
+                hha_hash: fake_action_hash,
+            },
+        };
+
+        let request_signature: Signature = self
+            .call_zome(sl_cell, "service", "sign_request", request.clone())
+            .await;
+
+        ActivityLog {
+            request: ClientRequest {
+                agent_id: self.agent.clone(),
+                request,
+                request_signature,
+            },
+            response: HostResponse {
+                host_metrics: HostMetrics {
+                    cpu: 12,
+                    bandwidth: 12,
+                },
+                weblog_compat: ExtraWebLogData {
+                    source_ip: ips.choose(&mut rand::thread_rng()).unwrap().to_string(),
+                    status_code: 200,
+                },
+            },
         }
     }
 
