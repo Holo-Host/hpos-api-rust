@@ -49,7 +49,7 @@ impl HappDetails {
                     warn!("error counting instances for happ {}: {}", &happ.id, e);
                     None
                 }),
-            days_hosted: count_days_hosted(happ.last_edited.clone()).unwrap_or_else(|e| {
+            days_hosted: count_days_hosted(happ.last_edited).unwrap_or_else(|e| {
                 warn!("error counting earnings for happ {}: {}", &happ.id, e);
                 None
             }),
@@ -347,7 +347,7 @@ pub enum POS {
 #[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
 pub enum LogEntry {
     DiskUsageLog(DiskUsageLog),
-    ActivityLog(ActivityLog),
+    ActivityLog(Box<ActivityLog>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
@@ -403,7 +403,7 @@ pub struct CallSpec {
     pub hha_hash: ActionHash, // happ_id
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
 pub struct DiskUsageLog {
     pub files: Vec<File>,
     pub source_chain_count: u32,

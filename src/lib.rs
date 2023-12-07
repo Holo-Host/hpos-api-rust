@@ -14,7 +14,7 @@ use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails};
 
-use crate::types::{ActivityLog, LogEntry};
+use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
@@ -75,8 +75,7 @@ async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Stri
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
     debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
-    let _: () = ws
-        .call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
+    ws.call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(())
@@ -92,8 +91,7 @@ async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Str
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
     debug!("calling zome hha/disable_happ with payload: {:?}", &payload);
-    let _: () = ws
-        .call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
+    ws.call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(())
@@ -108,7 +106,7 @@ async fn get_service_logs(
     let mut ws = wsm.lock().await;
 
     // Validate format of happ id
-    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let id = ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let days = days.unwrap_or(7); // 7 days
     let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
@@ -139,20 +137,14 @@ async fn get_service_logs(
         // not holochain system entries
         // and deserialize them into service logger's entries
         .filter_map(|record| {
-            if let RecordEntry::Present(entry) = record.entry() {
-                // return try_from_entry(e);
-                if let Entry::App(bytes) = entry {
-                    if let Ok(log_entry) = LogEntry::ActivityLog::try_from(bytes.clone().into_sb())
-                    {
-                        return Some(log_entry);
-                    } else if Ok(log_entry) =
-                        LogEntry::DiskUsageLog::try_from(bytes.clone().into_sb())
-                    {
-                        return Some(log_entry);
-                    }
+            if let RecordEntry::Present(Entry::App(bytes)) = record.entry() {
+                if let Ok(log_entry) = ActivityLog::try_from(bytes.clone().into_sb()) {
+                    return Some(LogEntry::ActivityLog(Box::new(log_entry)));
+                } else if let Ok(log_entry) = DiskUsageLog::try_from(bytes.clone().into_sb()) {
+                    return Some(LogEntry::DiskUsageLog(log_entry));
                 }
             }
-            return None;
+            None
         })
         .collect();
 
