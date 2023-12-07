@@ -1,5 +1,4 @@
 pub mod core_apps;
-mod types;
 
 use anyhow::{anyhow, Context, Result};
 use core_apps::Happ;
@@ -28,7 +27,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::time::Duration;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
-use types::{
+use hpos_api_rust::types::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
 };

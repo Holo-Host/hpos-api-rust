@@ -14,6 +14,8 @@ use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails};
 
+use crate::types::{LogEntry, ActivityLog};
+
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
     let mut ws = wsm.lock().await;
@@ -102,7 +104,7 @@ async fn get_service_logs(
     id: &str,
     days: Option<i32>,
     wsm: &State<WsMutex>,
-) -> Result<Json<Vec<Record>>, (Status, String)> {
+) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
     // Validate format of happ id
@@ -130,18 +132,20 @@ async fn get_service_logs(
 
     log::debug!("filtering logs from {}", id);
 
-    let filtered_result: Vec<Record> = result
+    let filtered_result: Vec<LogEntry> = result
         .into_iter()
         .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
         // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),
         // not holochain system entries
-        .filter(|record| {
-            if let RecordEntry::Present(e) = &record.entry {
-                if let Entry::App(_) = e {
-                    return true;
+        // and deserialize them into service logger's entries
+        .filter_map(|record| {
+            if let RecordEntry::Present(e) = record.entry() {
+                // return try_from_entry(e);
+                if let Entry::App(bytes) = e {
+                    return Some(LogEntry::try_from(bytes.clone().into_sb()).unwrap());
                 }
             }
-            return false;
+            return None;
         })
         .collect();
 
