@@ -19,6 +19,10 @@ use holochain_types::prelude::{
 };
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
+use hpos_api_rust::types::{
+    ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
+    RequestPayload,
+};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use log::{debug, info, trace};
@@ -27,10 +31,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::time::Duration;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
-use hpos_api_rust::types::{
-    ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
-    RequestPayload,
-};
 use url::Url;
 
 pub struct Test {

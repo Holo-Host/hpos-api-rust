@@ -3,8 +3,8 @@ use std::{fmt, str::FromStr, time::Duration};
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
-    dna::{ActionHashB64, AgentPubKeyB64, EntryHashB64, ActionHash, DnaHashB64},
-    prelude::{holochain_serial, CapSecret, SerializedBytes, Timestamp, Signature},
+    dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64, EntryHashB64},
+    prelude::{holochain_serial, CapSecret, SerializedBytes, Signature, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;

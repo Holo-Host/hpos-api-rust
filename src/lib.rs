@@ -14,7 +14,7 @@ use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails};
 
-use crate::types::{LogEntry, ActivityLog};
+use crate::types::{ActivityLog, LogEntry};
 
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
@@ -142,10 +142,13 @@ async fn get_service_logs(
             if let RecordEntry::Present(entry) = record.entry() {
                 // return try_from_entry(e);
                 if let Entry::App(bytes) = entry {
-                    if let Ok(log_entry) = LogEntry::ActivityLog::try_from(bytes.clone().into_sb()) {
-                        return Some(log_entry)
-                    } else if Ok(log_entry) = LogEntry::DiskUsageLog::try_from(bytes.clone().into_sb()) {
-                        return Some(log_entry)
+                    if let Ok(log_entry) = LogEntry::ActivityLog::try_from(bytes.clone().into_sb())
+                    {
+                        return Some(log_entry);
+                    } else if Ok(log_entry) =
+                        LogEntry::DiskUsageLog::try_from(bytes.clone().into_sb())
+                    {
+                        return Some(log_entry);
                     }
                 }
             }
