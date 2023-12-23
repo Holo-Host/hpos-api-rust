@@ -7,8 +7,7 @@ use hpos_api_rust::types::{HappAndHost, PresentedHappBundle, ZomeCallRequest};
 use log::{debug, info};
 use rocket::http::Status;
 use rocket::local::asynchronous::Client;
-use rocket::serde::json::serde_json::{self, json};
-use rocket::serde::json::Value;
+use rocket::serde::json::serde_json;
 use rocket::tokio;
 use utils::core_apps::Happ;
 use utils::Test;
@@ -73,6 +72,12 @@ async fn install_components() {
     let client = Client::tracked(rocket().await)
         .await
         .expect("valid rocket instance");
+
+    // List all avail routes
+    debug!("available routes:");
+    for route in client.rocket().routes() {
+        debug!("{}", route);
+    }
 
     // Make some calls, starting with `/`
     info!("calling /");
