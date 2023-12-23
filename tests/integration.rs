@@ -5,7 +5,7 @@ use holochain_types::dna::ActionHashB64;
 use hpos_api_rust::rocket;
 use hpos_api_rust::types::{HappAndHost, PresentedHappBundle, ZomeCallRequest};
 use log::{debug, info};
-use rocket::http::Status;
+use rocket::http::{Status, ContentType};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::serde_json;
 use rocket::tokio;
@@ -163,6 +163,7 @@ async fn install_components() {
     let response = client
         .post(path)
         .body(serde_json::to_string(&request).unwrap())
+        .header(ContentType::JSON)
         .dispatch()
         .await;
 
