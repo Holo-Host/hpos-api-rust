@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Result};
+use core::fmt::Debug;
 use holochain_client::AgentPubKey;
 use holochain_types::{
     dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64, EntryHashB64},
@@ -8,8 +9,7 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
-use rocket::serde::{Deserialize, Serialize, json::serde_json};
-use core::fmt::Debug;
+use rocket::serde::{json::serde_json, Deserialize, Serialize};
 
 use crate::hpos::Ws;
 
@@ -425,7 +425,7 @@ pub struct ZomeCallRequest {
     pub role_id: String,
     pub zome_name: String,
     pub fn_name: String,
-    pub payload: serde_json::Value
+    pub payload: serde_json::Value,
 }
 
 #[cfg(test)]
