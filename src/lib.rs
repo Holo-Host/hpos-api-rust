@@ -9,10 +9,12 @@ use holochain_types::prelude::{Entry, Record, RecordEntry};
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
-use rocket::serde::json::Json;
+use rocket::serde::json::{Json, Value};
+use rocket::serde::{Deserialize, Serialize};
 use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
-use types::{HappAndHost, HappDetails};
+use types::{HappAndHost, HappDetails, ZomeCallRequest};
+use std::fmt::Debug;
 
 use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
@@ -97,6 +99,19 @@ async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Str
     Ok(())
 }
 
+#[post("/call_zome", format = "json", data = "<data>")]
+async fn call_zome(data: Json<ZomeCallRequest>, wsm: &State<WsMutex>) -> Result<Value, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    // arguments of ws.zome_call require 'static lifetime and data is only temporary
+    // so I need to extend lifetime with Box::leak
+    let data = Box::leak(Box::new(data.into_inner()));
+
+    ws.call_zome::<Value, Value>(data.app_id.clone(), &data.role_id, &data.zome_name, &data.fn_name, data.payload.clone())
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
+}
+
 #[get("/hosted_happs/<id>/logs?<days>")]
 async fn get_service_logs(
     id: &str,
@@ -170,6 +185,7 @@ pub async fn rocket() -> Rocket<Build> {
             get_hosted_happ,
             enable_happ,
             disable_happ,
+            call_zome,
             get_service_logs
         ],
     )

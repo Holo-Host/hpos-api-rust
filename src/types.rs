@@ -8,7 +8,8 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
-use rocket::serde::{Deserialize, Serialize};
+use rocket::serde::{Deserialize, Serialize, json::serde_json};
+use core::fmt::Debug;
 
 use crate::hpos::Ws;
 
@@ -416,6 +417,15 @@ pub struct File {
     pub extension: String,
     /// File size in bytes
     pub size: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ZomeCallRequest {
+    pub app_id: String,
+    pub role_id: String,
+    pub zome_name: String,
+    pub fn_name: String,
+    pub payload: serde_json::Value
 }
 
 #[cfg(test)]
