@@ -101,14 +101,14 @@ async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Str
 async fn zome_call(
     data: Json<ZomeCallRequest>,
     wsm: &State<WsMutex>,
-) -> Result<Value, (Status, String)> {
+) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
 
     // arguments of ws.zome_call require 'static lifetime and data is only temporary
     // so I need to extend lifetime with Box::leak
     let data = Box::leak(Box::new(data.into_inner()));
 
-    let res = ws.call_zome::<Value, Value>(
+    let res = ws.call_zome::<Value, String>(
         data.app_id.clone(),
         &data.role_id,
         &data.zome_name,
