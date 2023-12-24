@@ -104,14 +104,12 @@ impl Ws {
             .call_zome(signed_zome_call)
             .await;
 
-        println!("Holochains response: {:?}", response);
-
-        let res: R = rmp_serde::from_slice(response.unwrap().as_bytes())?;
+        let res: Result<R, rmp_serde::decode::Error> = rmp_serde::from_slice(response.unwrap().as_bytes());
         //let res = ExternIO::decode(&response.unwrap());
 
         println!("Holochains response: {:?}", res);
 
-        Ok(res)
+        res.map_err(|err| anyhow!("{:?}", err))
     }
 }
 
