@@ -49,14 +49,14 @@ async fn install_components() {
     payload.bundle_url = "Url123".to_string();
 
     let request = ZomeCallRequest {
-        app_id: hha_installed_app_id,
+        app_id: hha_installed_app_id.clone(),
         role_id: "core-app".to_string(),
         zome_name: "hha".to_string(),
         fn_name: "create_draft".to_string(),
         payload: serde_json::from_str(&serde_json::to_string(&payload).unwrap()).unwrap(),
     };
 
-    debug!("request: {}", request);
+    debug!("request: {:?}", request);
 
     let response = client
         .post(path)
@@ -65,7 +65,7 @@ async fn install_components() {
         .dispatch()
         .await;
 
-    debug!("response: {}", response);
+    debug!("response: {:?}", response);
 
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
@@ -85,10 +85,10 @@ async fn install_components() {
         role_id: "holofuel".to_string(),
         zome_name: "profile".to_string(),
         fn_name: "get_my_profile".to_string(),
-        payload: None,
+        payload: serde_json::from_str("").unwrap(),
     };
 
-    debug!("request: {}", request);
+    debug!("request: {:?}", request);
 
     let response = client
         .post(path)
@@ -97,7 +97,7 @@ async fn install_components() {
         .dispatch()
         .await;
 
-    debug!("response: {}", response);
+    debug!("response: {:?}", response);
 
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
