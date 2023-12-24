@@ -118,7 +118,7 @@ async fn zome_call(
     .await
     .map_err(|e| (Status::InternalServerError, e.to_string()));
 
-    debug!("Holochains response: {:?}", res);
+    // println!("Holochains response: {:?}", res);
 
     res
 }
