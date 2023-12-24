@@ -105,11 +105,11 @@ impl Ws {
             .await
             .map_err(|err| anyhow!("{:?}", err))?;
 
-        let res = ExternIO::decode(&response).map_err(|err| anyhow!("{:?}", err));
+        let res = ExternIO::decode(&response);
 
         println!("Holochains response: {:?}", res);
 
-        res
+        res.map_err(|err| anyhow!("{:?}", err))
     }
 }
 
