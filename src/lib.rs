@@ -108,7 +108,7 @@ async fn zome_call(
     // so I need to extend lifetime with Box::leak
     let data = Box::leak(Box::new(data.into_inner()));
 
-    ws.call_zome::<Value, Value>(
+    let res = ws.call_zome::<Value, Value>(
         data.app_id.clone(),
         &data.role_id,
         &data.zome_name,
@@ -116,7 +116,11 @@ async fn zome_call(
         data.payload.clone(),
     )
     .await
-    .map_err(|e| (Status::InternalServerError, e.to_string()))
+    .map_err(|e| (Status::InternalServerError, e.to_string()));
+
+    debug!("{}", res);
+
+    res
 }
 
 #[get("/hosted_happs/<id>/logs?<days>")]
