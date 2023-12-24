@@ -85,10 +85,10 @@ async fn install_components() {
         role_id: "holofuel".to_string(),
         zome_name: "profile".to_string(),
         fn_name: "get_my_profile".to_string(),
-        payload: serde_json::from_str("").unwrap(),
+        payload: serde_json::to_value(None::<i8>).unwrap(),
     };
 
-    debug!("request: {:?}", request);
+    debug!("Rockets request: {:?}", request);
 
     let response = client
         .post(path)
@@ -97,7 +97,7 @@ async fn install_components() {
         .dispatch()
         .await;
 
-    debug!("response: {:?}", response);
+    debug!("Rockets response: {:?}", response);
 
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
