@@ -11,7 +11,7 @@ use hpos_hc_connect::{
     holo_config::{self, HappsFile},
     utils::fresh_nonce,
 };
-use rocket::tokio::sync::Mutex;
+use rocket::{tokio::sync::Mutex, serde::json::Value};
 use serde::{Deserialize, Serialize};
 
 /// Mutex that guards access to mutable websocket. The down side of such an approach is that
@@ -102,14 +102,16 @@ impl Ws {
         let response = self
             .app
             .call_zome(signed_zome_call)
-            .await
-            .map_err(|err| anyhow!("{:?}", err))?;
+            .await;
 
-        let res = ExternIO::decode(&response);
+        println!("Holochains response: {:?}", response);
+
+        let res: R = rmp_serde::from_slice(response.unwrap().as_bytes())?;
+        //let res = ExternIO::decode(&response.unwrap());
 
         println!("Holochains response: {:?}", res);
 
-        res.map_err(|err| anyhow!("{:?}", err))
+        Ok(res)
     }
 }
 

@@ -2874,6 +2874,7 @@ dependencies = [
  "log",
  "mr_bundle",
  "rand 0.8.5",
+ "rmp-serde 1.1.2",
  "rocket",
  "serde",
  "serde_bytes",
