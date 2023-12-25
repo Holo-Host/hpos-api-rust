@@ -119,10 +119,10 @@ async fn zome_call(
     .await
     .map_err(|e| (Status::InternalServerError, e.to_string()));
 
-    let bytes = res.unwrap();
+    let bytes: Vec<u8> = res.unwrap();
 
     let str = str::from_utf8(&bytes[..]).unwrap();
-
+println!("str: {}", str);
     let v: Value = serde_json::from_str(str).unwrap();
 
     // println!("Holochains response: {:?}", res);
