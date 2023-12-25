@@ -430,10 +430,10 @@ pub struct ZomeCallRequest {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestResponse {
-    agent_address: Vec<u8>,
+    agent_address: &[u8],
     nickname: String,
     avatar_url: Option<String>,
-    uniqueness: Vec<u8>,
+    uniqueness: &[u8],
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
