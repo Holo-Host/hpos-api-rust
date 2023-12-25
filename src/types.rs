@@ -428,6 +428,20 @@ pub struct ZomeCallRequest {
     pub payload: serde_json::Value,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TestResponse {
+    agent_address: DataArray,
+    nickname: String,
+    avatar_url: Option<String>,
+    uniqueness: DataArray,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DataArray {
+    r#type: String,
+    data: Vec<u8>,
+}
+
 #[cfg(test)]
 mod test {
     use holochain_types::dna::ActionHashB64;

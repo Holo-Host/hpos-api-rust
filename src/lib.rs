@@ -12,7 +12,7 @@ use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
-use types::{HappAndHost, HappDetails, ZomeCallRequest};
+use types::{HappAndHost, HappDetails, ZomeCallRequest, TestResponse};
 
 use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
@@ -108,7 +108,7 @@ async fn zome_call(
     // so I need to extend lifetime with Box::leak
     let data = Box::leak(Box::new(data.into_inner()));
 
-    let res = ws.call_zome::<Value, String>(
+    let res = ws.call_zome::<Value, TestResponse>(
         data.app_id.clone(),
         &data.role_id,
         &data.zome_name,
@@ -120,7 +120,7 @@ async fn zome_call(
 
     // println!("Holochains response: {:?}", res);
 
-    res
+    Ok("abba".to_string())
 }
 
 #[get("/hosted_happs/<id>/logs?<days>")]
