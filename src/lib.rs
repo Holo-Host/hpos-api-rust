@@ -9,10 +9,11 @@ use holochain_types::prelude::{Entry, Record, RecordEntry};
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
-use rocket::serde::json::{Json, Value};
+use rocket::serde::json::{Json, Value, serde_json};
 use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails, ZomeCallRequest};
+use std::str;
 
 use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
@@ -108,7 +109,7 @@ async fn zome_call(
     // so I need to extend lifetime with Box::leak
     let data = Box::leak(Box::new(data.into_inner()));
 
-    let res = ws.call_zome::<Value, Value>(
+    let res = ws.call_zome::<Value, Vec<u8>>(
         data.app_id.clone(),
         &data.role_id,
         &data.zome_name,
@@ -118,9 +119,15 @@ async fn zome_call(
     .await
     .map_err(|e| (Status::InternalServerError, e.to_string()));
 
+    let bytes = res.unwrap();
+
+    let str = str::from_utf8(&bytes[..]).unwrap();
+
+    let v: Value = serde_json::from_str(str).unwrap();
+
     // println!("Holochains response: {:?}", res);
 
-    res
+    Ok(v)
 }
 
 #[get("/hosted_happs/<id>/logs?<days>")]
