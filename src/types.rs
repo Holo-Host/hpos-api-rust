@@ -10,6 +10,7 @@ use holochain_types::{
 use holofuel_types::fuel::Fuel;
 use log::warn;
 use rocket::serde::{json::serde_json, Deserialize, Serialize};
+use rocket::serde::json::Value;
 
 use crate::hpos::Ws;
 
@@ -430,10 +431,10 @@ pub struct ZomeCallRequest {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestResponse {
-    agent_address: &[u8],
+    agent_address: Value,
     nickname: String,
     avatar_url: Option<String>,
-    uniqueness: &[u8],
+    uniqueness: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
