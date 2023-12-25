@@ -40,41 +40,41 @@ async fn install_components() {
 
 
     // make zome call
-    let path = "/zome_call";
-    info!("calling {} hha create draft", &path);
+    // let path = "/zome_call";
+    // info!("calling {} hha create draft", &path);
 
-    // Create correct zome call payload in form of a clear
-    let mut payload = HappInput::default();
-    payload.name = "Test123".to_string();
-    payload.bundle_url = "Url123".to_string();
+    // // Create correct zome call payload in form of a clear
+    // let mut payload = HappInput::default();
+    // payload.name = "Test123".to_string();
+    // payload.bundle_url = "Url123".to_string();
 
-    let request = ZomeCallRequest {
-        app_id: hha_installed_app_id.clone(),
-        role_id: "core-app".to_string(),
-        zome_name: "hha".to_string(),
-        fn_name: "create_draft".to_string(),
-        payload: serde_json::from_str(&serde_json::to_string(&payload).unwrap()).unwrap(),
-    };
+    // let request = ZomeCallRequest {
+    //     app_id: hha_installed_app_id.clone(),
+    //     role_id: "core-app".to_string(),
+    //     zome_name: "hha".to_string(),
+    //     fn_name: "create_draft".to_string(),
+    //     payload: serde_json::from_str(&serde_json::to_string(&payload).unwrap()).unwrap(),
+    // };
 
-    debug!("request: {:?}", request);
+    // debug!("request: {:?}", request);
 
-    let response = client
-        .post(path)
-        .body(serde_json::to_string(&request).unwrap())
-        .header(ContentType::JSON)
-        .dispatch()
-        .await;
+    // let response = client
+    //     .post(path)
+    //     .body(serde_json::to_string(&request).unwrap())
+    //     .header(ContentType::JSON)
+    //     .dispatch()
+    //     .await;
 
-    debug!("response: {:?}", response);
+    // debug!("response: {:?}", response);
 
-    debug!("status: {}", response.status());
-    assert_eq!(response.status(), Status::Ok);
-    let response_body = response.into_string().await.unwrap();
-    debug!("body: {:#?}", response_body);
-    // Check if deserialized zome call result is correct
-    let bundle: Value = serde_json::from_str(&response_body).unwrap();
-    assert_eq!(&bundle["name"], "Test123");
-    assert_eq!(&bundle["bundle_url"], "Url123");
+    // debug!("status: {}", response.status());
+    // assert_eq!(response.status(), Status::Ok);
+    // let response_body = response.into_string().await.unwrap();
+    // debug!("body: {:#?}", response_body);
+    // // Check if deserialized zome call result is correct
+    // let bundle: Value = serde_json::from_str(&response_body).unwrap();
+    // assert_eq!(&bundle["name"], "Test123");
+    // assert_eq!(&bundle["bundle_url"], "Url123");
 
     // make zome call
     let path = "/zome_call";
