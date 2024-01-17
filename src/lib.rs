@@ -10,7 +10,7 @@ use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
-use rocket::{self, get, post, Build, Responder, Rocket, State};
+use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{HappAndHost, HappDetails, ZomeCallRequest, ZomeCallResponse};
 
