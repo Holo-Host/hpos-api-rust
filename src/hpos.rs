@@ -1,5 +1,6 @@
 use crate::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
+use log::debug;
 use core::fmt::Debug;
 use holochain_client::{
     AdminWebsocket, AgentPubKey, AppInfo, AppWebsocket, InstalledAppId, ZomeCall,
@@ -121,6 +122,8 @@ impl Ws {
             .call_zome(signed_zome_call)
             .await
             .map_err(|err| anyhow!("{:?}", err))?;
+
+        debug!("zome call response raw bytes: {:?}", &response);
 
         Ok(response)
     }
