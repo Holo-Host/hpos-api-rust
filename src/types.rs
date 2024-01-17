@@ -423,6 +423,8 @@ pub struct File {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
 pub struct ZomeCallRequest {
     pub app_id: String,
     pub role_id: String,
