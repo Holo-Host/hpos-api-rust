@@ -9,7 +9,10 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
-use rocket::serde::{json::serde_json, Deserialize, Serialize};
+use rocket::{
+    serde::{json::serde_json, Deserialize, Serialize},
+    Responder,
+};
 
 use crate::hpos::Ws;
 
@@ -427,6 +430,10 @@ pub struct ZomeCallRequest {
     pub fn_name: String,
     pub payload: serde_json::Value,
 }
+
+#[derive(Responder)]
+#[response(status = 200, content_type = "binary")]
+pub struct ZomeCallResponse(pub &'static [u8]);
 
 #[cfg(test)]
 mod test {

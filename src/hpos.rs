@@ -75,7 +75,7 @@ impl Ws {
         }
     }
 
-    /// make a zome call to a running app
+    /// make a zome call to a running app and decode to <T> type
     pub async fn call_zome<T: Debug + Serialize, R: Debug + for<'de> Deserialize<'de>>(
         &mut self,
         app_id: InstalledAppId,
@@ -84,6 +84,23 @@ impl Ws {
         fn_name: &'static str,
         payload: T,
     ) -> Result<R> {
+        ExternIO::decode(
+            &self
+                .call_zome_raw::<T>(app_id, role_name, zome_name, fn_name, payload)
+                .await?,
+        )
+        .map_err(|err| anyhow!("{:?}", err))
+    }
+
+    /// make a zome call to a running app and return ExterIO bytes
+    pub async fn call_zome_raw<T: Debug + Serialize>(
+        &mut self,
+        app_id: InstalledAppId,
+        role_name: &'static str,
+        zome_name: &'static str,
+        fn_name: &'static str,
+        payload: T,
+    ) -> Result<ExternIO> {
         let (cell, agent_pubkey) = self.get_cell(app_id, role_name).await?;
         let (nonce, expires_at) = fresh_nonce()?;
         let zome_call_unsigned = ZomeCallUnsigned {
@@ -105,7 +122,7 @@ impl Ws {
             .await
             .map_err(|err| anyhow!("{:?}", err))?;
 
-        ExternIO::decode(&response).map_err(|err| anyhow!("{:?}", err))
+        Ok(response)
     }
 }
 

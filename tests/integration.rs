@@ -1,11 +1,12 @@
 mod utils;
 
 use holochain_types::dna::ActionHashB64;
+use holochain_types::prelude::ExternIO;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
 use hpos_api_rust::types::{HappAndHost, PresentedHappBundle, ZomeCallRequest};
 use log::{debug, info};
-use rocket::http::{Status, ContentType};
+use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::{serde_json, Value};
 use rocket::tokio;
@@ -169,10 +170,12 @@ async fn install_components() {
 
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-    let response_body = response.into_string().await.unwrap();
-    debug!("body: {:#?}", response_body);
+
+    let response_body = response.into_bytes().await.unwrap();
+    debug!("raw response body: {:#?}", response_body);
+    // decode with ExternIO
+    let bundle: Value = ExternIO::decode(&ExternIO::from(response_body)).unwrap();
     // Check if deserialized zome call result is correct
-    let bundle: Value = serde_json::from_str(&response_body).unwrap();
     assert_eq!(&bundle["name"], "Test123");
     assert_eq!(&bundle["bundle_url"], "Url123");
 }
