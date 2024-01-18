@@ -72,3 +72,18 @@ Record {
     pub entry: `Hidden` | `NA` | `NotStored` | `Present`: <Entry>,
 }
 ```
+
+#### POST `/zome_call`
+Makes a zome call with parameters specified in a request to holochain instance running on HPOS. Call is signed as an agent from HPOS config (same as the one used for interaction with holochain via other endpoints of this API).
+```
+ZomeCallRequest {
+    app_id: String,
+    role_id: String,
+    zome_name: String,
+    fn_name: String,
+    payload: Object, // Object reperesenting a zome call payload
+}
+```
+
+200 OK
+returns response `application/octet-stream` - a byte payload exactly as returned by holochain. It is up to the caller to use msgpack to decode this message and parse content.

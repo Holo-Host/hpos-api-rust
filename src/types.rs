@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr, time::Duration};
 
 use anyhow::{anyhow, Result};
+use core::fmt::Debug;
 use holochain_client::AgentPubKey;
 use holochain_types::{
     dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64, EntryHashB64},
@@ -8,7 +9,10 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
-use rocket::serde::{Deserialize, Serialize};
+use rocket::{
+    serde::{json::serde_json, Deserialize, Serialize},
+    Responder,
+};
 
 use crate::hpos::Ws;
 
@@ -417,6 +421,21 @@ pub struct File {
     /// File size in bytes
     pub size: u64,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub struct ZomeCallRequest {
+    pub app_id: String,
+    pub role_id: String,
+    pub zome_name: String,
+    pub fn_name: String,
+    pub payload: serde_json::Value,
+}
+
+#[derive(Responder)]
+#[response(status = 200, content_type = "binary")]
+pub struct ZomeCallResponse(pub &'static [u8]);
 
 #[cfg(test)]
 mod test {
