@@ -86,4 +86,4 @@ ZomeCallRequest {
 ```
 
 200 OK
-returns in body of a message result of a zome call exactly as returned by holochain
+returns response `application/octet-stream` - a byte payload exactly as returned by holochain. It is up to the caller to use msgpack to decode this message and parse content.
