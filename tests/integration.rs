@@ -87,7 +87,7 @@ async fn install_components() {
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", &response_body);
-    assert!(response_body.contains("5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq"));
+    assert!(response_body.contains("I'm alive"));
 
     // get all hosted happs
     let path = format!("/hosted_happs?usage_interval=5");
@@ -100,7 +100,11 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // disable test_hosted_happ_id
-    let path = format!("/hosted_happs/{}/disable", &test_hosted_happ_id);
+    let path = format!(
+        "/hosted_happs/{}/{}/disable",
+        &test_hosted_happ_id,
+        "5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq".to_string()
+    );
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -118,7 +122,11 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // enable test_hosted_happ_id
-    let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
+    let path = format!(
+        "/hosted_happs/{}/{}/enable",
+        &test_hosted_happ_id,
+        "5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq".to_string()
+    );
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
     debug!("status: {}", response.status());

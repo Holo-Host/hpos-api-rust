@@ -204,15 +204,7 @@ pub struct HappAndHost {
 }
 
 impl HappAndHost {
-    pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
-        // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
-        // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
-        let (_, pub_key) = ws.get_cell(ws.core_app_id.clone(), "core-app").await?;
-
-        let a = pub_key.get_raw_32();
-
-        let holoport_id = base36::encode(a);
-
+    pub async fn init(happ_id: &str, holoport_id: String) -> Result<Self> {
         Ok(HappAndHost {
             happ_id: ActionHashB64::from_b64_str(happ_id)?,
             holoport_id,

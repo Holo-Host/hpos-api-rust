@@ -16,19 +16,10 @@ use types::{HappAndHost, HappDetails, ZomeCallRequest, ZomeCallResponse};
 
 use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
+// Ping server to check if running
 #[get("/")]
-async fn index(wsm: &State<WsMutex>) -> String {
-    let mut ws = wsm.lock().await;
-
-    // Construct sample HappAndHost just to retrieve holoport_id
-    let sample = HappAndHost::init(
-        "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC",
-        &mut ws,
-    )
-    .await
-    .unwrap();
-
-    format!("🤖 I'm your holoport {}", sample.holoport_id)
+async fn index() -> String {
+    format!("🤖 I'm alive")
 }
 
 // Rocket will return 400 if query params are of a wrong type
@@ -65,12 +56,16 @@ async fn get_hosted_happ(
     ))
 }
 
-#[post("/hosted_happs/<id>/enable")]
-async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+#[post("/hosted_happs/<happ_id>/<hp_id>/enable")]
+async fn enable_happ(
+    happ_id: &str,
+    hp_id: String,
+    wsm: &State<WsMutex>,
+) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
     let core_app_id = ws.core_app_id.clone();
 
-    let payload = HappAndHost::init(id, &mut ws)
+    let payload = HappAndHost::init(happ_id, hp_id)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
@@ -81,12 +76,16 @@ async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Stri
     Ok(())
 }
 
-#[post("/hosted_happs/<id>/disable")]
-async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+#[post("/hosted_happs/<happ_id>/<hp_id>/disable")]
+async fn disable_happ(
+    happ_id: &str,
+    hp_id: String,
+    wsm: &State<WsMutex>,
+) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
     let core_app_id = ws.core_app_id.clone();
 
-    let payload = HappAndHost::init(id, &mut ws)
+    let payload = HappAndHost::init(happ_id, hp_id)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
