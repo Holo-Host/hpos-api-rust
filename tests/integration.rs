@@ -17,6 +17,7 @@ use utils::{to_cell, HappInput};
 #[tokio::test]
 async fn install_components() {
     env_logger::init();
+    std::env::set_var("TEST", "true");
 
     let mut test = Test::init().await;
 

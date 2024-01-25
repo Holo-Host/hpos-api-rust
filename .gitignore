@@ -12,5 +12,6 @@ target/
 
 # Added by cargo
 
+/config
 /target
 .cargo
