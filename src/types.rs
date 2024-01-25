@@ -209,21 +209,22 @@ impl HappAndHost {
         let holoport_id = match std::env::var("TEST") {
             Ok(is_test) => {
                 // Test:
-                // In test env, we can assume the agent pubkey will equal the host id
+                // In test env, we assume the agent pubkey equals the host id (with base36 encoding)
                 let (_, pub_key) = ws.get_cell(ws.core_app_id.clone(), "core-app").await?;
                 let id = pub_key.get_raw_32();
                 base36::encode(id)
             }
             Err(_) => {
                 // Production:
-                // In real hpos env, we will have the hpos-config file present and need to rely on it as the source of truth
+                // In real hpos env, we have the hpos-config file present and should rely on it as the source of truth.
+                // NB: In develop envs, the host agent pubkey will not equal the host id (with base36 encoding).
+                // In non-develop envs, the host AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
+                // This public key encoded in base36 is also the host's holoport id in `https://<holoport_id>.holohost.net` and is stored
+                // in the hpos-init config file.
                 let device_seed_pw = std::env::var("DEVICE_SEED_PASSWORD")
                     .expect("Failed to read DEVICE_SEED_PASSWORD.");
 
                 // Fetch the holoport id from the hpos-init config file
-                // NB: In non-develop envs, the AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
-                // This public key encoded in base36 is also the host's holoport id in `https://<holoport_id>.holohost.net` and is stored
-                // in the hpos-init config file.
                 let mut config_id = Command::new("hpos-config-into-base36-id")
                     .arg("--config-path")
                     .arg("/run/hpos-init/hp-*.json")
@@ -233,14 +234,16 @@ impl HappAndHost {
                     .spawn()
                     .expect("Failed to open hp- config file.");
 
-                let mut std_output = config_id
+                config_id
                     .stdout
                     .take()
+                    .expect("Failed to read stdout from `hpos-config-into-base36-id` command");
+
+                let output = config_id
+                    .wait_with_output()
                     .expect("Failed to read output from `hpos-config-into-base36-id` command");
 
-                let r = config_id.wait_with_output().expect("Failed to read stdout");
-
-                let holoport_id = String::from_utf8_lossy(&r.stdout);
+                let holoport_id = String::from_utf8_lossy(&output.stdout);
 
                 println!(
                     " >>>>>>>>>>>>> holoport_id stout : holoport_id >>>>>>>>>>>>> : {:?} ",
