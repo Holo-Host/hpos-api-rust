@@ -10,9 +10,20 @@ use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::{serde_json, Value};
 use rocket::tokio;
+use serde::{Deserialize, Serialize};
 use utils::core_apps::Happ;
 use utils::Test;
 use utils::{to_cell, HappInput};
+
+#[derive(Debug, Serialize)]
+pub struct SignalPayload {
+    pub value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TestObj {
+    pub value: String,
+}
 
 #[tokio::test]
 async fn install_components() {
@@ -24,16 +35,31 @@ async fn install_components() {
     // in test happ
     let hha_app_info = test.install_app(Happ::HHA, None).await;
     let hha_installed_app_id = hha_app_info.installed_app_id.clone();
-    let hha_cell = to_cell(hha_app_info, "core-app");
+    // let hha_cell = to_cell(hha_app_info, "core-app");
 
+    // Install dummy dna so that we can call signal emitting endpoint
+    let dummy_dna_info = test.install_app(Happ::DummyDna, None).await;
+    let dummy_dna_cell = to_cell(dummy_dna_info, "test");
 
+    let payload = TestObj {
+        value: "some_value".into(),
+    };
 
+    let response: TestObj = test
+        .call_zome(&dummy_dna_cell, "test", "pass_obj", payload)
+        .await;
 
+    println!("{:?}", response);
 
+    let payload = SignalPayload {
+        value: "some_signal".into(),
+    };
 
+    let response: () = test
+        .call_zome(&dummy_dna_cell, "test", "signal_loopback", payload)
+        .await;
 
-
-
+    println!("{:?}", response);
 
     // API calls are here only to check if it is possible to connect to holochain's websocket
     // interface after calling signals

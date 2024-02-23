@@ -33,6 +33,8 @@ use std::time::Duration;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
+use crate::utils::core_apps::DD_URL;
+
 pub struct Test {
     pub hc_env: Environment,
     pub agent: AgentPubKey,
@@ -192,6 +194,7 @@ impl Test {
         let url = match happ {
             Happ::HHA => HHA_URL,
             Happ::SL => SL_URL,
+            Happ::DummyDna => DD_URL,
         };
 
         // Install happ with host_agent key
