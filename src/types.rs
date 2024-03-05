@@ -32,6 +32,8 @@ pub struct HappDetails {
     pub earnings: Option<Earnings>,
     pub usage: Option<HappStats>,
     pub hosting_plan: Option<HostingPlan>,
+    pub bundle_url: String,
+    pub hosted_urls: Vec<String>,
 }
 impl HappDetails {
     pub async fn init(
@@ -71,6 +73,8 @@ impl HappDetails {
                 warn!("error getting plan for happ {}: {}", &happ.id, e);
                 None
             }),
+            bundle_url: happ.bundle_url.clone(),
+            hosted_urls: happ.hosted_urls.clone(),
         }
     }
 }
