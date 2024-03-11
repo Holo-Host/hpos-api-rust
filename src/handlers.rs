@@ -1,15 +1,16 @@
-use std::collections::HashMap;
-
 use crate::{
     hpos::Ws,
-    types::{HappDetails, InvoiceNote, PresentedHappBundle, Transaction, POS},
+    types::{HappDetails, InvoiceNote, PresentedHappBundle, RedemptionState, Transaction, POS},
 };
 use anyhow::Result;
+use chrono::{DateTime, Days, NaiveDateTime, Utc};
 use holochain_types::dna::ActionHashB64;
 use log::debug;
+use std::collections::HashMap;
 
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
+// fetch all transactions for every hApp
 pub async fn handle_get_all(
     usage_interval: i64,
     quantity: Option<usize>,
@@ -53,6 +54,7 @@ pub async fn handle_get_all(
     Ok(result)
 }
 
+// fetch all transactions for 1 happ
 pub async fn handle_get_one(
     id: ActionHashB64,
     usage_interval: i64,
@@ -75,6 +77,115 @@ pub async fn handle_get_one(
         ws,
     )
     .await)
+}
+
+// get current redemable holofuel
+pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
+    let core_app_id = ws.core_app_id.clone();
+
+    debug!("calling zome holofuel/transactor/get_redeemable");
+    let result = ws
+        .call_zome::<(), RedemptionState>(
+            core_app_id,
+            "holofuel",
+            "transactor",
+            "get_redeemable",
+            (),
+        )
+        .await?;
+
+    Ok(result)
+}
+
+pub struct HolofuelPaidUnpaid {
+    pub date: DateTime<Utc>,
+    pub paid: u32,
+    pub unpaid: u32,
+}
+
+// get holofuel paid/unpaid by day for the last week
+pub async fn get_last_weeks_paid_unpaid(ws: &mut Ws) -> Result<()> {
+    let core_app_id = ws.core_app_id.clone();
+
+    // build grouped transactions
+    let mut grouped_transactions: HashMap<String, HolofuelPaidUnpaid> = HashMap::new();
+    for day in 1..7 {
+        let date = Utc::now()
+            .checked_sub_days(Days::new(day))
+            .unwrap_or_default();
+
+        grouped_transactions.insert(
+            date.clone().format("%Y-%m-%d").to_string(),
+            HolofuelPaidUnpaid {
+                date: date,
+                paid: 0,
+                unpaid: 0,
+            },
+        );
+    }
+
+    debug!("calling zome holofuel/transactor/get_completed_transactions");
+    let completed_transactions = ws
+        .call_zome::<(), Vec<Transaction>>(
+            core_app_id.clone(),
+            "holofuel",
+            "transactor",
+            "get_completed_transactions",
+            (),
+        )
+        .await?;
+    for transaction in completed_transactions {
+        if transaction.completed_date.is_some() {
+            let timestamp = transaction.completed_date.unwrap().as_millis();
+            let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
+            let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+            let key = date_time.format("%Y-%m-%d").to_string();
+            if grouped_transactions.contains_key(&key) {
+                let grouped_transaction = grouped_transactions.get(&key).unwrap();
+                grouped_transactions.insert(
+                    key,
+                    HolofuelPaidUnpaid {
+                        date: grouped_transaction.date,
+                        unpaid: grouped_transaction.unpaid,
+                        paid: grouped_transaction.paid + transaction.amount.parse::<u32>().unwrap(),
+                    },
+                );
+            }
+        }
+    }
+
+    debug!("calling zome holofuel/transactor/get_pending_transactions");
+    let pending_transactions = ws
+        .call_zome::<(), Vec<Transaction>>(
+            core_app_id,
+            "holofuel",
+            "transactor",
+            "get_pending_transactions",
+            (),
+        )
+        .await?;
+    for transaction in pending_transactions {
+        if transaction.completed_date.is_some() {
+            let timestamp = transaction.completed_date.unwrap().as_millis();
+            let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
+            let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+            let key = date_time.format("%Y-%m-%d").to_string();
+            if grouped_transactions.contains_key(&key) {
+                let grouped_transaction = grouped_transactions.get(&key).unwrap();
+                grouped_transactions.insert(
+                    key,
+                    HolofuelPaidUnpaid {
+                        date: grouped_transaction.date,
+                        unpaid: grouped_transaction.unpaid
+                            + transaction.amount.parse::<u32>().unwrap(),
+                        paid: grouped_transaction.paid,
+                    },
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note

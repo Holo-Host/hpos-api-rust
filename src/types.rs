@@ -426,6 +426,13 @@ pub struct File {
     pub size: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct RedemptionState {
+    earnings: Fuel,
+    redeemed: Fuel,
+    available: Fuel,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
