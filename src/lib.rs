@@ -3,7 +3,7 @@ mod handlers;
 mod hpos;
 pub mod types;
 
-use handlers::{handle_get_all, handle_get_one};
+use handlers::{get_last_weeks_reedemable_holofuel, handle_get_all, handle_get_one};
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{Entry, Record, RecordEntry};
 use hpos::{Keystore, Ws, WsMutex};
@@ -12,7 +12,9 @@ use rocket::http::Status;
 use rocket::serde::json::{Json, Value};
 use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
-use types::{HappAndHost, HappDetails, ZomeCallRequest, ZomeCallResponse};
+use types::{
+    HappAndHost, HappDetails, RedemableHolofuelHistogramResponse, ZomeCallRequest, ZomeCallResponse,
+};
 
 use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
 
@@ -177,6 +179,20 @@ async fn get_service_logs(
         .collect();
 
     Ok(Json(filtered_result))
+}
+
+
+#[get("/holofuel_redeemable")]
+async fn get_service_logs(
+    wsm: &State<WsMutex>,
+) -> Result<Json<RedemableHolofuelHistogramResponse>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let holofuel = get_reedemable_holofuel(&mut ws).await;
+    let dailies = get_last_weeks_reedemable_holofuel(&mut ws).await;
+    Ok(Json(RedemableHolofuelHistogramResponse {
+        dailies: dailies,
+        redeemed: holofuel.available,
+    }))
 }
 
 pub async fn rocket() -> Rocket<Build> {

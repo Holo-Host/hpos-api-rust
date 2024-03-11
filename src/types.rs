@@ -441,6 +441,12 @@ pub struct HolofuelPaidUnpaid {
     pub unpaid: u32,
 }
 
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct RedemableHolofuelHistogramResponse {
+    pub dailies: Vec<HolofuelPaidUnpaid>,
+    pub redeemed: Fuel,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
