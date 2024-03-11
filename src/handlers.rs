@@ -1,6 +1,9 @@
 use crate::{
     hpos::Ws,
-    types::{HappDetails, InvoiceNote, PresentedHappBundle, RedemptionState, Transaction, POS},
+    types::{
+        HappDetails, HolofuelPaidUnpaid, InvoiceNote, PresentedHappBundle, RedemptionState,
+        Transaction, TransactionDirection, POS,
+    },
 };
 use anyhow::Result;
 use chrono::{DateTime, Days, NaiveDateTime, Utc};
@@ -97,14 +100,8 @@ pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
     Ok(result)
 }
 
-pub struct HolofuelPaidUnpaid {
-    pub date: DateTime<Utc>,
-    pub paid: u32,
-    pub unpaid: u32,
-}
-
 // get holofuel paid/unpaid by day for the last week
-pub async fn get_last_weeks_paid_unpaid(ws: &mut Ws) -> Result<()> {
+pub async fn get_last_weeks_reedemable_holofuel(ws: &mut Ws) -> Result<Vec<HolofuelPaidUnpaid>> {
     let core_app_id = ws.core_app_id.clone();
 
     // build grouped transactions
@@ -135,11 +132,9 @@ pub async fn get_last_weeks_paid_unpaid(ws: &mut Ws) -> Result<()> {
         )
         .await?;
     for transaction in completed_transactions {
-        if transaction.completed_date.is_some() {
-            let timestamp = transaction.completed_date.unwrap().as_millis();
-            let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
-            let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
-            let key = date_time.format("%Y-%m-%d").to_string();
+        if transaction.direction == TransactionDirection::Outgoing {
+            let date = timestamp_to_date(transaction.created_date.as_millis());
+            let key = date.format("%Y-%m-%d").to_string();
             if grouped_transactions.contains_key(&key) {
                 let grouped_transaction = grouped_transactions.get(&key).unwrap();
                 grouped_transactions.insert(
@@ -150,6 +145,23 @@ pub async fn get_last_weeks_paid_unpaid(ws: &mut Ws) -> Result<()> {
                         paid: grouped_transaction.paid + transaction.amount.parse::<u32>().unwrap(),
                     },
                 );
+            }
+
+            if transaction.completed_date.is_some() {
+                let date = timestamp_to_date(transaction.completed_date.unwrap().as_millis());
+                let key = date.format("%Y-%m-%d").to_string();
+                if grouped_transactions.contains_key(&key) {
+                    let grouped_transaction = grouped_transactions.get(&key).unwrap();
+                    grouped_transactions.insert(
+                        key,
+                        HolofuelPaidUnpaid {
+                            date: grouped_transaction.date,
+                            unpaid: grouped_transaction.unpaid,
+                            paid: grouped_transaction.paid
+                                + transaction.amount.parse::<u32>().unwrap(),
+                        },
+                    );
+                }
             }
         }
     }
@@ -165,11 +177,9 @@ pub async fn get_last_weeks_paid_unpaid(ws: &mut Ws) -> Result<()> {
         )
         .await?;
     for transaction in pending_transactions {
-        if transaction.completed_date.is_some() {
-            let timestamp = transaction.completed_date.unwrap().as_millis();
-            let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
-            let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
-            let key = date_time.format("%Y-%m-%d").to_string();
+        if transaction.direction == TransactionDirection::Outgoing {
+            let date: DateTime<Utc> = timestamp_to_date(transaction.created_date.as_millis());
+            let key = date.format("%Y-%m-%d").to_string();
             if grouped_transactions.contains_key(&key) {
                 let grouped_transaction = grouped_transactions.get(&key).unwrap();
                 grouped_transactions.insert(
@@ -185,7 +195,13 @@ pub async fn get_last_weeks_paid_unpaid(ws: &mut Ws) -> Result<()> {
         }
     }
 
-    Ok(())
+    Ok(grouped_transactions.into_iter().map(|(_, v)| v).collect())
+}
+
+fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
+    let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
+    let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+    return date_time;
 }
 
 /// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note

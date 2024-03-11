@@ -325,7 +325,7 @@ pub enum TransactionType {
     Offer,   //Promise
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TransactionDirection {
     Outgoing, // To(Address),
     Incoming, // From(Address),
@@ -431,6 +431,13 @@ pub struct RedemptionState {
     earnings: Fuel,
     redeemed: Fuel,
     available: Fuel,
+}
+
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct HolofuelPaidUnpaid {
+    pub date: DateTime<Utc>,
+    pub paid: u32,
+    pub unpaid: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
