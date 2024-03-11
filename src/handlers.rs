@@ -101,7 +101,7 @@ pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
 }
 
 // get holofuel paid/unpaid by day for the last week
-pub async fn get_last_weeks_reedemable_holofuel(ws: &mut Ws) -> Result<Vec<HolofuelPaidUnpaid>> {
+pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<HolofuelPaidUnpaid>> {
     let core_app_id = ws.core_app_id.clone();
 
     // build grouped transactions

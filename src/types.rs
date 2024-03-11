@@ -429,9 +429,9 @@ pub struct File {
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
 pub struct RedemptionState {
-    earnings: Fuel,
-    redeemed: Fuel,
-    available: Fuel,
+    pub earnings: Fuel,
+    pub redeemed: Fuel,
+    pub available: Fuel,
 }
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
