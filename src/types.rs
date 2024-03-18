@@ -197,6 +197,7 @@ pub struct DnaResource {
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
 pub struct HostSettings {
     pub is_enabled: bool,
+    pub is_host_disabled: bool, // signals that the host was the origin of the last disable request/action
     pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
 
