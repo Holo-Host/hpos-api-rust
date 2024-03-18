@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     hpos::Ws,
     types::{
@@ -9,7 +11,6 @@ use anyhow::Result;
 use chrono::{DateTime, Days, NaiveDateTime, Utc};
 use holochain_types::dna::ActionHashB64;
 use log::debug;
-use std::collections::HashMap;
 
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
@@ -104,6 +105,69 @@ pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
 pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<HolofuelPaidUnpaid>> {
     let core_app_id = ws.core_app_id.clone();
 
+    let one_week_ago = Utc::now()
+        .checked_sub_days(Days::new(7))
+        .unwrap_or_default()
+        .timestamp();
+
+    debug!("calling zome holofuel/transactor/get_completed_transactions");
+    let completed_transactions = ws
+        .call_zome::<(), Vec<Transaction>>(
+            core_app_id.clone(),
+            "holofuel",
+            "transactor",
+            "get_completed_transactions",
+            (),
+        )
+        .await?;
+
+    debug!("filtering get_completed_transactions");
+    let filtered_completed_transactions: Vec<Transaction> = completed_transactions
+        .iter()
+        .filter(|&transaction| match transaction.completed_date {
+            Some(completed_date) => completed_date.as_millis() > one_week_ago,
+            None => false,
+        })
+        .cloned()
+        .collect();
+
+    debug!("calling zome holofuel/transactor/get_pending_transactions");
+    let pending_transactions = ws
+        .call_zome::<(), PendingTransactions>(
+            core_app_id,
+            "holofuel",
+            "transactor",
+            "get_pending_transactions",
+            (),
+        )
+        .await?;
+
+    debug!("filtering get_pending_transactions");
+    let filtered_pending_transactions: Vec<Transaction> = pending_transactions
+        .invoice_pending
+        .iter()
+        .filter(|&transaction| transaction.created_date.as_millis() > one_week_ago)
+        .cloned()
+        .collect();
+
+    debug!("grouping transactions by day");
+    let filtered_transactions: Vec<Transaction> = [
+        filtered_completed_transactions,
+        filtered_pending_transactions,
+    ]
+    .concat();
+    Ok(group_transactions_by_day(filtered_transactions))
+}
+
+fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
+    let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
+    let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+    date_time
+}
+
+// groups transactions by day for last 7 days. The grouped transactions have paid and unpaid amounts
+// this is used to build histogram in front-end
+fn group_transactions_by_day(transactions: Vec<Transaction>) -> Vec<HolofuelPaidUnpaid> {
     // build grouped transactions
     let mut grouped_transactions: HashMap<String, HolofuelPaidUnpaid> = HashMap::new();
     for day in 1..7 {
@@ -121,59 +185,14 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
         );
     }
 
-    debug!("calling zome holofuel/transactor/get_completed_transactions");
-    let completed_transactions = ws
-        .call_zome::<(), Vec<Transaction>>(
-            core_app_id.clone(),
-            "holofuel",
-            "transactor",
-            "get_completed_transactions",
-            (),
-        )
-        .await?;
-
-    let one_week_ago = Utc::now()
-        .checked_sub_days(Days::new(7))
-        .unwrap_or_default()
-        .timestamp();
-    let filtered_completed_transactions =
-        completed_transactions
-            .iter()
-            .filter(|&transaction| match transaction.completed_date {
-                Some(completed_date) => completed_date.as_millis() > one_week_ago,
-                None => false,
-            });
-
-    for transaction in filtered_completed_transactions {
+    for transaction in transactions {
         if transaction.direction == TransactionDirection::Outgoing {
-            let date = timestamp_to_date(transaction.created_date.as_millis());
-            let key = date.format("%Y-%m-%d").to_string();
-            if grouped_transactions.contains_key(&key) {
-                match grouped_transactions.get(&key) {
-                    Some(grouped_transaction) => {
-                        grouped_transactions.insert(
-                            key,
-                            HolofuelPaidUnpaid {
-                                date: grouped_transaction.date,
-                                unpaid: grouped_transaction.unpaid,
-                                paid: grouped_transaction.paid
-                                    + transaction.amount.parse::<u32>().unwrap(),
-                            },
-                        );
-                    }
-                    None => {
-                        debug!("Could not match date {}", &key)
-                    }
-                }
-            }
-
-            if transaction.completed_date.is_some() {
-                let date = timestamp_to_date(transaction.completed_date.unwrap().as_millis());
-                let key = date.format("%Y-%m-%d").to_string();
-                if grouped_transactions.contains_key(&key) {
-                    let grouped_transaction = grouped_transactions.get(&key).unwrap();
+            let created_date = timestamp_to_date(transaction.created_date.as_millis());
+            let created_date_key = created_date.format("%Y-%m-%d").to_string();
+            match grouped_transactions.get(&created_date_key) {
+                Some(grouped_transaction) => {
                     grouped_transactions.insert(
-                        key,
+                        created_date_key,
                         HolofuelPaidUnpaid {
                             date: grouped_transaction.date,
                             unpaid: grouped_transaction.unpaid,
@@ -182,58 +201,43 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
                         },
                     );
                 }
+                None => {
+                    debug!("Could not match date {}", &created_date_key)
+                }
             }
-        }
-    }
 
-    debug!("calling zome holofuel/transactor/get_pending_transactions");
-    let pending_transactions = ws
-        .call_zome::<(), PendingTransactions>(
-            core_app_id,
-            "holofuel",
-            "transactor",
-            "get_pending_transactions",
-            (),
-        )
-        .await?;
-
-    let filtered_pending_transactions = pending_transactions
-        .invoice_pending
-        .iter()
-        .filter(|&transaction| transaction.created_date.as_millis() > one_week_ago);
-
-    for transaction in filtered_pending_transactions {
-        if transaction.direction == TransactionDirection::Outgoing {
-            let date: DateTime<Utc> = timestamp_to_date(transaction.created_date.as_millis());
-            let key = date.format("%Y-%m-%d").to_string();
-            if grouped_transactions.contains_key(&key) {
-                match grouped_transactions.get(&key) {
-                    Some(grouped_transaction) => {
-                        grouped_transactions.insert(
-                            key,
-                            HolofuelPaidUnpaid {
-                                date: grouped_transaction.date,
-                                unpaid: grouped_transaction.unpaid
-                                    + transaction.amount.parse::<u32>().unwrap(),
-                                paid: grouped_transaction.paid,
-                            },
-                        );
+            match transaction.completed_date {
+                Some(completed_date) => {
+                    let date = timestamp_to_date(completed_date.as_millis());
+                    let key = date.format("%Y-%m-%d").to_string();
+                    match grouped_transactions.get(&key) {
+                        Some(grouped_transaction) => {
+                            grouped_transactions.insert(
+                                key,
+                                HolofuelPaidUnpaid {
+                                    date: grouped_transaction.date,
+                                    unpaid: grouped_transaction.unpaid,
+                                    paid: grouped_transaction.paid
+                                        + transaction.amount.parse::<u32>().unwrap(),
+                                },
+                            );
+                        }
+                        None => {
+                            debug!("Could not match date {}", &completed_date)
+                        }
                     }
-                    None => {
-                        debug!("could not match date {}", &key);
-                    }
+                }
+                None => {
+                    debug!(
+                        "could not find completed date for transaction {}",
+                        transaction.id
+                    )
                 }
             }
         }
     }
 
-    Ok(grouped_transactions.into_values().collect())
-}
-
-fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
-    let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
-    let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
-    date_time
+    grouped_transactions.into_values().collect()
 }
 
 /// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note
