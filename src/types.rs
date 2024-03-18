@@ -26,6 +26,7 @@ pub struct HappDetails {
     pub description: String,
     pub categories: Vec<String>,
     pub enabled: bool,
+    pub is_auto_disabled: bool,
     pub is_paused: bool,
     pub source_chains: Option<u16>,
     pub days_hosted: Option<u16>,
@@ -48,6 +49,7 @@ impl HappDetails {
             description: happ.name.clone(),
             categories: happ.categories.clone(),
             enabled: happ.host_settings.is_enabled,
+            is_auto_disabled: happ.host_settings.is_auto_disabled,
             is_paused: happ.is_paused,
             source_chains: count_instances(happ.id.clone(), ws)
                 .await
@@ -199,6 +201,8 @@ pub struct DnaResource {
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
 pub struct HostSettings {
     pub is_enabled: bool,
+    pub is_host_disabled: bool, // signals that the host was the origin of the last disable request/action
+    pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
