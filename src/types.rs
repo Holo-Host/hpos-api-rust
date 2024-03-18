@@ -320,6 +320,15 @@ pub struct Transaction {
     pub expiration_date: Option<Timestamp>,
 }
 
+#[derive(Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct PendingTransactions {
+    pub invoice_pending: Vec<Transaction>,
+    pub promise_pending: Vec<Transaction>,
+    pub invoice_declined: Vec<Transaction>,
+    pub promise_declined: Vec<Transaction>,
+    pub accepted: Vec<Transaction>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
     Request, //Invoice

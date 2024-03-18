@@ -144,6 +144,15 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
 
+    // get holofuel transaction history for 1 week
+    let path = format!("/holofuel_redeemable");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+
     // make zome call
     let path = "/zome_call";
     info!("calling {}", &path);

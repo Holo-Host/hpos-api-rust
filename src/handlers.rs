@@ -1,8 +1,8 @@
 use crate::{
     hpos::Ws,
     types::{
-        HappDetails, HolofuelPaidUnpaid, InvoiceNote, PresentedHappBundle, RedemptionState,
-        Transaction, TransactionDirection, POS,
+        HappDetails, HolofuelPaidUnpaid, InvoiceNote, PendingTransactions, PresentedHappBundle,
+        RedemptionState, Transaction, TransactionDirection, POS,
     },
 };
 use anyhow::Result;
@@ -188,7 +188,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
 
     debug!("calling zome holofuel/transactor/get_pending_transactions");
     let pending_transactions = ws
-        .call_zome::<(), Vec<Transaction>>(
+        .call_zome::<(), PendingTransactions>(
             core_app_id,
             "holofuel",
             "transactor",
@@ -198,6 +198,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
         .await?;
 
     let filtered_pending_transactions = pending_transactions
+        .invoice_pending
         .iter()
         .filter(|&transaction| transaction.created_date.as_millis() > one_week_ago);
 
