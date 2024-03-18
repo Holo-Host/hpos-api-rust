@@ -114,7 +114,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
         grouped_transactions.insert(
             date.clone().format("%Y-%m-%d").to_string(),
             HolofuelPaidUnpaid {
-                date: date,
+                date,
                 paid: 0,
                 unpaid: 0,
             },
@@ -131,20 +131,40 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
             (),
         )
         .await?;
-    for transaction in completed_transactions {
+
+    let one_week_ago = Utc::now()
+        .checked_sub_days(Days::new(7))
+        .unwrap_or_default()
+        .timestamp();
+    let filtered_completed_transactions =
+        completed_transactions
+            .iter()
+            .filter(|&transaction| match transaction.completed_date {
+                Some(completed_date) => completed_date.as_millis() > one_week_ago,
+                None => false,
+            });
+
+    for transaction in filtered_completed_transactions {
         if transaction.direction == TransactionDirection::Outgoing {
             let date = timestamp_to_date(transaction.created_date.as_millis());
             let key = date.format("%Y-%m-%d").to_string();
             if grouped_transactions.contains_key(&key) {
-                let grouped_transaction = grouped_transactions.get(&key).unwrap();
-                grouped_transactions.insert(
-                    key,
-                    HolofuelPaidUnpaid {
-                        date: grouped_transaction.date,
-                        unpaid: grouped_transaction.unpaid,
-                        paid: grouped_transaction.paid + transaction.amount.parse::<u32>().unwrap(),
-                    },
-                );
+                match grouped_transactions.get(&key) {
+                    Some(grouped_transaction) => {
+                        grouped_transactions.insert(
+                            key,
+                            HolofuelPaidUnpaid {
+                                date: grouped_transaction.date,
+                                unpaid: grouped_transaction.unpaid,
+                                paid: grouped_transaction.paid
+                                    + transaction.amount.parse::<u32>().unwrap(),
+                            },
+                        );
+                    }
+                    None => {
+                        debug!("Could not match date {}", &key)
+                    }
+                }
             }
 
             if transaction.completed_date.is_some() {
@@ -176,32 +196,43 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
             (),
         )
         .await?;
-    for transaction in pending_transactions {
+
+    let filtered_pending_transactions = pending_transactions
+        .iter()
+        .filter(|&transaction| transaction.created_date.as_millis() > one_week_ago);
+
+    for transaction in filtered_pending_transactions {
         if transaction.direction == TransactionDirection::Outgoing {
             let date: DateTime<Utc> = timestamp_to_date(transaction.created_date.as_millis());
             let key = date.format("%Y-%m-%d").to_string();
             if grouped_transactions.contains_key(&key) {
-                let grouped_transaction = grouped_transactions.get(&key).unwrap();
-                grouped_transactions.insert(
-                    key,
-                    HolofuelPaidUnpaid {
-                        date: grouped_transaction.date,
-                        unpaid: grouped_transaction.unpaid
-                            + transaction.amount.parse::<u32>().unwrap(),
-                        paid: grouped_transaction.paid,
-                    },
-                );
+                match grouped_transactions.get(&key) {
+                    Some(grouped_transaction) => {
+                        grouped_transactions.insert(
+                            key,
+                            HolofuelPaidUnpaid {
+                                date: grouped_transaction.date,
+                                unpaid: grouped_transaction.unpaid
+                                    + transaction.amount.parse::<u32>().unwrap(),
+                                paid: grouped_transaction.paid,
+                            },
+                        );
+                    }
+                    None => {
+                        debug!("could not match date {}", &key);
+                    }
+                }
             }
         }
     }
 
-    Ok(grouped_transactions.into_iter().map(|(_, v)| v).collect())
+    Ok(grouped_transactions.into_values().collect())
 }
 
 fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
     let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
     let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
-    return date_time;
+    date_time
 }
 
 /// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note

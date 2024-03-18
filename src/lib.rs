@@ -195,7 +195,7 @@ async fn get_redeemable_holofuel_request(
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
     Ok(Json(RedemableHolofuelHistogramResponse {
-        dailies: dailies,
+        dailies,
         redeemed: holofuel.available,
     }))
 }
