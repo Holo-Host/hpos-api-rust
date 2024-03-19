@@ -277,8 +277,18 @@ pub async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
 
 #[cfg(test)]
 mod test {
+    use holochain_types::{
+        dna::{encode::holo_dht_location_bytes, AgentPubKeyB64, EntryHashB64},
+        prelude::Timestamp,
+    };
+    use log::debug;
+    use rand::{distributions::Alphanumeric, thread_rng, Rng};
     use serde::{Deserialize, Serialize};
     use serde_yaml;
+
+    use crate::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType};
+
+    use super::group_transactions_by_day;
 
     #[test]
     // proves that parsed string can represent a struct much bigger than destination type
@@ -304,5 +314,70 @@ mod test {
         .unwrap();
 
         let _: Out = serde_yaml::from_str(&string).unwrap();
+    }
+
+    fn generate_transaction_id() -> String {
+        let prefix = "u";
+        let id = "00000000000000000000000000000000000";
+        let config = base64::URL_SAFE_NO_PAD;
+        let suffix = holo_dht_location_bytes(&id.as_bytes()[3..35]);
+        let suffix_str = String::from_utf8(suffix).unwrap();
+
+        let str = format!("{}{}", id, &suffix_str);
+        let encoded_str = base64::encode_config(str, config);
+        format!("{}{}", prefix, encoded_str)
+    }
+
+    fn generate_mock_transaction(
+        transaction_created_days_ago: u64,
+        transaction_completed_days_ago: Option<u64>,
+    ) -> Transaction {
+        let created_date = chrono::Utc::now()
+            .checked_sub_days(chrono::Days::new(transaction_created_days_ago))
+            .unwrap_or_default();
+
+        let transaction_id = generate_transaction_id();
+        Transaction {
+            id: EntryHashB64::from_b64_str(&transaction_id).unwrap(),
+            amount: "100".to_string(), // Example amount
+            fee: "10".to_string(),     // Example fee
+            created_date: Timestamp::from_micros(created_date.timestamp_micros()),
+            completed_date: match transaction_completed_days_ago {
+                Some(days_ago) => Some(Timestamp::from_micros(
+                    chrono::Utc::now()
+                        .checked_sub_days(chrono::Days::new(days_ago))
+                        .unwrap_or_default()
+                        .timestamp_micros(),
+                )),
+                None => None,
+            },
+            transaction_type: TransactionType::Request,
+            counterparty: AgentPubKeyB64::from_b64_str(
+                "dWhDQWtyZ2VFTDdhY0l5aF8xQ2tlQzktQnV3eFVCS0kzMThBcTl2VXo0SEphWjRpY0tuVHU=",
+            )
+            .unwrap(), // Replace with actual agent pub key
+            direction: TransactionDirection::Outgoing,
+            status: TransactionStatus::Completed,
+            note: None,
+            url: None,
+            expiration_date: None,
+            proof_of_service: None,
+        }
+    }
+
+    fn generate_mock_transactions() -> Vec<Transaction> {
+        [
+            generate_mock_transaction(2, None),
+            generate_mock_transaction(5, Some(2)),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    #[test]
+    fn test_group_transactions_by_day() {
+        let transactions = generate_mock_transactions();
+        let result = group_transactions_by_day(transactions);
+        assert_eq!(result.len(), 2);
     }
 }
