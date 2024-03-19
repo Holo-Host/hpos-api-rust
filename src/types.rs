@@ -445,9 +445,9 @@ pub struct RedemptionState {
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
 pub struct HolofuelPaidUnpaid {
-    pub date: DateTime<Utc>,
-    pub paid: u32,
-    pub unpaid: u32,
+    pub date: String,
+    pub paid: Fuel,
+    pub unpaid: Fuel,
 }
 
 #[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]

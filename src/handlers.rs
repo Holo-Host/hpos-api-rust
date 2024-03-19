@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap, str::FromStr};
 
 use crate::{
     hpos::Ws,
@@ -10,6 +10,7 @@ use crate::{
 use anyhow::Result;
 use chrono::{DateTime, Days, NaiveDateTime, Utc};
 use holochain_types::dna::ActionHashB64;
+use holofuel_types::fuel::Fuel;
 use log::debug;
 
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
@@ -170,60 +171,66 @@ fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
 fn group_transactions_by_day(transactions: Vec<Transaction>) -> Vec<HolofuelPaidUnpaid> {
     // build grouped transactions
     let mut grouped_transactions: HashMap<String, HolofuelPaidUnpaid> = HashMap::new();
-    for day in 1..7 {
-        let date = Utc::now()
-            .checked_sub_days(Days::new(day))
-            .unwrap_or_default();
-
-        grouped_transactions.insert(
-            date.clone().format("%Y-%m-%d").to_string(),
-            HolofuelPaidUnpaid {
-                date,
-                paid: 0,
-                unpaid: 0,
-            },
-        );
-    }
 
     for transaction in transactions {
         if transaction.direction == TransactionDirection::Outgoing {
             let created_date = timestamp_to_date(transaction.created_date.as_millis());
             let created_date_key = created_date.format("%Y-%m-%d").to_string();
-            match grouped_transactions.get(&created_date_key) {
+            match grouped_transactions.get(&created_date_key.clone()) {
                 Some(grouped_transaction) => {
+                    let amount = Fuel::from_str(&transaction.amount).unwrap_or(Fuel::new(0));
                     grouped_transactions.insert(
-                        created_date_key,
+                        created_date_key.clone(),
                         HolofuelPaidUnpaid {
-                            date: grouped_transaction.date,
-                            unpaid: grouped_transaction.unpaid,
-                            paid: grouped_transaction.paid
-                                + transaction.amount.parse::<u32>().unwrap(),
+                            date: created_date_key,
+                            unpaid: (grouped_transaction.unpaid + amount)
+                                .unwrap_or(grouped_transaction.paid),
+                            paid: grouped_transaction.paid,
                         },
                     );
                 }
                 None => {
-                    debug!("Could not match date {}", &created_date_key)
+                    let amount = Fuel::from_str(&transaction.amount).unwrap_or(Fuel::new(0));
+                    grouped_transactions.insert(
+                        created_date_key.clone(),
+                        HolofuelPaidUnpaid {
+                            date: created_date_key,
+                            unpaid: amount,
+                            paid: Fuel::new(0),
+                        },
+                    );
                 }
             }
 
             match transaction.completed_date {
                 Some(completed_date) => {
-                    let date = timestamp_to_date(completed_date.as_millis());
-                    let key = date.format("%Y-%m-%d").to_string();
-                    match grouped_transactions.get(&key) {
+                    let completed_date_date = timestamp_to_date(completed_date.as_millis());
+                    let completed_date_key = completed_date_date.format("%Y-%m-%d").to_string();
+                    match grouped_transactions.get(&completed_date_key.clone()) {
                         Some(grouped_transaction) => {
+                            let amount =
+                                Fuel::from_str(&transaction.amount).unwrap_or(Fuel::new(0));
                             grouped_transactions.insert(
-                                key,
+                                completed_date_key.clone(),
                                 HolofuelPaidUnpaid {
-                                    date: grouped_transaction.date,
+                                    date: completed_date_key,
                                     unpaid: grouped_transaction.unpaid,
-                                    paid: grouped_transaction.paid
-                                        + transaction.amount.parse::<u32>().unwrap(),
+                                    paid: (grouped_transaction.paid + amount)
+                                        .unwrap_or(grouped_transaction.paid),
                                 },
                             );
                         }
                         None => {
-                            debug!("Could not match date {}", &completed_date)
+                            let amount =
+                                Fuel::from_str(&transaction.amount).unwrap_or(Fuel::new(0));
+                            grouped_transactions.insert(
+                                completed_date_key.clone(),
+                                HolofuelPaidUnpaid {
+                                    date: completed_date_key,
+                                    unpaid: Fuel::new(0),
+                                    paid: amount,
+                                },
+                            );
                         }
                     }
                 }
@@ -237,7 +244,14 @@ fn group_transactions_by_day(transactions: Vec<Transaction>) -> Vec<HolofuelPaid
         }
     }
 
-    grouped_transactions.into_values().collect()
+    let mut sorted_keys: Vec<&String> = grouped_transactions.keys().collect();
+    sorted_keys.sort_by(|a, b| b.cmp(a));
+
+    sorted_keys
+        .iter_mut()
+        .map(|key| grouped_transactions.get(*key).unwrap())
+        .cloned()
+        .collect()
 }
 
 /// get all holofuel transactions and organize in HashMap by happ_id extracted from invoice's note
@@ -277,12 +291,13 @@ pub async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use holochain_types::{
-        dna::{encode::holo_dht_location_bytes, AgentPubKeyB64, EntryHashB64},
+        dna::{AgentPubKeyB64, EntryHashB64},
         prelude::Timestamp,
     };
-    use log::debug;
-    use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    use holofuel_types::fuel::Fuel;
     use serde::{Deserialize, Serialize};
     use serde_yaml;
 
@@ -316,18 +331,6 @@ mod test {
         let _: Out = serde_yaml::from_str(&string).unwrap();
     }
 
-    fn generate_transaction_id() -> String {
-        let prefix = "u";
-        let id = "00000000000000000000000000000000000";
-        let config = base64::URL_SAFE_NO_PAD;
-        let suffix = holo_dht_location_bytes(&id.as_bytes()[3..35]);
-        let suffix_str = String::from_utf8(suffix).unwrap();
-
-        let str = format!("{}{}", id, &suffix_str);
-        let encoded_str = base64::encode_config(str, config);
-        format!("{}{}", prefix, encoded_str)
-    }
-
     fn generate_mock_transaction(
         transaction_created_days_ago: u64,
         transaction_completed_days_ago: Option<u64>,
@@ -336,11 +339,11 @@ mod test {
             .checked_sub_days(chrono::Days::new(transaction_created_days_ago))
             .unwrap_or_default();
 
-        let transaction_id = generate_transaction_id();
         Transaction {
-            id: EntryHashB64::from_b64_str(&transaction_id).unwrap(),
-            amount: "100".to_string(), // Example amount
-            fee: "10".to_string(),     // Example fee
+            id: EntryHashB64::from_b64_str("uhCEkKqo0z5b7ltuekF9p0iJPcfL2ghQXjhj8XnOPBYRbXMycLJfn")
+                .unwrap(),
+            amount: Fuel::from_str("100").unwrap_or(Fuel::new(0)).to_string(), // Example amount
+            fee: "10".to_string(),                                             // Example fee
             created_date: Timestamp::from_micros(created_date.timestamp_micros()),
             completed_date: match transaction_completed_days_ago {
                 Some(days_ago) => Some(Timestamp::from_micros(
@@ -353,7 +356,7 @@ mod test {
             },
             transaction_type: TransactionType::Request,
             counterparty: AgentPubKeyB64::from_b64_str(
-                "dWhDQWtyZ2VFTDdhY0l5aF8xQ2tlQzktQnV3eFVCS0kzMThBcTl2VXo0SEphWjRpY0tuVHU=",
+                "uhCAkrgeEL7acIyh_1CkeC9-BuwxUBKI318Aq9vUz4HJaZ4icKnTu",
             )
             .unwrap(), // Replace with actual agent pub key
             direction: TransactionDirection::Outgoing,
@@ -368,7 +371,9 @@ mod test {
     fn generate_mock_transactions() -> Vec<Transaction> {
         [
             generate_mock_transaction(2, None),
+            generate_mock_transaction(3, None),
             generate_mock_transaction(5, Some(2)),
+            generate_mock_transaction(5, Some(3)),
         ]
         .into_iter()
         .collect()
@@ -377,7 +382,41 @@ mod test {
     #[test]
     fn test_group_transactions_by_day() {
         let transactions = generate_mock_transactions();
-        let result = group_transactions_by_day(transactions);
-        assert_eq!(result.len(), 2);
+        let result = group_transactions_by_day(transactions.clone());
+        assert_eq!(result.len(), 3);
+
+        let two_days_ago = chrono::Utc::now()
+            .checked_sub_days(chrono::Days::new(2))
+            .unwrap_or_default()
+            .format("%Y-%m-%d")
+            .to_string();
+
+        let three_days_ago = chrono::Utc::now()
+            .checked_sub_days(chrono::Days::new(3))
+            .unwrap_or_default()
+            .format("%Y-%m-%d")
+            .to_string();
+
+        let five_days_ago = chrono::Utc::now()
+            .checked_sub_days(chrono::Days::new(5))
+            .unwrap_or_default()
+            .format("%Y-%m-%d")
+            .to_string();
+
+        // used unwrap because it should fail if it can't get fuel from string
+        let fuel_100 = Fuel::from_str("100").unwrap();
+        let fuel_200 = Fuel::from_str("200").unwrap();
+
+        assert_eq!(result[0].date, two_days_ago);
+        assert_eq!(result[0].paid, fuel_100);
+        assert_eq!(result[0].unpaid, fuel_100);
+
+        assert_eq!(result[1].date, three_days_ago);
+        assert_eq!(result[1].paid, fuel_100);
+        assert_eq!(result[1].unpaid, fuel_100);
+
+        assert_eq!(result[2].date, five_days_ago);
+        assert_eq!(result[2].paid, Fuel::new(0));
+        assert_eq!(result[2].unpaid, fuel_200);
     }
 }
