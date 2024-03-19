@@ -183,7 +183,7 @@ async fn get_service_logs(
     Ok(Json(filtered_result))
 }
 
-#[get("/holofuel_redeemable")]
+#[get("/holofuel_redeemable_for_last_week")]
 async fn get_redeemable_holofuel_request(
     wsm: &State<WsMutex>,
 ) -> Result<Json<RedemableHolofuelHistogramResponse>, (Status, String)> {

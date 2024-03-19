@@ -145,7 +145,7 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
 
     // get holofuel transaction history for 1 week
-    let path = format!("/holofuel_redeemable");
+    let path = format!("/holofuel_redeemable_for_last_week");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
