@@ -323,13 +323,22 @@ pub struct Transaction {
     pub expiration_date: Option<Timestamp>,
 }
 
+#[derive(Serialize, Deserialize, Debug, SerializedBytes)]
+pub struct PendingTransactions {
+    pub invoice_pending: Vec<Transaction>,
+    pub promise_pending: Vec<Transaction>,
+    pub invoice_declined: Vec<Transaction>,
+    pub promise_declined: Vec<Transaction>,
+    pub accepted: Vec<Transaction>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
     Request, //Invoice
     Offer,   //Promise
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TransactionDirection {
     Outgoing, // To(Address),
     Incoming, // From(Address),
@@ -428,6 +437,26 @@ pub struct File {
     pub extension: String,
     /// File size in bytes
     pub size: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct RedemptionState {
+    pub earnings: Fuel,
+    pub redeemed: Fuel,
+    pub available: Fuel,
+}
+
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct HolofuelPaidUnpaid {
+    pub date: String,
+    pub paid: Fuel,
+    pub unpaid: Fuel,
+}
+
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct RedemableHolofuelHistogramResponse {
+    pub dailies: Vec<HolofuelPaidUnpaid>,
+    pub redeemed: Fuel,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
