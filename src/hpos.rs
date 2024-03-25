@@ -196,10 +196,7 @@ impl Ws {
             return;
         }
 
-        let is_connected = match self.is_connected().await {
-            Ok(result) => result,
-            Err(_) => false,
-        };
+        let is_connected = self.is_connected().await.unwrap_or_default();
 
         if !is_connected {
             log::warn!("connection dropped with websocket, attempting to reconnect");
