@@ -1,5 +1,6 @@
 use crate::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 use core::fmt::Debug;
 use holochain_client::{
     AdminWebsocket, AgentPubKey, AppInfo, AppWebsocket, InstalledAppId, ZomeCall,
@@ -11,7 +12,7 @@ use hpos_hc_connect::{
     holo_config::{self, HappsFile},
     utils::fresh_nonce,
 };
-use log::debug;
+use log;
 use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,7 @@ pub struct Ws {
     pub admin: AdminWebsocket,
     keystore: MetaLairClient,
     pub core_app_id: String,
+    last_connect_check: i64,
 }
 
 impl Ws {
@@ -45,6 +47,7 @@ impl Ws {
             admin,
             keystore: k.keystore.clone(),
             core_app_id: k.core_app_id.clone(),
+            last_connect_check: Utc::now().timestamp(),
         })
     }
 
@@ -102,6 +105,7 @@ impl Ws {
         fn_name: &'static str,
         payload: T,
     ) -> Result<ExternIO> {
+        self.verify_and_reconnect().await;
         let (cell, agent_pubkey) = self.get_cell(app_id, role_name).await?;
         let (nonce, expires_at) = fresh_nonce()?;
         let zome_call_unsigned = ZomeCallUnsigned {
@@ -123,10 +127,85 @@ impl Ws {
             .await
             .map_err(|err| anyhow!("{:?}", err))?;
 
-        debug!("zome call response raw bytes: {:?}", &response);
+        log::debug!("zome call response raw bytes: {:?}", &response);
 
         Ok(response)
     }
+
+    // checks if the web socket connections are still alive
+    // uses app_list and app_info functions
+    // if app_list returns a len of zero then app_info will be skiped
+    pub async fn is_connected(&mut self) -> Result<bool> {
+        let app_list_result = self.admin.list_apps(None).await;
+
+        match app_list_result {
+            Ok(_) => match self.app.app_info(self.core_app_id.to_string()).await {
+                Ok(_) => Ok(true),
+                Err(_) => Ok(false),
+            },
+            Err(_) => return Ok(false),
+        }
+    }
+
+    // try to reconnect with websocket connection
+    pub async fn reconnect(&mut self, max_retries: u32) {
+        let is_connected: bool;
+        let mut retries = 0;
+
+        loop {
+            if retries >= max_retries {
+                is_connected = false;
+                break;
+            }
+
+            log::warn!(
+                "attempting to reconnect: {}/{} attempt",
+                retries + 1,
+                max_retries
+            );
+            // create a new connection
+            let keystore = Keystore::init().await.unwrap();
+            let new_ws = match Ws::connect(&keystore).await {
+                Ok(result) => result,
+                Err(_) => {
+                    retries += 1;
+                    continue;
+                }
+            };
+            // if connected then replace the current values with the new connection
+            self.keystore = new_ws.keystore;
+            self.app = new_ws.app;
+            self.admin = new_ws.admin;
+            is_connected = true;
+            break;
+        }
+        if !is_connected {
+            log::error!(
+                "failed to establish websocket connection after {} retries",
+                max_retries
+            );
+        }
+        log::info!("successfully reconnected!");
+    }
+
+    // verify connection is alive, if not attempt to reconnect
+    pub async fn verify_and_reconnect(&mut self) {
+        let check_duration = 60; // seconds
+        if Utc::now().timestamp() <= self.last_connect_check + check_duration {
+            return;
+        }
+
+        let is_connected = match self.is_connected().await {
+            Ok(result) => result,
+            Err(_) => false,
+        };
+
+        if !is_connected {
+            log::warn!("connection dropped with websocket, attempting to reconnect");
+            self.reconnect(5).await;
+        }
+    }
+
 }
 
 /// Connects to Holochain using env vars that are specific for a flavour of a network (devNet, mainNet, etc)
