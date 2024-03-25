@@ -12,7 +12,6 @@ use hpos_hc_connect::{
     holo_config::{self, HappsFile},
     utils::fresh_nonce,
 };
-use log;
 use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -143,7 +142,7 @@ impl Ws {
                 Ok(_) => Ok(true),
                 Err(_) => Ok(false),
             },
-            Err(_) => return Ok(false),
+            Err(_) => Ok(false),
         }
     }
 
