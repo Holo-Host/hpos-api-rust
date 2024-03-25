@@ -195,6 +195,7 @@ impl Ws {
             return;
         }
 
+        self.last_connect_check = Utc::now().timestamp();
         let is_connected = self.is_connected().await.unwrap_or_default();
 
         if !is_connected {
