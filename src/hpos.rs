@@ -190,6 +190,7 @@ impl Ws {
 
     // verify connection is alive, if not attempt to reconnect
     pub async fn verify_and_reconnect(&mut self) {
+        let max_reconnect_tries = 5;
         let check_duration = 60; // seconds
         if Utc::now().timestamp() <= self.last_connect_check + check_duration {
             return;
@@ -202,10 +203,9 @@ impl Ws {
 
         if !is_connected {
             log::warn!("connection dropped with websocket, attempting to reconnect");
-            self.reconnect(5).await;
+            self.reconnect(max_reconnect_tries).await;
         }
     }
-
 }
 
 /// Connects to Holochain using env vars that are specific for a flavour of a network (devNet, mainNet, etc)
