@@ -3,17 +3,19 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use core::fmt::Debug;
 use holochain_client::{
-    AdminWebsocket, AgentPubKey, AppInfo, AppWebsocket, InstalledAppId, ZomeCall,
+    AdminWebsocket, AgentPubKey, AppInfo, AppWebsocket, ConductorApiError, InstalledAppId, ZomeCall,
 };
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
 use holochain_keystore::MetaLairClient;
 use holochain_types::prelude::{ExternIO, ZomeCallUnsigned};
+use holochain_websocket::WebsocketError;
 use hpos_hc_connect::{
     holo_config::{self, HappsFile},
     utils::fresh_nonce,
 };
 use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
+use std::{borrow::Borrow, process::exit};
 
 /// Mutex that guards access to mutable websocket. The down side of such an approach is that
 /// a call to one endpoint will block other endpoints, but in our use case it is not an issue.
@@ -29,7 +31,6 @@ pub struct Ws {
     pub admin: AdminWebsocket,
     keystore: MetaLairClient,
     pub core_app_id: String,
-    last_connect_check: i64,
 }
 
 impl Ws {
@@ -46,7 +47,6 @@ impl Ws {
             admin,
             keystore: k.keystore.clone(),
             core_app_id: k.core_app_id.clone(),
-            last_connect_check: Utc::now().timestamp(),
         })
     }
 
@@ -104,7 +104,6 @@ impl Ws {
         fn_name: &'static str,
         payload: T,
     ) -> Result<ExternIO> {
-        self.verify_and_reconnect().await;
         let (cell, agent_pubkey) = self.get_cell(app_id, role_name).await?;
         let (nonce, expires_at) = fresh_nonce()?;
         let zome_call_unsigned = ZomeCallUnsigned {
@@ -120,34 +119,47 @@ impl Ws {
         let signed_zome_call =
             ZomeCall::try_from_unsigned_zome_call(&self.keystore, zome_call_unsigned).await?;
 
-        let response = self
-            .app
-            .call_zome(signed_zome_call)
-            .await
-            .map_err(|err| anyhow!("{:?}", err))?;
+        let response = self.app.call_zome(signed_zome_call).await;
 
-        log::debug!("zome call response raw bytes: {:?}", &response);
-
-        Ok(response)
-    }
-
-    // checks if the web socket connections are still alive
-    // uses app_list and app_info functions
-    // if app_list returns a len of zero then app_info will be skiped
-    pub async fn is_connected(&mut self) -> Result<bool> {
-        let app_list_result = self.admin.list_apps(None).await;
-
-        match app_list_result {
-            Ok(_) => match self.app.app_info(self.core_app_id.to_string()).await {
-                Ok(_) => Ok(true),
-                Err(_) => Ok(false),
+        match response {
+            // return response if no error is thrown
+            Ok(response) => {
+                log::debug!("zome call response raw bytes: {:?}", &response);
+                Ok(response)
+            }
+            Err(err) => match err {
+                // check if websocket connection has issues
+                ConductorApiError::WebsocketError(websocket_err) => {
+                    match self.handle_websocket_error(websocket_err).await {
+                        Ok(result) => match result {
+                            true => match self
+                                .call_zome_raw(app_id, role_name, zome_name, fn_name, payload)
+                                .await
+                            {
+                                Ok(response) => Ok(response),
+                                Err(err) => anyhow!("{:?}", err),
+                            },
+                            false => anyhow!("{:?}", err),
+                        },
+                        err => anyhow!("{:?}", err),
+                    }
+                }
+                err => anyhow!("{:?}", err),
             },
-            Err(_) => Ok(false),
         }
     }
 
-    // try to reconnect with websocket connection
-    pub async fn reconnect(&mut self, max_retries: u32) {
+    // maps which websocket errors can attempt to re-connect the websocket connection
+    async fn handle_websocket_error(&mut self, err: WebsocketError) -> Result<bool> {
+        match err {
+            WebsocketError::RespTimeout => self.reconnect(5).await,
+            WebsocketError::Shutdown => self.reconnect(5).await,
+            _ => anyhow!("{:?}", err),
+        }
+    }
+
+    // try to reconnect websocket connection
+    pub async fn reconnect(&mut self, max_retries: u32) -> Result<bool> {
         let is_connected: bool;
         let mut retries = 0;
 
@@ -163,7 +175,10 @@ impl Ws {
                 max_retries
             );
             // create a new connection
-            let keystore = Keystore::init().await.unwrap();
+            let keystore = Keystore {
+                keystore: self.keystore.clone(),
+                core_app_id: self.core_app_id.clone(),
+            };
             let new_ws = match Ws::connect(&keystore).await {
                 Ok(result) => result,
                 Err(_) => {
@@ -178,30 +193,18 @@ impl Ws {
             is_connected = true;
             break;
         }
-        if !is_connected {
-            log::error!(
-                "failed to establish websocket connection after {} retries",
-                max_retries
-            );
-        }
-        log::info!("successfully reconnected!");
-    }
-
-    // verify connection is alive, if not attempt to reconnect
-    pub async fn verify_and_reconnect(&mut self) {
-        let max_reconnect_tries = 5;
-        let check_duration = 60; // seconds
-        if Utc::now().timestamp() <= self.last_connect_check + check_duration {
-            return;
-        }
-
-        self.last_connect_check = Utc::now().timestamp();
-        let is_connected = self.is_connected().await.unwrap_or_default();
-
-        if !is_connected {
-            log::warn!("connection dropped with websocket, attempting to reconnect");
-            self.reconnect(max_reconnect_tries).await;
-        }
+        match is_connected {
+            true => {
+                log::info!("successfully reconnected!");
+            }
+            false => {
+                log::error!(
+                    "failed to establish websocket connection after {} retries",
+                    max_retries
+                );
+            }
+        };
+        Ok(is_connected)
     }
 }
 

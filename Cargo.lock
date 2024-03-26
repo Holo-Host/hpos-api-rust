@@ -2903,6 +2903,7 @@ dependencies = [
  "holochain_env_setup",
  "holochain_keystore",
  "holochain_types",
+ "holochain_websocket",
  "holofuel_types",
  "hpos-config-core",
  "hpos-config-seed-bundle-explorer",
