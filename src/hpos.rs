@@ -1,6 +1,5 @@
 use crate::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
-use chrono::Utc;
 use core::fmt::Debug;
 use holochain_client::{
     AdminWebsocket, AgentPubKey, AppInfo, AppWebsocket, ConductorApiError, InstalledAppId, ZomeCall,
@@ -15,7 +14,6 @@ use hpos_hc_connect::{
 };
 use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, process::exit};
 
 /// Mutex that guards access to mutable websocket. The down side of such an approach is that
 /// a call to one endpoint will block other endpoints, but in our use case it is not an issue.
@@ -79,7 +77,7 @@ impl Ws {
     }
 
     /// make a zome call to a running app and decode to <T> type
-    pub async fn call_zome<T: Debug + Serialize, R: Debug + for<'de> Deserialize<'de>>(
+    pub async fn call_zome<T: Debug + Clone + Serialize, R: Debug + for<'de> Deserialize<'de>>(
         &mut self,
         app_id: InstalledAppId,
         role_name: &'static str,
@@ -96,7 +94,7 @@ impl Ws {
     }
 
     /// make a zome call to a running app and return ExterIO bytes
-    pub async fn call_zome_raw<T: Debug + Serialize>(
+    pub async fn call_zome_raw<T: Debug + Clone + Serialize>(
         &mut self,
         app_id: InstalledAppId,
         role_name: &'static str,
@@ -104,13 +102,13 @@ impl Ws {
         fn_name: &'static str,
         payload: T,
     ) -> Result<ExternIO> {
-        let (cell, agent_pubkey) = self.get_cell(app_id, role_name).await?;
+        let (cell, agent_pubkey) = self.get_cell(app_id.clone(), role_name).await?;
         let (nonce, expires_at) = fresh_nonce()?;
         let zome_call_unsigned = ZomeCallUnsigned {
             cell_id: cell.cell_id,
             zome_name: zome_name.into(),
             fn_name: fn_name.into(),
-            payload: ExternIO::encode(payload).map_err(|err| anyhow!("{:?}", err))?,
+            payload: ExternIO::encode(payload.clone()).map_err(|err| anyhow!("{:?}", err))?,
             cap_secret: None,
             provenance: agent_pubkey,
             nonce,
@@ -119,7 +117,7 @@ impl Ws {
         let signed_zome_call =
             ZomeCall::try_from_unsigned_zome_call(&self.keystore, zome_call_unsigned).await?;
 
-        let response = self.app.call_zome(signed_zome_call).await;
+        let response = self.app.call_zome(signed_zome_call.clone()).await;
 
         match response {
             // return response if no error is thrown
@@ -132,29 +130,24 @@ impl Ws {
                 ConductorApiError::WebsocketError(websocket_err) => {
                     match self.handle_websocket_error(websocket_err).await {
                         Ok(result) => match result {
-                            true => match self
-                                .call_zome_raw(app_id, role_name, zome_name, fn_name, payload)
-                                .await
-                            {
-                                Ok(response) => Ok(response),
-                                Err(err) => anyhow!("{:?}", err),
-                            },
-                            false => anyhow!("{:?}", err),
+                            // if re-connected. run the same zome call
+                            true => self.app.call_zome(signed_zome_call).await.map_err(|err| anyhow!("{:?}", err)),
+                            false => Err(anyhow!("failed to reconnect websocket connection, Could not execute zome call")),
                         },
-                        err => anyhow!("{:?}", err),
+                        err => Err(anyhow!("{:?}", err)),
                     }
                 }
-                err => anyhow!("{:?}", err),
+                err => Err(anyhow!("{:?}", err)),
             },
         }
     }
 
-    // maps which websocket errors can attempt to re-connect the websocket connection
+    // re-connect websocket connection if a specific error was thrown
     async fn handle_websocket_error(&mut self, err: WebsocketError) -> Result<bool> {
         match err {
             WebsocketError::RespTimeout => self.reconnect(5).await,
             WebsocketError::Shutdown => self.reconnect(5).await,
-            _ => anyhow!("{:?}", err),
+            err => Err(anyhow!("{:?}", err)),
         }
     }
 
