@@ -2,7 +2,7 @@ use crate::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
 use core::fmt::Debug;
 use holochain_client::{
-    AdminWebsocket, AgentPubKey, AppInfo, AppWebsocket, ConductorApiError, InstalledAppId, ZomeCall,
+    AdminWebsocket, AgentPubKey, AppWebsocket, ConductorApiError, InstalledAppId, ZomeCall,
 };
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
 use holochain_keystore::MetaLairClient;
@@ -54,25 +54,42 @@ impl Ws {
         app_id: InstalledAppId,
         role_name: &'static str,
     ) -> Result<(ProvisionedCell, AgentPubKey)> {
-        match self
-            .app
-            .app_info(app_id)
-            .await
-            .map_err(|err| anyhow!("{:?}", err))?
-        {
-            Some(AppInfo {
-                cell_info,
-                agent_pub_key,
-                ..
-            }) => {
-                let cell = match &cell_info.get(role_name).unwrap()[0] {
-                    // [0] because first one in a Vec is Provisioned cell
-                    CellInfo::Provisioned(c) => c.clone(),
-                    _ => return Err(anyhow!("unable to find {}", role_name)),
-                };
-                Ok((cell, agent_pub_key))
-            }
-            _ => Err(anyhow!("{} is not installed", role_name)),
+        let response = self.app.app_info(app_id.clone()).await;
+
+        match response {
+            Ok(response) => match response {
+                Some(app_info) => {
+                    let cell = match &app_info.cell_info.get(role_name).unwrap()[0] {
+                        // [0] because first one in a Vec is Provisioned cell
+                        CellInfo::Provisioned(c) => c.clone(),
+                        _ => return Err(anyhow!("unable to find {}", role_name)),
+                    };
+                    Ok((cell, app_info.agent_pub_key))
+                }
+                _ => Err(anyhow!("{} is not installed", role_name)),
+            },
+            Err(error) => match error {
+                ConductorApiError::WebsocketError(websocket_err) => {
+                    match self.handle_websocket_error(websocket_err).await {
+                        Ok(result) => match result {
+                            true => match self.app.app_info(app_id).await.map_err(|err| anyhow!("{:?}", err))? {
+                                Some(app_info) => {
+                                    let cell = match &app_info.cell_info.get(role_name).unwrap()[0] {
+                                        // [0] because first one in a Vec is Provisioned cell
+                                        CellInfo::Provisioned(c) => c.clone(),
+                                        _ => return Err(anyhow!("unable to find {}", role_name)),
+                                    };
+                                    Ok((cell, app_info.agent_pub_key))
+                                },
+                                _ => Err(anyhow!("{} is not installed", role_name)),
+                            },
+                            false => Err(anyhow!("failed to reconnect websocket connection, Could not execute zome call")),
+                        },
+                        err => Err(anyhow!("{:?}", err)),
+                    }
+                }
+                err => Err(anyhow!("{:?}", err)),
+            },
         }
     }
 
@@ -102,13 +119,13 @@ impl Ws {
         fn_name: &'static str,
         payload: T,
     ) -> Result<ExternIO> {
-        let (cell, agent_pubkey) = self.get_cell(app_id.clone(), role_name).await?;
+        let (cell, agent_pubkey) = self.get_cell(app_id, role_name).await?;
         let (nonce, expires_at) = fresh_nonce()?;
         let zome_call_unsigned = ZomeCallUnsigned {
             cell_id: cell.cell_id,
             zome_name: zome_name.into(),
             fn_name: fn_name.into(),
-            payload: ExternIO::encode(payload.clone()).map_err(|err| anyhow!("{:?}", err))?,
+            payload: ExternIO::encode(payload).map_err(|err| anyhow!("{:?}", err))?,
             cap_secret: None,
             provenance: agent_pubkey,
             nonce,
