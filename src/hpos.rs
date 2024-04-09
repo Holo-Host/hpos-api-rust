@@ -134,11 +134,11 @@ impl Ws {
         let signed_zome_call =
             ZomeCall::try_from_unsigned_zome_call(&self.keystore, zome_call_unsigned).await?;
 
-        println!(">>>>>>>  signed_zome_call : {:?} ", signed_zome_call);
+        debug!(">>>>>>>  signed_zome_call : {:?} ", signed_zome_call);
 
         let response = self.app.call_zome(signed_zome_call.clone()).await;
 
-        println!(">>>>>>>  zome_call response : {:?} ", response);
+        debug!(">>>>>>>  zome_call response : {:?} ", response);
 
         match response {
             // return response if no error is thrown
