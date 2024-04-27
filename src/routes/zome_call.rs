@@ -1,3 +1,4 @@
+use crate::hpos::WsMutex;
 use rocket::{
     http::Status,
     serde::{
@@ -6,8 +7,6 @@ use rocket::{
     },
     Responder, {post, State},
 };
-
-use crate::hpos::WsMutex;
 
 #[post("/zome_call", format = "json", data = "<data>")]
 pub async fn zome_call(

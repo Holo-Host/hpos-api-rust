@@ -2,9 +2,8 @@ use std::{collections::HashMap, str::FromStr};
 
 use crate::{
     hpos::Ws,
-    types::{
-        HolofuelPaidUnpaid, PendingTransactions, RedemptionState, Transaction, TransactionDirection,
-    },
+    types::{PendingTransactions, RedemptionState, Transaction, TransactionDirection},
+    HolofuelPaidUnpaid,
 };
 use anyhow::Result;
 use chrono::{DateTime, Days, NaiveDateTime, Utc};

@@ -4,7 +4,7 @@ use holochain_types::{
     prelude::{holochain_serial, CapSecret, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
-use rocket::serde::{ Deserialize, Serialize};
+use rocket::serde::{Deserialize, Serialize};
 
 // Return type of zome call holofuel/transactor/get_completed_transactions
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
@@ -67,17 +67,4 @@ pub struct RedemptionState {
     pub earnings: Fuel,
     pub redeemed: Fuel,
     pub available: Fuel,
-}
-
-#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
-pub struct HolofuelPaidUnpaid {
-    pub date: String,
-    pub paid: Fuel,
-    pub unpaid: Fuel,
-}
-
-#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
-pub struct RedemableHolofuelHistogramResponse {
-    pub dailies: Vec<HolofuelPaidUnpaid>,
-    pub redeemed: Fuel,
 }
