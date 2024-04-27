@@ -6,8 +6,8 @@ use rocket::{
 
 use crate::handlers::hosted_happs::*;
 use crate::{
+    common::types::Transaction,
     hpos::{Ws, WsMutex},
-    types::Transaction,
 };
 
 use anyhow::{anyhow, Result};

@@ -1,8 +1,7 @@
-pub mod consts;
+pub mod common;
 mod handlers;
 mod hpos;
 pub mod routes;
-pub mod types;
 
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;

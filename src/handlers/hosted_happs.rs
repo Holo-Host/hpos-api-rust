@@ -1,7 +1,7 @@
 use rocket::serde::{Deserialize, Serialize};
 
+use crate::common::types::{Transaction, POS};
 use crate::hpos::Ws;
-use crate::types::{Transaction, POS};
 use crate::{HappDetails, PresentedHappBundle};
 use anyhow::Result;
 use holochain_types::dna::ActionHashB64;

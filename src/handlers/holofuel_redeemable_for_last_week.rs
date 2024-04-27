@@ -1,8 +1,8 @@
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{
+    common::types::{PendingTransactions, RedemptionState, Transaction, TransactionDirection},
     hpos::Ws,
-    types::{PendingTransactions, RedemptionState, Transaction, TransactionDirection},
     HolofuelPaidUnpaid,
 };
 use anyhow::Result;
@@ -192,7 +192,9 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_yaml;
 
-    use crate::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType};
+    use crate::common::types::{
+        Transaction, TransactionDirection, TransactionStatus, TransactionType,
+    };
 
     use super::group_transactions_by_day;
 
