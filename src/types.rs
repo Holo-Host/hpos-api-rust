@@ -4,10 +4,7 @@ use holochain_types::{
     prelude::{holochain_serial, CapSecret, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
-use rocket::{
-    serde::{json::serde_json, Deserialize, Serialize},
-    Responder,
-};
+use rocket::serde::{ Deserialize, Serialize};
 
 // Return type of zome call holofuel/transactor/get_completed_transactions
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
@@ -83,30 +80,4 @@ pub struct HolofuelPaidUnpaid {
 pub struct RedemableHolofuelHistogramResponse {
     pub dailies: Vec<HolofuelPaidUnpaid>,
     pub redeemed: Fuel,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-#[serde(rename_all = "camelCase")]
-pub struct ZomeCallRequest {
-    pub app_id: String,
-    pub role_id: String,
-    pub zome_name: String,
-    pub fn_name: String,
-    pub payload: serde_json::Value,
-}
-
-#[derive(Responder)]
-#[response(status = 200, content_type = "binary")]
-pub struct ZomeCallResponse(pub &'static [u8]);
-
-#[cfg(test)]
-mod test {
-    use holochain_types::dna::ActionHashB64;
-
-    #[test]
-    fn decode_hash() {
-        let str = "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC";
-        ActionHashB64::from_b64_str(str).unwrap();
-    }
 }

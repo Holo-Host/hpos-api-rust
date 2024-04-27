@@ -10,11 +10,12 @@ use handlers_old::{get_last_weeks_redeemable_holofuel, get_redeemable_holofuel};
 use hpos::{Keystore, Ws, WsMutex};
 use log::debug;
 use rocket::http::Status;
-use rocket::serde::json::{Json, Value};
-use rocket::{self, get, post, Build, Rocket, State};
-use types::{RedemableHolofuelHistogramResponse, ZomeCallRequest, ZomeCallResponse};
+use rocket::serde::json::Json;
+use rocket::{self, get, Build, Rocket, State};
 
 use routes::hosted_happs::*;
+use routes::zome_call::*;
+use types::RedemableHolofuelHistogramResponse;
 
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
@@ -29,34 +30,6 @@ async fn index(wsm: &State<WsMutex>) -> String {
     .unwrap();
 
     format!("🤖 I'm your holoport {}", sample.holoport_id)
-}
-
-#[post("/zome_call", format = "json", data = "<data>")]
-async fn zome_call(
-    data: Json<ZomeCallRequest>,
-    wsm: &State<WsMutex>,
-) -> Result<ZomeCallResponse, (Status, String)> {
-    let mut ws = wsm.lock().await;
-
-    // arguments of ws.zome_call require 'static lifetime and data is only temporary
-    // so I need to extend lifetime with Box::leak
-    let data = Box::leak(Box::new(data.into_inner()));
-
-    let res = ws
-        .call_zome_raw::<Value>(
-            data.app_id.clone(),
-            &data.role_id,
-            &data.zome_name,
-            &data.fn_name,
-            data.payload.clone(),
-        )
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-
-    // same here as above - extending lifetime to 'static with Box::leak
-    let res = Box::leak(Box::new(res));
-
-    Ok(ZomeCallResponse(res.as_bytes()))
 }
 
 #[get("/holofuel_redeemable_for_last_week")]
