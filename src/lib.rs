@@ -1,11 +1,20 @@
 pub mod consts;
 mod handlers;
+pub mod routes;
+
+
+
+
 mod hpos;
 pub mod types;
 
-use handlers::{
-    get_last_weeks_redeemable_holofuel, get_redeemable_holofuel, handle_get_all, handle_get_one,
+mod handlers_old;
+use handlers_old::{
+    get_last_weeks_redeemable_holofuel, get_redeemable_holofuel
 };
+
+
+
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{Entry, Record, RecordEntry};
 use hpos::{Keystore, Ws, WsMutex};
@@ -15,10 +24,17 @@ use rocket::serde::json::{Json, Value};
 use rocket::{self, get, post, Build, Rocket, State};
 use std::time::{SystemTime, UNIX_EPOCH};
 use types::{
-    HappAndHost, HappDetails, RedemableHolofuelHistogramResponse, ZomeCallRequest, ZomeCallResponse,
+ RedemableHolofuelHistogramResponse, ZomeCallRequest, ZomeCallResponse,
 };
 
 use crate::types::{ActivityLog, DiskUsageLog, LogEntry};
+
+use routes::hosted_happs::*;
+
+
+
+
+
 
 #[get("/")]
 async fn index(wsm: &State<WsMutex>) -> String {
@@ -33,72 +49,6 @@ async fn index(wsm: &State<WsMutex>) -> String {
     .unwrap();
 
     format!("🤖 I'm your holoport {}", sample.holoport_id)
-}
-
-// Rocket will return 400 if query params are of a wrong type
-#[get("/hosted_happs?<usage_interval>&<quantity>")]
-async fn get_all_hosted_happs(
-    usage_interval: i64,
-    quantity: Option<usize>,
-    wsm: &State<WsMutex>,
-) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
-    let mut ws = wsm.lock().await;
-
-    Ok(Json(
-        handle_get_all(usage_interval, quantity, &mut ws)
-            .await
-            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
-    ))
-}
-
-#[get("/hosted_happs/<id>?<usage_interval>")]
-async fn get_hosted_happ(
-    id: String,
-    usage_interval: Option<i64>,
-    wsm: &State<WsMutex>,
-) -> Result<Json<HappDetails>, (Status, String)> {
-    let mut ws = wsm.lock().await;
-
-    // Validate format of happ id
-    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
-    let usage_interval = usage_interval.unwrap_or(7); // 7 days
-    Ok(Json(
-        handle_get_one(id, usage_interval, &mut ws)
-            .await
-            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
-    ))
-}
-
-#[post("/hosted_happs/<id>/enable")]
-async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
-    let mut ws = wsm.lock().await;
-    let core_app_id = ws.core_app_id.clone();
-
-    let payload = HappAndHost::init(id, &mut ws)
-        .await
-        .map_err(|e| (Status::BadRequest, e.to_string()))?;
-
-    debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
-    ws.call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-    Ok(())
-}
-
-#[post("/hosted_happs/<id>/disable")]
-async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
-    let mut ws = wsm.lock().await;
-    let core_app_id = ws.core_app_id.clone();
-
-    let payload = HappAndHost::init(id, &mut ws)
-        .await
-        .map_err(|e| (Status::BadRequest, e.to_string()))?;
-
-    debug!("calling zome hha/disable_happ with payload: {:?}", &payload);
-    ws.call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-    Ok(())
 }
 
 #[post("/zome_call", format = "json", data = "<data>")]
