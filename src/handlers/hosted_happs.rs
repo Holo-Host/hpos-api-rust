@@ -1,14 +1,12 @@
 use rocket::serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
 use crate::hpos::Ws;
-use crate::{HappDetails, PresentedHappBundle};
 use crate::types::{Transaction, POS};
+use crate::{HappDetails, PresentedHappBundle};
+use anyhow::Result;
 use holochain_types::dna::ActionHashB64;
 use log::debug;
-use anyhow::Result;
-
-
+use std::collections::HashMap;
 
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 

@@ -3,16 +3,13 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     hpos::Ws,
     types::{
-        HolofuelPaidUnpaid, PendingTransactions,
-        RedemptionState, Transaction, TransactionDirection,
+        HolofuelPaidUnpaid, PendingTransactions, RedemptionState, Transaction, TransactionDirection,
     },
 };
 use anyhow::Result;
 use chrono::{DateTime, Days, NaiveDateTime, Utc};
 use holofuel_types::fuel::Fuel;
 use log::debug;
-
-
 
 // get current redemable holofuel
 pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
