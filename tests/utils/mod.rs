@@ -18,8 +18,8 @@ use holochain_types::prelude::{
     Signature, Timestamp, UnsafeBytes, YamlProperties, ZomeCallUnsigned,
 };
 use holofuel_types::fuel::Fuel;
-use hpos_api_rust::consts::{ADMIN_PORT, APP_PORT};
-use hpos_api_rust::types::{
+use hpos_api_rust::common::consts::{ADMIN_PORT, APP_PORT};
+use hpos_api_rust::routes::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
 };

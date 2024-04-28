@@ -1,22 +1,167 @@
-use std::{fmt, str::FromStr, time::Duration};
+use rocket::{
+    http::Status,
+    serde::{json::Json, Deserialize, Serialize},
+    {get, post, State},
+};
+
+use crate::handlers::hosted_happs::*;
+use crate::{
+    common::types::Transaction,
+    hpos::{Ws, WsMutex},
+};
 
 use anyhow::{anyhow, Result};
-use core::fmt::Debug;
 use holochain_client::AgentPubKey;
 use holochain_types::{
-    dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64, EntryHashB64},
-    prelude::{holochain_serial, CapSecret, SerializedBytes, Signature, Timestamp},
+    dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64},
+    prelude::{
+        holochain_serial, Entry, Record, RecordEntry, SerializedBytes, Signature, Timestamp,
+    },
 };
 use holofuel_types::fuel::Fuel;
-use log::warn;
-use rocket::{
-    serde::{json::serde_json, Deserialize, Serialize},
-    Responder,
-};
+use log::{debug, warn};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{fmt, str::FromStr, time::Duration};
 
-use crate::hpos::Ws;
+// Rocket will return 400 if query params are of a wrong type
+#[get("/hosted_happs?<usage_interval>&<quantity>")]
+pub async fn get_all_hosted_happs(
+    usage_interval: i64,
+    quantity: Option<usize>,
+    wsm: &State<WsMutex>,
+) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
+    let mut ws = wsm.lock().await;
 
-// Return value of API /hosted_happs endpoint
+    Ok(Json(
+        handle_get_all(usage_interval, quantity, &mut ws)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
+}
+
+// Routes
+
+#[get("/")]
+pub async fn index(wsm: &State<WsMutex>) -> String {
+    let mut ws = wsm.lock().await;
+
+    // Construct sample HappAndHost just to retrieve holoport_id
+    let sample = HappAndHost::init(
+        "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC",
+        &mut ws,
+    )
+    .await
+    .unwrap();
+
+    format!("🤖 I'm your holoport {}", sample.holoport_id)
+}
+
+#[get("/hosted_happs/<id>?<usage_interval>")]
+pub async fn get_hosted_happ(
+    id: String,
+    usage_interval: Option<i64>,
+    wsm: &State<WsMutex>,
+) -> Result<Json<HappDetails>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    // Validate format of happ id
+    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let usage_interval = usage_interval.unwrap_or(7); // 7 days
+    Ok(Json(
+        handle_get_one(id, usage_interval, &mut ws)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
+}
+
+#[post("/hosted_happs/<id>/enable")]
+pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let core_app_id = ws.core_app_id.clone();
+
+    let payload = HappAndHost::init(id, &mut ws)
+        .await
+        .map_err(|e| (Status::BadRequest, e.to_string()))?;
+
+    debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
+    ws.call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+    Ok(())
+}
+
+#[post("/hosted_happs/<id>/disable")]
+pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let core_app_id = ws.core_app_id.clone();
+
+    let payload = HappAndHost::init(id, &mut ws)
+        .await
+        .map_err(|e| (Status::BadRequest, e.to_string()))?;
+
+    debug!("calling zome hha/disable_happ with payload: {:?}", &payload);
+    ws.call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+    Ok(())
+}
+
+#[get("/hosted_happs/<id>/logs?<days>")]
+pub async fn get_service_logs(
+    id: &str,
+    days: Option<i32>,
+    wsm: &State<WsMutex>,
+) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    // Validate format of happ id
+    let id = ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let days = days.unwrap_or(7); // 7 days
+    let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
+
+    log::debug!("getting logs for happ: {}::servicelogger", id);
+    let result: Vec<Record> = ws
+        .call_zome(
+            format!("{}::servicelogger", id),
+            "servicelogger",
+            "service",
+            "querying_chain",
+            filter,
+        )
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+
+    let four_weeks_ago = (SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
+        - (days as u64 * 24 * 60 * 60)) as i64;
+
+    log::debug!("filtering logs from {}", id);
+
+    let filtered_result: Vec<LogEntry> = result
+        .into_iter()
+        .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
+        // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),
+        // not holochain system entries
+        // and deserialize them into service logger's entries
+        .filter_map(|record| {
+            if let RecordEntry::Present(Entry::App(bytes)) = record.entry() {
+                if let Ok(log_entry) = ActivityLog::try_from(bytes.clone().into_sb()) {
+                    return Some(LogEntry::ActivityLog(Box::new(log_entry)));
+                } else if let Ok(log_entry) = DiskUsageLog::try_from(bytes.clone().into_sb()) {
+                    return Some(LogEntry::DiskUsageLog(log_entry));
+                }
+            }
+            None
+        })
+        .collect();
+
+    Ok(Json(filtered_result))
+}
+
+// Types
+
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
@@ -100,12 +245,6 @@ impl Default for Earnings {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
-pub struct UsageTimeInterval {
-    pub duration_unit: String,
-    pub amount: i64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 #[serde(crate = "rocket::serde")]
 pub struct HappStats {
     // we can return this is you want to return all source_chain that were running on this holoport
@@ -113,27 +252,6 @@ pub struct HappStats {
     pub cpu: u64,
     pub bandwidth: u64, // payload size,
     pub disk_usage: u64,
-}
-
-async fn get_usage(
-    happ_id: ActionHashB64,
-    usage_interval: i64,
-    ws: &mut Ws,
-) -> Result<Option<HappStats>> {
-    log::debug!("Calling get_stats for happ: {}::servicelogger", happ_id);
-    let result: HappStats = ws
-        .call_zome(
-            format!("{}::servicelogger", happ_id),
-            "servicelogger",
-            "service",
-            "get_stats",
-            UsageTimeInterval {
-                duration_unit: "DAY".to_string(),
-                amount: usage_interval,
-            },
-        )
-        .await?;
-    Ok(Some(result))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -228,64 +346,10 @@ impl HappAndHost {
     }
 }
 
-pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<HostingPlan>> {
-    let core_app_id = ws.core_app_id.clone();
-
-    let s: ServiceloggerHappPreferences = ws
-        .call_zome(
-            core_app_id,
-            "core-app",
-            "hha",
-            "get_happ_preferences",
-            happ_id,
-        )
-        .await?;
-
-    if s.price_compute == Fuel::new(0)
-        && s.price_storage == Fuel::new(0)
-        && s.price_bandwidth == Fuel::new(0)
-    {
-        Ok(Some(HostingPlan::Free))
-    } else {
-        Ok(Some(HostingPlan::Paid))
-    }
-}
-
-pub async fn count_instances(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<u16>> {
-    // What filter shall I use in list_happs()? Is None correct?
-    Ok(Some(
-        ws.admin
-            .list_apps(None)
-            .await
-            .map_err(|err| anyhow!("{:?}", err))?
-            .iter()
-            .fold(0, |acc, info| {
-                if info.installed_app_id.contains(&format!("{}:uhCA", happ_id)) {
-                    acc + 1
-                } else {
-                    acc
-                }
-            }),
-    ))
-}
-
-// TODO: average_weekly still needs to be calculated - from total and days_hosted?
-pub async fn count_earnings(transactions: Vec<Transaction>) -> Result<Option<Earnings>> {
-    let mut e = Earnings::default();
-    for p in transactions.iter() {
-        let amount_fuel = Fuel::from_str(&p.amount)?;
-        e.total = (e.total + amount_fuel)?;
-        // if completed_date is within last week then add fuel to last_7_days, too
-        let week = Duration::from_secs(7 * 24 * 60 * 60);
-        if (Timestamp::now() - week)? < p.completed_date.unwrap() {
-            e.last_7_days = (e.last_7_days + amount_fuel)?
-        };
-    }
-    Ok(Some(e))
-}
-
-pub fn count_days_hosted(since: Timestamp) -> Result<Option<u16>> {
-    Ok(Some((Timestamp::now() - since)?.num_days() as u16))
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+pub struct UsageTimeInterval {
+    pub duration_unit: String,
+    pub amount: i64,
 }
 
 // return type of a zome call to hha/get_happ_preferences
@@ -297,68 +361,6 @@ pub struct ServiceloggerHappPreferences {
     pub price_storage: Fuel,
     pub price_bandwidth: Fuel,
     pub max_time_before_invoice: Duration,
-}
-
-// Simplified typeype for yaml::to_str to extract happ_id form Invoice Note
-#[derive(Serialize, Deserialize, Debug)]
-pub struct InvoiceNote {
-    pub hha_id: ActionHashB64,
-}
-
-// Return type of zome call holofuel/transactor/get_completed_transactions
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
-pub struct Transaction {
-    pub id: EntryHashB64,
-    pub amount: String,
-    pub fee: String,
-    pub created_date: Timestamp,
-    pub completed_date: Option<Timestamp>,
-    pub transaction_type: TransactionType,
-    pub counterparty: AgentPubKeyB64,
-    pub direction: TransactionDirection,
-    pub status: TransactionStatus,
-    pub note: Option<String>,
-    pub proof_of_service: Option<POS>,
-    pub url: Option<String>,
-    pub expiration_date: Option<Timestamp>,
-}
-
-#[derive(Serialize, Deserialize, Debug, SerializedBytes)]
-pub struct PendingTransactions {
-    pub invoice_pending: Vec<Transaction>,
-    pub promise_pending: Vec<Transaction>,
-    pub invoice_declined: Vec<Transaction>,
-    pub promise_declined: Vec<Transaction>,
-    pub accepted: Vec<Transaction>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum TransactionType {
-    Request, //Invoice
-    Offer,   //Promise
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum TransactionDirection {
-    Outgoing, // To(Address),
-    Incoming, // From(Address),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum TransactionStatus {
-    Actionable, // tx that is create by 1st instance and waiting for counterparty to complete the tx
-    Pending,    // tx that was created by 1st instance and second instance
-    Accepted,   // tx that was accepted by counterparty but has yet to complete countersigning.
-    Completed,
-    Declined,
-    Expired,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
-#[serde(rename_all = "snake_case")]
-pub enum POS {
-    Hosting(CapSecret),
-    Redemption(String), // Contains wallet address
 }
 
 // --------servicelogger data types---------
@@ -439,48 +441,85 @@ pub struct File {
     pub size: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
-pub struct RedemptionState {
-    pub earnings: Fuel,
-    pub redeemed: Fuel,
-    pub available: Fuel,
-}
+// helper functions
 
-#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
-pub struct HolofuelPaidUnpaid {
-    pub date: String,
-    pub paid: Fuel,
-    pub unpaid: Fuel,
-}
+pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<HostingPlan>> {
+    let core_app_id = ws.core_app_id.clone();
 
-#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
-pub struct RedemableHolofuelHistogramResponse {
-    pub dailies: Vec<HolofuelPaidUnpaid>,
-    pub redeemed: Fuel,
-}
+    let s: ServiceloggerHappPreferences = ws
+        .call_zome(
+            core_app_id,
+            "core-app",
+            "hha",
+            "get_happ_preferences",
+            happ_id,
+        )
+        .await?;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
-#[serde(rename_all = "camelCase")]
-pub struct ZomeCallRequest {
-    pub app_id: String,
-    pub role_id: String,
-    pub zome_name: String,
-    pub fn_name: String,
-    pub payload: serde_json::Value,
-}
-
-#[derive(Responder)]
-#[response(status = 200, content_type = "binary")]
-pub struct ZomeCallResponse(pub &'static [u8]);
-
-#[cfg(test)]
-mod test {
-    use holochain_types::dna::ActionHashB64;
-
-    #[test]
-    fn decode_hash() {
-        let str = "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC";
-        ActionHashB64::from_b64_str(str).unwrap();
+    if s.price_compute == Fuel::new(0)
+        && s.price_storage == Fuel::new(0)
+        && s.price_bandwidth == Fuel::new(0)
+    {
+        Ok(Some(HostingPlan::Free))
+    } else {
+        Ok(Some(HostingPlan::Paid))
     }
+}
+
+pub async fn count_instances(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<u16>> {
+    // What filter shall I use in list_happs()? Is None correct?
+    Ok(Some(
+        ws.admin
+            .list_apps(None)
+            .await
+            .map_err(|err| anyhow!("{:?}", err))?
+            .iter()
+            .fold(0, |acc, info| {
+                if info.installed_app_id.contains(&format!("{}:uhCA", happ_id)) {
+                    acc + 1
+                } else {
+                    acc
+                }
+            }),
+    ))
+}
+
+// TODO: average_weekly still needs to be calculated - from total and days_hosted?
+pub async fn count_earnings(transactions: Vec<Transaction>) -> Result<Option<Earnings>> {
+    let mut e = Earnings::default();
+    for p in transactions.iter() {
+        let amount_fuel = Fuel::from_str(&p.amount)?;
+        e.total = (e.total + amount_fuel)?;
+        // if completed_date is within last week then add fuel to last_7_days, too
+        let week = Duration::from_secs(7 * 24 * 60 * 60);
+        if (Timestamp::now() - week)? < p.completed_date.unwrap() {
+            e.last_7_days = (e.last_7_days + amount_fuel)?
+        };
+    }
+    Ok(Some(e))
+}
+
+pub fn count_days_hosted(since: Timestamp) -> Result<Option<u16>> {
+    Ok(Some((Timestamp::now() - since)?.num_days() as u16))
+}
+
+async fn get_usage(
+    happ_id: ActionHashB64,
+    usage_interval: i64,
+    ws: &mut Ws,
+) -> Result<Option<HappStats>> {
+    log::debug!("Calling get_stats for happ: {}::servicelogger", happ_id);
+    let result: HappStats = ws
+        .call_zome(
+            format!("{}::servicelogger", happ_id),
+            "servicelogger",
+            "service",
+            "get_stats",
+            UsageTimeInterval {
+                duration_unit: "DAY".to_string(),
+                amount: usage_interval,
+            },
+        )
+        .await?;
+    Ok(Some(result))
 }
