@@ -10,6 +10,7 @@ use rocket::{self, Build, Rocket};
 use routes::holofuel_redeemable_for_last_week::*;
 use routes::hosted_happs::*;
 use routes::zome_call::*;
+use routes::host::*;
 
 pub async fn rocket() -> Rocket<Build> {
     if let Err(e) = env_logger::try_init() {
@@ -32,7 +33,8 @@ pub async fn rocket() -> Rocket<Build> {
             disable_happ,
             zome_call,
             get_service_logs,
-            get_redeemable_holofuel_request
+            get_redeemable_holofuel_request,
+            get_host_earnings
         ],
     )
 }

@@ -3,13 +3,11 @@ use rocket::{
     serde::{json::Json, Deserialize, Serialize},
     {get, post, State},
 };
-
 use crate::handlers::hosted_happs::*;
 use crate::{
     common::types::Transaction,
     hpos::{Ws, WsMutex},
 };
-
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
@@ -22,22 +20,6 @@ use holofuel_types::fuel::Fuel;
 use log::{debug, warn};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fmt, str::FromStr, time::Duration};
-
-// Rocket will return 400 if query params are of a wrong type
-#[get("/hosted_happs?<usage_interval>&<quantity>")]
-pub async fn get_all_hosted_happs(
-    usage_interval: i64,
-    quantity: Option<usize>,
-    wsm: &State<WsMutex>,
-) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
-    let mut ws = wsm.lock().await;
-
-    Ok(Json(
-        handle_get_all(usage_interval, quantity, &mut ws)
-            .await
-            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
-    ))
-}
 
 // Routes
 
@@ -54,6 +36,22 @@ pub async fn index(wsm: &State<WsMutex>) -> String {
     .unwrap();
 
     format!("🤖 I'm your holoport {}", sample.holoport_id)
+}
+
+// Rocket will return 400 if query params are of a wrong type
+#[get("/hosted_happs?<usage_interval>&<quantity>")]
+pub async fn get_all_hosted_happs(
+    usage_interval: i64,
+    quantity: Option<usize>,
+    wsm: &State<WsMutex>,
+) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    Ok(Json(
+        handle_get_all(usage_interval, quantity, &mut ws)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
 }
 
 #[get("/hosted_happs/<id>?<usage_interval>")]
