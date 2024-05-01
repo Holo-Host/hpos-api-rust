@@ -1,5 +1,6 @@
 use crate::common::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
+use log::{debug, warn, info, error};
 use core::fmt::Debug;
 use holochain_client::{
     AdminWebsocket, AgentPubKey, AppWebsocket, ConductorApiError, InstalledAppId, ZomeCall,
@@ -7,7 +8,6 @@ use holochain_client::{
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
 use holochain_keystore::MetaLairClient;
 use holochain_types::prelude::{ExternIO, ZomeCallUnsigned};
-use holochain_websocket::WebsocketError;
 use hpos_hc_connect::{
     holo_config::{self, HappsFile},
     utils::fresh_nonce,
@@ -139,7 +139,7 @@ impl Ws {
         match response {
             // return response if no error is thrown
             Ok(response) => {
-                log::debug!("zome call response raw bytes: {:?}", &response);
+                debug!("zome call response raw bytes: {:?}", &response);
                 Ok(response)
             }
             Err(err) => match err {
@@ -160,12 +160,9 @@ impl Ws {
     }
 
     // re-connect websocket connection if a specific error was thrown
-    async fn handle_websocket_error(&mut self, err: WebsocketError) -> Result<bool> {
-        match err {
-            WebsocketError::RespTimeout => self.reconnect(5).await,
-            WebsocketError::Shutdown => self.reconnect(5).await,
-            err => Err(anyhow!("{:?}", err)),
-        }
+    async fn handle_websocket_error(&mut self, err: std::io::Error) -> Result<bool> {
+        debug!("Error while connecting to holochain websocket: {:?}", err);
+        self.reconnect(5).await
     }
 
     // try to reconnect websocket connection
@@ -179,7 +176,7 @@ impl Ws {
                 break;
             }
 
-            log::warn!(
+            warn!(
                 "attempting to reconnect: {}/{} attempt",
                 retries + 1,
                 max_retries
@@ -205,10 +202,10 @@ impl Ws {
         }
         match is_connected {
             true => {
-                log::info!("successfully reconnected!");
+                info!("successfully reconnected!");
             }
             false => {
-                log::error!(
+                error!(
                     "failed to establish websocket connection after {} retries",
                     max_retries
                 );
