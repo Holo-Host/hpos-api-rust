@@ -1,6 +1,5 @@
 use crate::common::consts::{ADMIN_PORT, APP_PORT};
 use anyhow::{anyhow, Context, Result};
-use log::{debug, warn, info, error};
 use core::fmt::Debug;
 use holochain_client::{
     AdminWebsocket, AgentPubKey, AppWebsocket, ConductorApiError, InstalledAppId, ZomeCall,
@@ -12,6 +11,7 @@ use hpos_hc_connect::{
     holo_config::{self, HappsFile},
     utils::fresh_nonce,
 };
+use log::{debug, error, info, warn};
 use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 

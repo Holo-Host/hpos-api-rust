@@ -3,7 +3,6 @@ pub mod core_apps;
 use anyhow::{anyhow, Context, Result};
 use core_apps::Happ;
 use core_apps::{HHA_URL, SL_URL};
-use ed25519_dalek::Keypair;
 use holochain_client::{AdminWebsocket, AppInfo, AppWebsocket, InstallAppPayload, ZomeCall};
 use holochain_conductor_api::{CellInfo, ProvisionedCell};
 use holochain_env_setup::{
@@ -17,6 +16,7 @@ use holochain_types::prelude::{
     holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
     Signature, Timestamp, UnsafeBytes, YamlProperties, ZomeCallUnsigned,
 };
+use holochain_types::websocket::AllowedOrigins;
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::common::consts::{ADMIN_PORT, APP_PORT};
 use hpos_api_rust::routes::hosted_happs::{
@@ -83,7 +83,7 @@ impl Test {
             .expect("failed to connect to holochain's admin interface");
 
         let _ = admin_ws
-            .attach_app_interface(APP_PORT)
+            .attach_app_interface(APP_PORT, AllowedOrigins::Any)
             .await
             .expect("failed to attach app interface");
 
@@ -281,13 +281,13 @@ async fn from_config(config_path: PathBuf, password: String) -> Result<(String, 
     match serde_json::from_reader(config_file)? {
         Config::V2 { device_bundle, .. } => {
             // take in password
-            let Keypair { public, .. } =
-                unlock(&device_bundle, Some(password))
-                    .await
-                    .context(format!(
-                        "unable to unlock the device bundle from {}",
-                        &config_path.to_string_lossy()
-                    ))?;
+            let public = unlock(&device_bundle, Some(password))
+                .await
+                .context(format!(
+                    "unable to unlock the device bundle from {}",
+                    &config_path.to_string_lossy()
+                ))?
+                .verifying_key();
             Ok((
                 public_key::to_holochain_encoded_agent_key(&public),
                 device_bundle,
