@@ -78,7 +78,7 @@ impl Test {
 
         info!("Started holochain in tmp dir {:?}", &tmp_dir);
 
-        let mut admin_ws = AdminWebsocket::connect(format!("ws://localhost:{}", ADMIN_PORT))
+        let mut admin_ws = AdminWebsocket::connect(format!("localhost:{}", ADMIN_PORT))
             .await
             .expect("failed to connect to holochain's admin interface");
 
@@ -87,7 +87,7 @@ impl Test {
             .await
             .expect("failed to attach app interface");
 
-        let app_ws = AppWebsocket::connect(format!("ws://localhost:{}", APP_PORT))
+        let app_ws = AppWebsocket::connect(format!("localhost:{}", APP_PORT))
             .await
             .expect("failed to connect to holochain's app interface");
 

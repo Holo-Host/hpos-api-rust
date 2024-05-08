@@ -33,10 +33,10 @@ pub struct Ws {
 
 impl Ws {
     pub async fn connect(k: &Keystore) -> Result<Self> {
-        let app = AppWebsocket::connect(format!("ws://localhost:{}/", APP_PORT))
+        let app = AppWebsocket::connect(format!("localhost:{}", APP_PORT))
             .await
             .context("failed to connect to holochain's app interface")?;
-        let admin = AdminWebsocket::connect(format!("ws://localhost:{}/", ADMIN_PORT))
+        let admin = AdminWebsocket::connect(format!("localhost:{}", ADMIN_PORT))
             .await
             .context("failed to connect to holochain's app interface")?;
 

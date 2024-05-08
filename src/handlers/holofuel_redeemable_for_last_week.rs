@@ -6,7 +6,7 @@ use crate::{
     HolofuelPaidUnpaid,
 };
 use anyhow::Result;
-use chrono::{DateTime, Days, NaiveDateTime, Utc};
+use chrono::{DateTime, Days, Utc};
 use holofuel_types::fuel::Fuel;
 use log::debug;
 
@@ -89,8 +89,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
 }
 
 fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
-    let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
-    let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+    let date_time: DateTime<Utc> = DateTime::from_timestamp_millis(timestamp).unwrap();
     date_time
 }
 

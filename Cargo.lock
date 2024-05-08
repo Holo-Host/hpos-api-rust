@@ -1908,7 +1908,7 @@ dependencies = [
 [[package]]
 name = "holochain_env_setup"
 version = "0.1.1"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=c5f5b962bc8e39797fb7735d7065cf5bc4373bb7#c5f5b962bc8e39797fb7735d7065cf5bc4373bb7"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=fad6b198c394f5c231fe155bf093ebd8ffe8b045#fad6b198c394f5c231fe155bf093ebd8ffe8b045"
 dependencies = [
  "anyhow",
  "dotenv",
@@ -2329,7 +2329,7 @@ dependencies = [
 [[package]]
 name = "hpos_hc_connect"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=c5f5b962bc8e39797fb7735d7065cf5bc4373bb7#c5f5b962bc8e39797fb7735d7065cf5bc4373bb7"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=fad6b198c394f5c231fe155bf093ebd8ffe8b045#fad6b198c394f5c231fe155bf093ebd8ffe8b045"
 dependencies = [
  "again",
  "anyhow",
@@ -5217,7 +5217,7 @@ dependencies = [
 [[package]]
 name = "taskgroup_manager"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=c5f5b962bc8e39797fb7735d7065cf5bc4373bb7#c5f5b962bc8e39797fb7735d7065cf5bc4373bb7"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=fad6b198c394f5c231fe155bf093ebd8ffe8b045#fad6b198c394f5c231fe155bf093ebd8ffe8b045"
 dependencies = [
  "futures",
  "nix",
