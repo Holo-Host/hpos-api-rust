@@ -10,23 +10,25 @@ base64 = "0.13.0"
 ed25519-dalek = { version = "2.1.1" }
 env_logger = "0.10.0"
 getrandom = "0.2.7"
-holochain_keystore = "0.3.0-beta-dev.36"
-holochain_client = " 0.5.0-dev.31"
-holochain_websocket = "0.3.0-beta-dev.21"
-holochain_types = {version = "0.3.0-beta-dev.42", features = ["chc"]}
-holochain_conductor_api = { version = "0.3.0-beta-dev.44", features = ["chc"]}
-holofuel_types = "0.5.8"
 
-hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "fad6b198c394f5c231fe155bf093ebd8ffe8b045" }
-holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "fad6b198c394f5c231fe155bf093ebd8ffe8b045" }
+holochain_client = "=0.6.0-dev.0"
+holochain_keystore = "0.4.0-dev.2"
+holochain_types = { version = "0.4.0-dev.2", features = ["chc"] }
+holochain_conductor_api = "0.4.0-dev.2"
+holochain_websocket = "0.4.0-dev.2"
+holofuel_types = "0.5.9"
+mr_bundle = "0.4.0-dev.1"
+
+hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "94c380f7555eacca161eb49928451a64978ddfce" }
+holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "94c380f7555eacca161eb49928451a64978ddfce" }
 hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev = "a36f862869cc162c843ac27ed617910d68f480cc" }
 hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "a36f862869cc162c843ac27ed617910d68f480cc" }
 
-mr_bundle = { version = "0.3.0-beta-dev.10" }
+
 log = "0.4.17"
 rand = "0.8.5"
 rocket = { version = "0.5.0-rc.3", features = ["json"] }
-serde = "1.0.193"
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_bytes = "0.11"
 serde_yaml = "0.9.25"
 sodoken = "0.0.11"
