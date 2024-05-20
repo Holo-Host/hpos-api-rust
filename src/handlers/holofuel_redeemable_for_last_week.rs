@@ -83,7 +83,9 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
         filtered_pending_transactions,
     ]
     .concat();
-    Ok(group_transactions_by_day(filtered_transactions))
+
+    let grouped_transactions = group_transactions_by_day(filtered_transactions);
+    Ok(add_missing_days(grouped_transactions))
 }
 
 fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
@@ -180,10 +182,35 @@ fn group_transactions_by_day(transactions: Vec<Transaction>) -> Vec<HolofuelPaid
         .collect()
 }
 
+fn add_missing_days(
+    mut grouped_transactions_by_day: Vec<HolofuelPaidUnpaid>,
+) -> Vec<HolofuelPaidUnpaid> {
+    for i in 0..7 {
+        let date = Utc::now()
+            .checked_sub_days(Days::new(i))
+            .unwrap_or_default()
+            .format("%Y-%m-%d")
+            .to_string();
+
+        if let None = grouped_transactions_by_day
+            .iter()
+            .position(|t| t.date == date)
+        {
+            grouped_transactions_by_day.push(HolofuelPaidUnpaid {
+                date,
+                paid: Fuel::new(0),
+                unpaid: Fuel::new(0),
+            });
+        }
+    }
+    return grouped_transactions_by_day;
+}
+
 #[cfg(test)]
 mod test {
     use std::str::FromStr;
 
+    use chrono::{Days, Utc};
     use holochain_types::{
         dna::{AgentPubKeyB64, EntryHashB64},
         prelude::Timestamp,
@@ -192,11 +219,12 @@ mod test {
     use serde::{Deserialize, Serialize};
     use serde_yaml;
 
-    use crate::common::types::{
-        Transaction, TransactionDirection, TransactionStatus, TransactionType,
+    use crate::{
+        common::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType},
+        HolofuelPaidUnpaid,
     };
 
-    use super::group_transactions_by_day;
+    use super::{add_missing_days, group_transactions_by_day};
 
     #[test]
     // proves that parsed string can represent a struct much bigger than destination type
@@ -311,5 +339,35 @@ mod test {
         assert_eq!(result[2].date, five_days_ago);
         assert_eq!(result[2].paid, Fuel::new(0));
         assert_eq!(result[2].unpaid, fuel_200);
+    }
+
+    #[test]
+    fn test_add_missing_days() {
+        let result = add_missing_days(Vec::new());
+        assert_eq!(result.len(), 7);
+
+        let mut five_days_missing: Vec<HolofuelPaidUnpaid> = Vec::new();
+        for i in 0..5 {
+            let date = Utc::now()
+                .checked_sub_days(Days::new(i))
+                .unwrap_or_default()
+                .format("%Y-%m-%d")
+                .to_string();
+            five_days_missing.push(HolofuelPaidUnpaid {
+                date,
+                paid: Fuel::new(1),
+                unpaid: Fuel::new(1),
+            });
+        }
+
+        let result = add_missing_days(five_days_missing);
+        assert_eq!(result.len(), 7);
+        let mut total_paid_len = 0;
+        for i in result {
+            if i.paid > Fuel::new(0) {
+                total_paid_len = total_paid_len + 1;
+            }
+        }
+        assert_eq!(total_paid_len, 5);
     }
 }
