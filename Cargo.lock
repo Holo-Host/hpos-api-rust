@@ -1878,7 +1878,7 @@ dependencies = [
 [[package]]
 name = "holochain_env_setup"
 version = "0.1.1"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=94c380f7555eacca161eb49928451a64978ddfce#94c380f7555eacca161eb49928451a64978ddfce"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b81bb119aa04b7b46d61039ac858368a6e4555eb#b81bb119aa04b7b46d61039ac858368a6e4555eb"
 dependencies = [
  "anyhow",
  "dotenv",
@@ -2299,7 +2299,7 @@ dependencies = [
 [[package]]
 name = "hpos_hc_connect"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=94c380f7555eacca161eb49928451a64978ddfce#94c380f7555eacca161eb49928451a64978ddfce"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b81bb119aa04b7b46d61039ac858368a6e4555eb#b81bb119aa04b7b46d61039ac858368a6e4555eb"
 dependencies = [
  "again",
  "anyhow",
@@ -2318,6 +2318,7 @@ dependencies = [
  "lazy_static",
  "mr_bundle",
  "reqwest",
+ "rmp-serde 1.1.2",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -5165,7 +5166,7 @@ dependencies = [
 [[package]]
 name = "taskgroup_manager"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=94c380f7555eacca161eb49928451a64978ddfce#94c380f7555eacca161eb49928451a64978ddfce"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b81bb119aa04b7b46d61039ac858368a6e4555eb#b81bb119aa04b7b46d61039ac858368a6e4555eb"
 dependencies = [
  "futures",
  "nix",
