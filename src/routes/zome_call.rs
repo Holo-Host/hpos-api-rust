@@ -2,7 +2,7 @@ use crate::hpos::WsMutex;
 use rocket::{
     http::Status,
     serde::{
-        json::{serde_json, Json, Value},
+        json::{serde_json, Json},
         Deserialize, Serialize,
     },
     Responder, {post, State},
@@ -19,12 +19,16 @@ pub async fn zome_call(
     // so I need to extend lifetime with Box::leak
     let data = Box::leak(Box::new(data.into_inner()));
 
-    let res = ws
-        .call_zome_raw::<Value>(
-            data.app_id.clone(),
-            &data.role_id,
-            &data.zome_name,
-            &data.fn_name,
+    let app_connection = ws
+        .get_connection(data.app_id.clone())
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+
+    let res: Vec<u8> = app_connection
+        .zome_call_typed(
+            data.role_id.clone().into(),
+            data.zome_name.clone().into(),
+            data.fn_name.clone().into(),
             data.payload.clone(),
         )
         .await
@@ -33,7 +37,7 @@ pub async fn zome_call(
     // same here as above - extending lifetime to 'static with Box::leak
     let res = Box::leak(Box::new(res));
 
-    Ok(ZomeCallResponse(res.as_bytes()))
+    Ok(ZomeCallResponse(res))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
