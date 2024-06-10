@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use crate::common::consts::ADMIN_PORT;
 use anyhow::{anyhow, Context, Result};
 use holochain_keystore::MetaLairClient;
 use hpos_hc_connect::{
     holo_config::{self, HappsFile},
-    AdminWebsocket,
+    AdminWebsocket, AppConnection,
 };
 use rocket::tokio::sync::Mutex;
 
@@ -22,7 +24,7 @@ pub type WsMutex = Mutex<Ws>;
 pub struct Ws {
     pub admin: AdminWebsocket,
     keystore: MetaLairClient,
-    // HashMap of open interfaces that has to be populated at start and maintained over runtime of this binary
+    pub apps: HashMap<String, AppConnection>,
     pub core_app_id: String,
 }
 
@@ -48,10 +50,32 @@ impl Ws {
             .ok_or(anyhow!("Could not find a core-app in HPOS file"))?
             .id();
 
+        let apps = HashMap::new();
+
         Ok(Mutex::new(Self {
             admin,
             keystore,
+            apps,
             core_app_id,
         }))
+    }
+
+    async fn open_connection(&mut self, app_id: String) -> Result<AppConnection> {
+        let app_ws = AppConnection::connect(&mut self.admin, self.keystore.clone(), app_id).await?;
+
+        // Not really because it returns mutable reference
+        Ok(app_ws)
+    }
+
+    pub async fn get_connection(&mut self, app_id: String) -> Result<&mut AppConnection> {
+        if self.apps.contains_key(&app_id) {
+            // I can unwrap here because I have just checked if queried key existed
+            return Ok(self.apps.get_mut(&app_id).unwrap());
+        } else {
+            let connection = self.open_connection(app_id.clone()).await?;
+            self.apps.insert(app_id.clone(), connection);
+            // I can unwrap here because I just inserted queried key
+            Ok(self.apps.get_mut(&app_id).unwrap())
+        }
     }
 }
