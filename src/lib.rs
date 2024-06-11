@@ -1,5 +1,5 @@
 pub mod common;
-mod handlers;
+pub mod handlers;
 mod hpos;
 pub mod routes;
 

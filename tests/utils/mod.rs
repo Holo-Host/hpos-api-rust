@@ -3,8 +3,8 @@ pub mod core_apps;
 use anyhow::{anyhow, Context, Result};
 use core_apps::Happ;
 use core_apps::{HHA_URL, SL_URL};
-use holochain_client::{AdminWebsocket, AppInfo, AppWebsocket, InstallAppPayload, ZomeCall};
-use holochain_conductor_api::{CellInfo, ProvisionedCell};
+use holochain_client::{AppInfo, InstallAppPayload};
+use holochain_conductor_api::AdminResponse;
 use holochain_env_setup::{
     environment::{setup_environment, Environment},
     holochain::{create_log_dir, create_tmp_dir},
@@ -13,23 +13,22 @@ use holochain_env_setup::{
 use holochain_types::app::AppManifest;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
-    holochain_serial, AgentPubKey, AppBundleSource, ExternIO, Nonce256Bits, SerializedBytes,
-    Signature, Timestamp, UnsafeBytes, YamlProperties, ZomeCallUnsigned,
+    holochain_serial, AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp,
+    UnsafeBytes, YamlProperties,
 };
-use holochain_types::websocket::AllowedOrigins;
 use holofuel_types::fuel::Fuel;
-use hpos_api_rust::common::consts::{ADMIN_PORT, APP_PORT};
-use hpos_api_rust::routes::hosted_happs::{
+use hpos_api_rust::common::consts::ADMIN_PORT;
+use hpos_api_rust::handlers::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
 };
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
+use hpos_hc_connect::{AdminWebsocket, AppConnection};
 use log::{debug, info, trace};
 use rocket::serde::json::serde_json;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use std::time::Duration;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
@@ -37,7 +36,6 @@ pub struct Test {
     pub hc_env: Environment,
     pub agent: AgentPubKey,
     pub admin_ws: AdminWebsocket,
-    pub app_ws: AppWebsocket,
 }
 impl Test {
     /// Set up an environment resembling HPOS
@@ -78,29 +76,19 @@ impl Test {
 
         info!("Started holochain in tmp dir {:?}", &tmp_dir);
 
-        let mut admin_ws = AdminWebsocket::connect(format!("localhost:{}", ADMIN_PORT))
+        let admin_ws = AdminWebsocket::connect(ADMIN_PORT)
             .await
             .expect("failed to connect to holochain's admin interface");
-
-        let _ = admin_ws
-            .attach_app_interface(APP_PORT, AllowedOrigins::Any)
-            .await
-            .expect("failed to attach app interface");
-
-        let app_ws = AppWebsocket::connect(format!("localhost:{}", APP_PORT))
-            .await
-            .expect("failed to connect to holochain's app interface");
 
         Self {
             hc_env,
             agent,
             admin_ws,
-            app_ws,
         }
     }
 
     /// Generate SL activity Payload
-    pub async fn generate_sl_payload(&mut self, sl_cell: &ProvisionedCell) -> ActivityLog {
+    pub async fn generate_sl_payload(&mut self, ws: &mut AppConnection) -> ActivityLog {
         use rand::seq::SliceRandom;
 
         let hosts = vec![
@@ -129,9 +117,15 @@ impl Test {
             },
         };
 
-        let request_signature: Signature = self
-            .call_zome(sl_cell, "service", "sign_request", request.clone())
-            .await;
+        //let sl_websocket
+
+        let request_signature: Signature = ws
+            .zome_call_typed(
+                "servicelogger".into(),
+                "hha".into(),
+                "create_draft".into(),
+                request.clone(),
+            ).await.unwrap();
 
         ActivityLog {
             request: ClientRequest {
@@ -215,25 +209,29 @@ impl Test {
 
         let payload = InstallAppPayload {
             agent_key: self.agent.clone(),
-            installed_app_id,
+            installed_app_id: installed_app_id.clone(),
             source,
             membrane_proofs,
             network_seed: None,
             ignore_genesis_failure: false,
         };
 
-        let app_info = self
+        let app_info = if let AdminResponse::AppInstalled(app_info) = self
             .admin_ws
             .install_app(payload)
             .await
-            .expect("failed to install happ");
-
-        trace!("{} app_info: {:#?}", happ, &app_info);
+            .expect("failed to install happ")
+        {
+            trace!("{} app_info: {:#?}", happ, &app_info);
+            app_info
+        } else {
+            panic!("Failed to install happ with id {:?}", installed_app_id);
+        };
 
         // enable happ
         let _ = self
             .admin_ws
-            .enable_app(app_info.installed_app_id.clone())
+            .enable_app(&app_info.installed_app_id.clone())
             .await
             .expect("failed to enable app");
 
@@ -242,35 +240,35 @@ impl Test {
         app_info
     }
 
-    pub async fn call_zome<T: Debug + Serialize, R: Debug + for<'de> Deserialize<'de>>(
-        &mut self,
-        hha_cell: &ProvisionedCell,
-        zome_name: &str,
-        fn_name: &str,
-        payload: T,
-    ) -> R {
-        let (nonce, expires_at) = fresh_nonce();
+    // pub async fn call_zome<T: Debug + Serialize, R: Debug + for<'de> Deserialize<'de>>(
+    //     &mut self,
+    //     hha_cell: &ProvisionedCell,
+    //     zome_name: &str,
+    //     fn_name: &str,
+    //     payload: T,
+    // ) -> R {
+    //     let (nonce, expires_at) = fresh_nonce();
 
-        let zome_call_unsigned = ZomeCallUnsigned {
-            provenance: self.agent.clone(),
-            cell_id: hha_cell.clone().cell_id,
-            zome_name: zome_name.into(),
-            fn_name: fn_name.into(),
-            cap_secret: None,
-            payload: ExternIO::encode(payload).unwrap(),
-            nonce,
-            expires_at,
-        };
+    //     let zome_call_unsigned = ZomeCallUnsigned {
+    //         provenance: self.agent.clone(),
+    //         cell_id: hha_cell.clone().cell_id,
+    //         zome_name: zome_name.into(),
+    //         fn_name: fn_name.into(),
+    //         cap_secret: None,
+    //         payload: ExternIO::encode(payload).unwrap(),
+    //         nonce,
+    //         expires_at,
+    //     };
 
-        let signed_zome_call =
-            ZomeCall::try_from_unsigned_zome_call(&self.hc_env.keystore, zome_call_unsigned)
-                .await
-                .unwrap();
+    //     let signed_zome_call =
+    //         ZomeCall::try_from_unsigned_zome_call(&self.hc_env.keystore, zome_call_unsigned)
+    //             .await
+    //             .unwrap();
 
-        let response = self.app_ws.call_zome(signed_zome_call).await.unwrap();
+    //     let response = self.app_ws.call_zome(signed_zome_call).await.unwrap();
 
-        ExternIO::decode(&response).unwrap()
-    }
+    //     ExternIO::decode(&response).unwrap()
+    // }
 }
 
 async fn from_config(config_path: PathBuf, password: String) -> Result<(String, String)> {
@@ -297,25 +295,25 @@ async fn from_config(config_path: PathBuf, password: String) -> Result<(String, 
     }
 }
 
-/// generates nonce for zome calls
-/// https://github.com/Holo-Host/hpos-service-crates/blob/e1d1baa0c9741a46a29626ce33d9e019c1391db8/crates/hpos_connect_hc/src/utils.rs#L13
-fn fresh_nonce() -> (Nonce256Bits, Timestamp) {
-    let mut bytes = [0; 32];
-    getrandom::getrandom(&mut bytes).unwrap();
-    let nonce = Nonce256Bits::from(bytes);
-    // Rather arbitrary but we expire nonces after 5 mins.
-    let expires: Timestamp = (Timestamp::now() + Duration::from_secs(60 * 5)).unwrap();
-    (nonce, expires)
-}
+// /// generates nonce for zome calls
+// /// https://github.com/Holo-Host/hpos-service-crates/blob/e1d1baa0c9741a46a29626ce33d9e019c1391db8/crates/hpos_connect_hc/src/utils.rs#L13
+// fn fresh_nonce() -> (Nonce256Bits, Timestamp) {
+//     let mut bytes = [0; 32];
+//     getrandom::getrandom(&mut bytes).unwrap();
+//     let nonce = Nonce256Bits::from(bytes);
+//     // Rather arbitrary but we expire nonces after 5 mins.
+//     let expires: Timestamp = (Timestamp::now() + Duration::from_secs(60 * 5)).unwrap();
+//     (nonce, expires)
+// }
 
-/// Extract destructively cell from AppInfo
-pub fn to_cell(mut hha_app_info: AppInfo, role_name: &str) -> ProvisionedCell {
-    let mut a = hha_app_info.cell_info.remove(role_name).unwrap();
-    match a.pop() {
-        Some(CellInfo::Provisioned(hha_cell)) => hha_cell,
-        _ => panic!("Couldn't find cell for hha"),
-    }
-}
+// /// Extract destructively cell from AppInfo
+// pub fn to_cell(mut hha_app_info: AppInfo, role_name: &str) -> ProvisionedCell {
+//     let mut a = hha_app_info.cell_info.remove(role_name).unwrap();
+//     match a.pop() {
+//         Some(CellInfo::Provisioned(hha_cell)) => hha_cell,
+//         _ => panic!("Couldn't find cell for hha"),
+//     }
+// }
 
 #[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
 pub struct HappInput {
