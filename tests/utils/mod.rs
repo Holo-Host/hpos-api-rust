@@ -122,8 +122,8 @@ impl Test {
         let request_signature: Signature = ws
             .zome_call_typed(
                 "servicelogger".into(),
-                "hha".into(),
-                "create_draft".into(),
+                "service".into(),
+                "sign_request".into(),
                 request.clone(),
             )
             .await

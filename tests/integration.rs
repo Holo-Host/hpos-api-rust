@@ -229,6 +229,7 @@ async fn install_components() {
     debug!("raw response body: {:?}", response_body);
     // decode with ExternIO
     let bundle: Value = ExternIO::decode(&ExternIO::from(response_body)).unwrap();
+    debug!("decoded response body: {:?}", bundle);
     // Check if deserialized zome call result is correct
     assert_eq!(&bundle["name"], "Test123");
     assert_eq!(&bundle["bundle_url"], "Url123");
