@@ -125,7 +125,9 @@ impl Test {
                 "hha".into(),
                 "create_draft".into(),
                 request.clone(),
-            ).await.unwrap();
+            )
+            .await
+            .unwrap();
 
         ActivityLog {
             request: ClientRequest {

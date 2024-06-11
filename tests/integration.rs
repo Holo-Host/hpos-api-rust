@@ -91,14 +91,26 @@ async fn install_components() {
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
     // Open ws connection to servicelogger instance for hosted happ
-    let mut sl_ws = AppConnection::connect(&mut test.admin_ws, test.hc_env.keystore.clone(), sl_app_info.installed_app_id).await.unwrap();
+    let mut sl_ws = AppConnection::connect(
+        &mut test.admin_ws,
+        test.hc_env.keystore.clone(),
+        sl_app_info.installed_app_id,
+    )
+    .await
+    .unwrap();
 
     // Generate some SL activity
     for _ in 1..10 {
         let payload = test.generate_sl_payload(&mut sl_ws).await;
         let sl_response: ActionHashB64 = sl_ws
-            .zome_call_typed("servicelogger".into(), "service".into(), "log_activity".into(), payload)
-            .await.unwrap();
+            .zome_call_typed(
+                "servicelogger".into(),
+                "service".into(),
+                "log_activity".into(),
+                payload,
+            )
+            .await
+            .unwrap();
         debug!("logged activity: {}", sl_response);
     }
 

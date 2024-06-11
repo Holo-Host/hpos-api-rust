@@ -80,9 +80,9 @@ pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, 
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
-    Ok(handle_enable(&mut ws, payload)
+    handle_enable(&mut ws, payload)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
 #[post("/hosted_happs/<id>/disable")]
@@ -93,9 +93,9 @@ pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status,
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
-    Ok(handle_disable(&mut ws, payload)
+    handle_disable(&mut ws, payload)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
 #[get("/hosted_happs/<id>/logs?<days>")]
@@ -110,7 +110,7 @@ pub async fn get_service_logs(
     let days = days.unwrap_or(7); // 7 days
 
     Ok(Json(
-        handle_get_service_logs(&mut ws, id.into(), days)
+        handle_get_service_logs(&mut ws, id, days)
             .await
             .map_err(|e| (Status::InternalServerError, e.to_string()))?,
     ))

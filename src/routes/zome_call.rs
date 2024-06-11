@@ -26,7 +26,7 @@ pub async fn zome_call(
 
     let res: Vec<u8> = app_connection
         .zome_call_typed(
-            data.role_id.clone().into(),
+            data.role_id.clone(),
             data.zome_name.clone().into(),
             data.fn_name.clone().into(),
             data.payload.clone(),

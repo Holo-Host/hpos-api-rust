@@ -188,10 +188,7 @@ fn add_missing_days(
             .format("%Y-%m-%d")
             .to_string();
 
-        if let None = grouped_transactions_by_day
-            .iter()
-            .position(|t| t.date == date)
-        {
+        if !grouped_transactions_by_day.iter().any(|t| t.date == date) {
             grouped_transactions_by_day.push(HolofuelPaidUnpaid {
                 date,
                 paid: Fuel::new(0),
@@ -199,7 +196,7 @@ fn add_missing_days(
             });
         }
     }
-    return grouped_transactions_by_day;
+    grouped_transactions_by_day
 }
 
 #[cfg(test)]
