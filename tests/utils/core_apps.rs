@@ -11,7 +11,8 @@ pub enum Happ {
 // Converts enum to happ id, has to match one derived from /resources/test/config.yaml
 impl fmt::Display for Happ {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let dev_override_id = std::env::var("DEV_UID_OVERRIDE").map_or("".into(), |str| format!("::{}", str));
+        let dev_override_id =
+            std::env::var("DEV_UID_OVERRIDE").map_or("".into(), |str| format!("::{}", str));
         match self {
             Happ::HHA => write!(f, "core-app:0_6_2{}", dev_override_id),
             Happ::SL => write!(f, "servicelogger"),

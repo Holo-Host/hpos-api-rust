@@ -7,10 +7,10 @@ use hpos::Ws;
 use log::debug;
 use rocket::{self, Build, Rocket};
 
+use routes::core_app_version::*;
 use routes::holofuel_redeemable_for_last_week::*;
 use routes::hosted_happs::*;
 use routes::zome_call::*;
-use routes::core_app_version::*;
 
 pub async fn rocket() -> Rocket<Build> {
     if let Err(e) = env_logger::try_init() {
