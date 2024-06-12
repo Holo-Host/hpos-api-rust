@@ -224,7 +224,6 @@ async fn install_components() {
 
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-
     let response_body = response.into_bytes().await.unwrap();
     debug!("raw response body: {:?}", response_body);
     // decode with ExternIO
@@ -233,4 +232,14 @@ async fn install_components() {
     // Check if deserialized zome call result is correct
     assert_eq!(&bundle["name"], "Test123");
     assert_eq!(&bundle["bundle_url"], "Url123");
+
+    // get core_happ_version
+    let path = format!("/core_app_version");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, Happ::HHA.to_string());
 }
