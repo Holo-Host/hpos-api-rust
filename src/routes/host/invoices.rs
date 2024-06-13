@@ -6,7 +6,6 @@ use rocket::{
 
 use crate::hpos::WsMutex;
 
-
 /// Returns list of all host invoices as needed for the host-console-ui invoice page
 /// -- includes optional invoice_set {all, unpaid, paid} param to allow querying the invoices by their status
 #[get("/invoices?<invoice_set>")]

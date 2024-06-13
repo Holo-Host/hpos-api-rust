@@ -1,15 +1,18 @@
-use crate::{common::types::{PendingTransactions, RedemptionState, Transaction, TransactionDirection}, hpos::WsMutex};
+use crate::{
+    common::types::{PendingTransactions, RedemptionState, Transaction, TransactionDirection},
+    hpos::WsMutex,
+};
+use anyhow::Result;
+use chrono::{DateTime, Days, Utc};
 use holochain_types::prelude::{holochain_serial, SerializedBytes};
 use holofuel_types::fuel::Fuel;
+use log::debug;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
     {get, State},
 };
 use std::{collections::HashMap, str::FromStr};
-use anyhow::Result;
-use log::debug;
-use chrono::{DateTime, Days, Utc};
 
 use crate::hpos::Ws;
 
@@ -42,7 +45,6 @@ pub struct RedemableHolofuelHistogramResponse {
     pub dailies: Vec<HolofuelPaidUnpaid>,
     pub redeemed: Fuel,
 }
-
 
 // get current redemable holofuel
 pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
@@ -398,4 +400,3 @@ mod test {
         assert_eq!(total_paid_len, 5);
     }
 }
-

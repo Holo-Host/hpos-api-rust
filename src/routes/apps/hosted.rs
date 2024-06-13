@@ -262,7 +262,6 @@ pub struct HostSettings {
     pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 pub struct UsageTimeInterval {
     pub duration_unit: String,

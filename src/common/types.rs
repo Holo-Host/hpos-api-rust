@@ -1,3 +1,5 @@
+use crate::hpos::Ws;
+use anyhow::Result;
 use core::fmt::Debug;
 use holochain_types::{
     dna::{ActionHashB64, AgentPubKeyB64, EntryHashB64},
@@ -6,8 +8,6 @@ use holochain_types::{
 use holofuel_types::fuel::Fuel;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
-use crate::hpos::Ws;
-use anyhow::Result;
 
 // Return type of zome call holofuel/transactor/get_completed_transactions
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]

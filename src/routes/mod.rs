@@ -1,9 +1,9 @@
-use rocket::{get, State};
 use crate::common::types::HappAndHost;
 use crate::hpos::WsMutex;
+use rocket::{get, State};
 
-pub mod host;
 pub mod apps;
+pub mod host;
 
 #[get("/")]
 pub async fn index(wsm: &State<WsMutex>) -> String {
