@@ -32,23 +32,41 @@ pub async fn rocket() -> Rocket<Build> {
 
     rocket::build()
         .manage(ws)
-        .mount("/", routes![index,])
+        .mount(
+            "/",
+            routes![
+                index,     // done
+            ],
+        )
         .mount(
             "/apps",
             routes![
-                get_all, get_by_id, enable, disable, call_zome, logs, version, install, register
+                get_all,   // done
+                get_by_id, // done
+                enable,    // done
+                disable,   // done
+                call_zome, // done
+                logs,      // done
+                version,   // done
+                install,   // TODO!!
+                register   // TODO!!
             ],
         )
         .mount(
             "/host",
             routes![
-                earnings,
-                invoices,
-                redeemable_histogram,
-                kyc_level,
-                hosting_criteria,
-                redemptions
+                earnings,             // TODO!!
+                invoices,             // TODO!!
+                redeemable_histogram, // done
+                kyc_level,            // TODO!!
+                hosting_criteria,     // TODO!!
+                redemptions           // TODO!!
             ],
         )
-        .mount("/holoport", routes![usage])
+        .mount(
+            "/holoport",
+            routes![
+                usage,     // TODO!!
+            ],
+        )
 }
