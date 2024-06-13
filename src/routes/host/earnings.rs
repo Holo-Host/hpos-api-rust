@@ -47,9 +47,32 @@ fn get_hosted_happ_invoice_details(transactions: Vec<Transaction>) -> Result<Vec
             expiration_date,
         } = transaction;
 
-        let happ_id = "fkjdsf";
-
         if let Some(parsed_note) = parse_note(note) {
+            let Note (happ_name, invoice_note) = parsed_note;
+
+            let InvoiceNote {
+                hha_id,
+                invoice_period_start,
+                invoice_period_end,
+                invoiced_items,
+            } = invoice_note;
+            
+            return TransactionAndInvoiceDetails {
+                id:,
+                amount,
+                status,
+                r#type: transaction_type,
+                direction,
+                created_date,
+                completed_date,
+                expiration_date,
+                counterparty,
+                note: todo!(),
+                proof_of_service: todo!(),
+                url: todo!(),
+                happ: todo!(),
+                invoice_details: todo!(),
+            }
 
         } else {
             None // in the js code, this value is "undefined"
@@ -63,7 +86,12 @@ fn parse_note(unparsed_note: Option<String>) -> Option<Note> {
         let parsed_note: Note = match serde_yaml::from_str(&note) {
             Ok(parsed_note) => {
                 if is_valid_hosting_note(parsed_note) {
-                    parsed_note
+                    let Note(human_readable_note, invoice_note) = parsed_note;
+
+                    let happ_name = read_happ_name(human_readable_note);
+
+                    // A little sloppy here, re-using the Note struct, replacing the human readable part with just the happ_name. Hopefully the variable names stop this being confusing.
+                    Note(happ_name, invoice_note)
                 } else {
                     return None
                 }
@@ -81,8 +109,20 @@ fn parse_note(unparsed_note: Option<String>) -> Option<Note> {
 
 // In the js code this does some additional checking that we get for free from serde
 fn is_valid_hosting_note(note: Note) -> bool {
-    let Note(description, _) = note;
-    return description.contains("Holo Hosting Invoice for")
+    let Note(human_readable_note, _) = note;
+    return human_readable_note.contains("Holo Hosting Invoice for")
+}
+
+fn read_happ_name(human_readable_note: String) -> String {
+    if let Some(happ) = human_readable_note.split("Holo Hosting Invoice for ").nth(1) {
+        if let Some(happ_name) = happ.split("(...").next() {
+            let name = happ_name.replace("\"", "").trim();
+            return name.to_owned()
+        }
+    };
+
+    // As in the js code, we assume the above goes well, and return empty string otherwise
+    return "".to_owned()
 }
 
 #[derive(Serialize, Deserialize)]
