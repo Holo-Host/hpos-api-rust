@@ -3,6 +3,7 @@ use crate::hpos::WsMutex;
 use rocket::{get, State};
 
 pub mod apps;
+pub mod holoport;
 pub mod host;
 
 #[get("/")]

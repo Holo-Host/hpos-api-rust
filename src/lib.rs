@@ -10,9 +10,12 @@ use rocket::{self, routes, Build, Rocket};
 use routes::apps::call_zome::*;
 use routes::apps::core::*;
 use routes::apps::hosted::*;
+use routes::holoport::usage::*;
 use routes::host::earnings::*;
+use routes::host::hosting_criteria::*;
 use routes::host::invoices::*;
 use routes::host::redeemable_histogram::*;
+use routes::host::redemptions::*;
 use routes::index;
 
 pub async fn rocket() -> Rocket<Build> {
@@ -32,7 +35,9 @@ pub async fn rocket() -> Rocket<Build> {
         .mount("/", routes![index,])
         .mount(
             "/apps",
-            routes![get_all, get_by_id, enable, disable, call_zome, logs, version],
+            routes![
+                get_all, get_by_id, enable, disable, call_zome, logs, version, install, register
+            ],
         )
         .mount(
             "/host",
@@ -40,10 +45,10 @@ pub async fn rocket() -> Rocket<Build> {
                 earnings,
                 invoices,
                 redeemable_histogram,
-                disable,
-                call_zome,
-                logs,
-                version
+                kyc_level,
+                hosting_criteria,
+                redemptions
             ],
         )
+        .mount("/holoport", routes![usage])
 }

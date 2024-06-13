@@ -99,6 +99,22 @@ pub async fn logs(
     ))
 }
 
+/// ???
+#[post("/hosted/install")]
+pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    Ok(Json(()))
+}
+
+/// ???
+#[post("/hosted/register")]
+pub async fn register(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+
+    Ok(Json(()))
+}
+
 // Types
 
 #[derive(Serialize, Deserialize)]
