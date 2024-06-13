@@ -2,7 +2,6 @@ pub mod common;
 pub mod handlers;
 mod hpos;
 pub mod routes;
-mod types;
 
 use hpos::Ws;
 use log::debug;
@@ -10,8 +9,11 @@ use rocket::{self, Build, Rocket, routes};
 
 use routes::index;
 use routes::apps::hosted::*;
-use crate::routes::apps::zome_call::*;
-use crate::routes::apps::core::*;
+use routes::apps::call_zome::*;
+use routes::apps::core::*;
+use routes::host::earnings::*;
+use routes::host::invoices::*;
+use routes::host::redeemable_histogram::*;
 
 pub async fn rocket() -> Rocket<Build> {
     if let Err(e) = env_logger::try_init() {
@@ -33,13 +35,24 @@ pub async fn rocket() -> Rocket<Build> {
     ).mount(
         "/apps",
         routes![
-            get_all_hosted_happs,
-            get_hosted_happ_by_id,
-            enable_happ,
-            disable_happ,
-            zome_call,
-            get_service_logs,
-            core_app_version
+            get_all,
+            get_by_id,
+            enable,
+            disable,
+            call_zome,
+            logs,
+            version
+        ],
+    ).mount(
+        "/host",
+        routes![
+            earnings,
+            invoices,
+            redeemable_histogram,
+            disable,
+            call_zome,
+            logs,
+            version
         ],
     )
 }

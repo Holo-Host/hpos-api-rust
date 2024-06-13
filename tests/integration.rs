@@ -2,10 +2,11 @@ mod utils;
 
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::ExternIO;
+use hpos_api_rust::common::types::HappAndHost;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
-use hpos_api_rust::routes::apps::{HappAndHost, PresentedHappBundle};
-use hpos_api_rust::routes::zome_call::ZomeCallRequest;
+use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
+use hpos_api_rust::routes::apps::hosted::PresentedHappBundle;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
@@ -135,7 +136,7 @@ async fn install_components() {
     assert!(response_body.contains("5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq"));
 
     // get all hosted happs
-    let path = format!("/hosted_happs?usage_interval=5");
+    let path = format!("/apps/hosted?usage_interval=5");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -145,7 +146,7 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // disable test_hosted_happ_id
-    let path = format!("/hosted_happs/{}/disable", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}/disable", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -153,7 +154,7 @@ async fn install_components() {
     debug!("body: {:#?}", response.into_string().await);
 
     // get one hosted happ
-    let path = format!("/hosted_happs/{}", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -163,7 +164,7 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // enable test_hosted_happ_id
-    let path = format!("/hosted_happs/{}/enable", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}/enable", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -171,7 +172,7 @@ async fn install_components() {
     debug!("body: {:#?}", response.into_string().await);
 
     // get one hosted happ
-    let path = format!("/hosted_happs/{}", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -181,7 +182,7 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // get service logs for happ
-    let path = format!("/hosted_happs/{}/logs", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}/logs", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -190,7 +191,7 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
 
     // get holofuel transaction history for 1 week
-    let path = format!("/holofuel_redeemable_for_last_week");
+    let path = format!("/host/redeemable_histogram");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -199,7 +200,7 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
 
     // make zome call
-    let path = "/zome_call";
+    let path = "/apps/call_zome";
     info!("calling {}", &path);
 
     // Create correct zome call payload in form of a clear
@@ -233,8 +234,8 @@ async fn install_components() {
     assert_eq!(&bundle["name"], "Test123");
     assert_eq!(&bundle["bundle_url"], "Url123");
 
-    // get core_happ_version
-    let path = format!("/core_app_version");
+    // get core happ version
+    let path = format!("/apps/core/version");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());

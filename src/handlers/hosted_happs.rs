@@ -6,7 +6,8 @@ use rocket::serde::{Deserialize, Serialize};
 
 use crate::common::types::{Transaction, POS};
 use crate::hpos::Ws;
-use crate::types::{HappAndHost, HappDetails, PresentedHappBundle};
+use crate::common::types::HappAndHost;
+use crate::{HappDetails, PresentedHappBundle};
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
 use log::debug;

@@ -1,11 +1,10 @@
-use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
     {get, post, State},
 };
 
-use crate::{handlers::hosted_happs::*, types::HappAndHost};
+use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
 use crate::{
     common::types::Transaction,
     hpos::{Ws, WsMutex},
@@ -22,8 +21,8 @@ use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
 /// ???
-#[get("/?<usage_interval>&<quantity>")]
-pub async fn get_all_hosted_happs(
+#[get("/hosted?<usage_interval>&<quantity>")]
+pub async fn get_all(
     usage_interval: i64,
     quantity: Option<usize>,
     wsm: &State<WsMutex>,
@@ -38,8 +37,8 @@ pub async fn get_all_hosted_happs(
 }
 
 /// ???
-#[get("/<id>?<usage_interval>")]
-pub async fn get_hosted_happ_by_id(
+#[get("/hosted/<id>?<usage_interval>")]
+pub async fn get_by_id(
     id: String,
     usage_interval: Option<i64>,
     wsm: &State<WsMutex>,
@@ -56,8 +55,8 @@ pub async fn get_hosted_happ_by_id(
     ))
 }
 
-#[post("/<id>/enable")]
-pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+#[post("/hosted/<id>/enable")]
+pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
     let payload = HappAndHost::init(id, &mut ws)
@@ -69,8 +68,8 @@ pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, 
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[post("/<id>/disable")]
-pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+#[post("/hosted/<id>/disable")]
+pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
     let payload = HappAndHost::init(id, &mut ws)
@@ -82,8 +81,8 @@ pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status,
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[get("/<id>/logs?<days>")]
-pub async fn get_service_logs(
+#[get("/hosted/<id>/logs?<days>")]
+pub async fn logs(
     id: &str,
     days: Option<i32>,
     wsm: &State<WsMutex>,

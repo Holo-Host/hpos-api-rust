@@ -6,8 +6,8 @@ use rocket::{
 use crate::hpos::WsMutex;
 
 /// Return an installed_app_id of a core app
-#[get("/version")]
-pub async fn core_app_version(wsm: &State<WsMutex>) -> Result<String, (Status, String)> {
+#[get("/core/version")]
+pub async fn version(wsm: &State<WsMutex>) -> Result<String, (Status, String)> {
     let ws = wsm.lock().await;
 
     Ok(ws.core_app_id.clone())

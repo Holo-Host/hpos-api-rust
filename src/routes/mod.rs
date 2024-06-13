@@ -1,5 +1,6 @@
 use rocket::{get, State};
-use crate::{hpos::WsMutex, types::HappAndHost};
+use crate::common::types::HappAndHost;
+use crate::hpos::WsMutex;
 
 pub mod host;
 pub mod apps;

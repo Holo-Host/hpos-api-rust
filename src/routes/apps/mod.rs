@@ -1,3 +1,3 @@
 pub mod hosted;
-pub mod zome_call;
+pub mod call_zome;
 pub mod core;
