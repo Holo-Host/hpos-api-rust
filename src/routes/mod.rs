@@ -6,6 +6,7 @@ pub mod apps;
 pub mod holoport;
 pub mod host;
 
+/// Returns holoport id - used mostly as an I'm alive ping endpoint
 #[get("/")]
 pub async fn index(wsm: &State<WsMutex>) -> String {
     let mut ws = wsm.lock().await;
