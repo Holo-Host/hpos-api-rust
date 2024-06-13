@@ -4,7 +4,7 @@ use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::ExternIO;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
-use hpos_api_rust::routes::hosted_happs::{HappAndHost, PresentedHappBundle};
+use hpos_api_rust::routes::apps::{HappAndHost, PresentedHappBundle};
 use hpos_api_rust::routes::zome_call::ZomeCallRequest;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;

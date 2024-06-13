@@ -9,8 +9,8 @@ use rocket::{
 
 use crate::handlers::holofuel_redeemable_for_last_week::*;
 
-#[get("/holofuel_redeemable_for_last_week")]
-pub async fn get_redeemable_holofuel_request(
+#[get("/redeemable_histogram")]
+pub async fn redeemable_histogram(
     wsm: &State<WsMutex>,
 ) -> Result<Json<RedemableHolofuelHistogramResponse>, (Status, String)> {
     let mut ws = wsm.lock().await;

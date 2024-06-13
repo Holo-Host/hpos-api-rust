@@ -7,20 +7,10 @@ use rocket::{
 
 use crate::hpos::WsMutex;
 
-// Returns overview of host earnings as needed for the host-console-ui dashboard page
-// -- includes optional cutoff quantity param to control the volume of recent hosting payments to return to client
-#[get("/host/earnings?<quantity>")]
+/// Returns overview of host earnings as needed for the host-console-ui dashboard page
+/// -- includes optional cutoff quantity param to control the volume of recent hosting payments to return to client
+#[get("/earnings?<quantity>")]
 pub async fn get_host_earnings(
-    wsm: &State<WsMutex>,
-    quantity: u16,
-) -> Result<Json<()>, (Status, String)> {
-    let mut ws = wsm.lock().await;
-
-    Ok(Json(()))
-}
-
-#[get("/host/invoices?<quantity>")]
-pub async fn get_host_invoices(
     wsm: &State<WsMutex>,
     quantity: u16,
 ) -> Result<Json<()>, (Status, String)> {

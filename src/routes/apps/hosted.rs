@@ -5,7 +5,7 @@ use rocket::{
     {get, post, State},
 };
 
-use crate::handlers::hosted_happs::*;
+use crate::{handlers::hosted_happs::*, types::HappAndHost};
 use crate::{
     common::types::Transaction,
     hpos::{Ws, WsMutex},
@@ -21,8 +21,8 @@ use holofuel_types::fuel::Fuel;
 use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-// Rocket will return 400 if query params are of a wrong type
-#[get("/hosted_happs?<usage_interval>&<quantity>")]
+/// ???
+#[get("/?<usage_interval>&<quantity>")]
 pub async fn get_all_hosted_happs(
     usage_interval: i64,
     quantity: Option<usize>,
@@ -37,25 +37,9 @@ pub async fn get_all_hosted_happs(
     ))
 }
 
-// Routes
-
-#[get("/")]
-pub async fn index(wsm: &State<WsMutex>) -> String {
-    let mut ws = wsm.lock().await;
-
-    // Construct sample HappAndHost just to retrieve holoport_id
-    let sample = HappAndHost::init(
-        "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC",
-        &mut ws,
-    )
-    .await
-    .unwrap();
-
-    format!("🤖 I'm your holoport {}", sample.holoport_id)
-}
-
-#[get("/hosted_happs/<id>?<usage_interval>")]
-pub async fn get_hosted_happ(
+/// ???
+#[get("/<id>?<usage_interval>")]
+pub async fn get_hosted_happ_by_id(
     id: String,
     usage_interval: Option<i64>,
     wsm: &State<WsMutex>,
@@ -72,7 +56,7 @@ pub async fn get_hosted_happ(
     ))
 }
 
-#[post("/hosted_happs/<id>/enable")]
+#[post("/<id>/enable")]
 pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
@@ -85,7 +69,7 @@ pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, 
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[post("/hosted_happs/<id>/disable")]
+#[post("/<id>/disable")]
 pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
@@ -98,7 +82,7 @@ pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status,
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[get("/hosted_happs/<id>/logs?<days>")]
+#[get("/<id>/logs?<days>")]
 pub async fn get_service_logs(
     id: &str,
     days: Option<i32>,
@@ -279,30 +263,6 @@ pub struct HostSettings {
     pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct HappAndHost {
-    pub happ_id: ActionHashB64,
-    pub holoport_id: String, // in base36 encoding
-}
-
-impl HappAndHost {
-    pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
-        // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
-        // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
-        let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
-
-        let cell = app_connection.cell(CoreAppRoleName::HHA.into()).await?;
-
-        let a = cell.agent_pubkey().get_raw_32();
-
-        let holoport_id = base36::encode(a);
-
-        Ok(HappAndHost {
-            happ_id: ActionHashB64::from_b64_str(happ_id)?,
-            holoport_id,
-        })
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
 pub struct UsageTimeInterval {

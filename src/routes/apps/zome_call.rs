@@ -41,6 +41,8 @@ pub async fn zome_call(
     Ok(ZomeCallResponse(res.as_bytes()))
 }
 
+// Request and Response types
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +57,8 @@ pub struct ZomeCallRequest {
 #[derive(Responder)]
 #[response(status = 200, content_type = "binary")]
 pub struct ZomeCallResponse(pub &'static [u8]);
+
+
 
 #[cfg(test)]
 mod test {
