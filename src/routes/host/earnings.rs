@@ -1,4 +1,4 @@
-use std::{str::FromStr, vec};
+use std::str::FromStr;
 
 use holochain_types::{dna::{ActionHashB64, AgentPubKeyB64, EntryHashB64}, prelude::{CapSecret, Timestamp}};
 use holofuel_types::{error::FuelError, fuel::Fuel};
@@ -34,12 +34,36 @@ async fn handle_earnings(ws: &mut Ws, quantity: u16) -> Result<HostEarningsRespo
         ..
     } = get_hosting_invoices(core_app_connection.to_owned()).await?;
 
+    let transaction_and_invoice_details = if quantity > 0 {
+        transaction_and_invoice_details.into_iter().take(quantity.into()).collect()
+    } else {
+        transaction_and_invoice_details
+    };
+
     let earnings = calculate_earnings(paid_hosting_invoices)?;
+
+    let ledger: Ledger = core_app_connection.zome_call_typed(
+        "holofuel".into(), 
+        "transactor".into(), 
+        "get_ledger".into(), 
+        ()
+    ).await?;
+
+    let redemption_state: RedemptionState = core_app_connection.zome_call_typed(
+        "holofuel".into(), 
+        "transactor".into(), 
+        "get_redeemable".into(), 
+        ()
+    ).await?;
 
     Ok(HostEarningsResponse {
         earnings,
-        holofuel: todo!(),
-        recent_payments: todo!(),
+        holofuel: HolofuelBalances {
+            redeemable: redemption_state.available,
+            balance: ledger.balance,
+            available: ledger.available            
+        },
+        recent_payments: transaction_and_invoice_details,
     })
 }
 
@@ -136,7 +160,6 @@ fn get_hosted_happ_invoice_details(transactions: Vec<Transaction>) -> Result<Vec
         let Transaction {
             id,
             amount,
-            fee,
             created_date,
             completed_date,
             transaction_type,
@@ -147,6 +170,7 @@ fn get_hosted_happ_invoice_details(transactions: Vec<Transaction>) -> Result<Vec
             proof_of_service,
             url,
             expiration_date,
+            ..
         } = transaction;
 
         if let Some(parsed_note) = parse_note(note) {
@@ -269,7 +293,7 @@ fn parse_invoiced_items(invoiced_items: &InvoicedItems) -> Result<(InvoiceUsage,
 pub struct HostEarningsResponse {
     earnings: Earnings,
     holofuel: HolofuelBalances,
-    recent_payments: TransactionAndInvoiceDetails,
+    recent_payments: Vec<TransactionAndInvoiceDetails>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -393,6 +417,21 @@ pub enum TransactionStatus {
 pub enum POS {
     Hosting(CapSecret),
     Redemption(String), // Contains wallet address
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Ledger {
+    pub balance: Fuel,
+    pub promised: Fuel,
+    pub fees: Fuel,
+    pub available: Fuel,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct RedemptionState {
+    earnings: Fuel,
+    redeemed: Fuel,
+    available: Fuel,
 }
 
 // END OF HOLOFUEL TYPES
