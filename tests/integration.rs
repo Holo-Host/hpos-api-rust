@@ -243,4 +243,25 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, Happ::HHA.to_string());
+
+    // get earnings report
+    let path = format!("/host/earnings");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, "{\"earnings\":{\"last30days\":\"0\",\"last7days\":\"0\",\"lastday\":\"0\"},\"holofuel\":{\"redeemable\":\"0\",\"balance\":\"0\",\"available\":\"0\"},\"recentPayments\":[]}");
+
+    // get invoices report
+    let path = format!("/host/invoices");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, "[]");
+    
 }

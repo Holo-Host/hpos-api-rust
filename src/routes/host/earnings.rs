@@ -12,22 +12,6 @@ use anyhow::{anyhow, Result};
 use crate::hpos::WsMutex;
 use crate::hpos::Ws;
 
-
-/// Returns list of all host invoices as needed for the host-console-ui invoice page
-/// -- includes optional invoice set param to allow querying the invoices by their status
-#[get("/invoices?<invoice_set>")]
-pub async fn invoices(wsm: &State<WsMutex>, invoice_set: Option<InvoiceSet>) -> Result<Json<Vec<TransactionAndInvoiceDetails>>, (Status, String)> {
-
-    let invoice_set = invoice_set.unwrap_or(InvoiceSet::All);
-
-    let mut ws = wsm.lock().await;
-
-    Ok(Json(handle_invoices(&mut ws, invoice_set)
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
-    )
-}
-
 /// Returns overview of host earnings as needed for the host-console-ui dashboard page
 /// -- includes optional cutoff quantity param to control the volume of recent hosting payments to return to client
 #[get("/earnings?<quantity>")]
@@ -39,19 +23,11 @@ pub async fn earnings(wsm: &State<WsMutex>, quantity: Option<u16>) -> Result<Jso
 
     Ok(Json(handle_earnings(&mut ws, quantity)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
+        .map_err(|err| {
+            dbg!(&err);
+            (Status::InternalServerError, err.to_string())
+        })?)
     )
-}
-
-async fn handle_invoices(ws: &mut Ws, invoice_set: InvoiceSet) -> Result<Vec<TransactionAndInvoiceDetails>> {
-    let core_app_connection: &mut AppConnection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
-
-    let HostingInvoicesResponse {
-        transaction_and_invoice_details,
-        ..
-    } = get_hosting_invoices(core_app_connection.to_owned(), invoice_set).await?;
-
-    Ok(transaction_and_invoice_details)
 }
 
 async fn handle_earnings(ws: &mut Ws, quantity: u16) -> Result<HostEarningsResponse> {
@@ -130,7 +106,7 @@ fn calculate_earnings_in_days(days: u64, transactions: &Vec<Transaction>) -> Res
     .map_err(|e| anyhow!("Failed to sum Fuel in calculate_earnings_in_days: {:?}", e))
 }
 
-async fn get_hosting_invoices(mut core_app_connection: AppConnection, invoice_set: InvoiceSet) -> Result<HostingInvoicesResponse> {
+pub async fn get_hosting_invoices(mut core_app_connection: AppConnection, invoice_set: InvoiceSet) -> Result<HostingInvoicesResponse> {
     fn is_hosting_invoice (transaction: &Transaction) -> bool {
         if let Some(proof_of_service) = transaction.proof_of_service.clone() { 
             match proof_of_service {
@@ -157,12 +133,13 @@ async fn get_hosting_invoices(mut core_app_connection: AppConnection, invoice_se
     };
 
     let pending_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
-        core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
+        core_app_connection.zome_call_typed::<(), PendingResponse>(
             "holofuel".into(), 
             "transactor".into(), 
             "get_pending_transactions".into(), 
             ()
         ).await?
+        .flatten()
         .into_iter()
         .filter(is_hosting_invoice)
         .collect()
@@ -171,12 +148,13 @@ async fn get_hosting_invoices(mut core_app_connection: AppConnection, invoice_se
     };
 
     let actionable_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
-        core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
+        core_app_connection.zome_call_typed::<(), ActionableResponse>(
             "holofuel".into(), 
             "transactor".into(), 
             "get_actionable_transactions".into(), 
             ()
         ).await?
+        .flatten()
         .into_iter()
         .filter(is_hosting_invoice)
         .collect()
@@ -359,6 +337,7 @@ impl InvoiceSet {
     }
 }
 
+
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
@@ -374,7 +353,7 @@ pub struct HostEarningsResponse {
 pub struct HostingInvoicesResponse {
     paid_hosting_invoices: Vec<Transaction>,
     unpaid_hosting_invoices: Vec<Transaction>,
-    transaction_and_invoice_details: Vec<TransactionAndInvoiceDetails>,
+    pub transaction_and_invoice_details: Vec<TransactionAndInvoiceDetails>,
 }
 
 
@@ -394,6 +373,44 @@ pub struct HolofuelBalances {
     redeemable: Fuel,
     balance: Fuel,
     available: Fuel,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct ActionableResponse {
+    invoice_actionable: Vec<Transaction>,
+    promise_actionable: Vec<Transaction>,
+}
+
+impl ActionableResponse {
+    pub fn flatten(&self) -> Vec<Transaction> {
+        self.invoice_actionable.clone()
+        .into_iter()
+        .chain(self.promise_actionable.clone().into_iter())
+        .collect()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct PendingResponse {
+    pub invoice_pending: Vec<Transaction>,
+    pub promise_pending: Vec<Transaction>,
+    pub invoice_declined: Vec<Transaction>,
+    pub promise_declined: Vec<Transaction>,
+    pub accepted: Vec<Transaction>,
+}
+
+impl PendingResponse {
+    pub fn flatten(&self) -> Vec<Transaction> {
+        self.invoice_pending.clone()
+        .into_iter()
+        .chain(self.promise_pending.clone().into_iter())
+        .chain(self.invoice_declined.clone().into_iter())
+        .chain(self.promise_declined.clone().into_iter())
+        .chain(self.accepted.clone().into_iter())
+        .collect()
+    }
 }
 
 #[derive(Serialize, Deserialize)]
