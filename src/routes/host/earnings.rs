@@ -383,6 +383,8 @@ pub struct ActionableResponse {
 }
 
 impl ActionableResponse {
+    // It doesn't look quite right to me to include both of these Vecs in the host_earnings, but this reproduces the logic of the js code
+    // See also the PendingResponse::flatten method
     pub fn flatten(&self) -> Vec<Transaction> {
         self.invoice_actionable.clone()
         .into_iter()
@@ -402,6 +404,7 @@ pub struct PendingResponse {
 }
 
 impl PendingResponse {
+    // See comment in the ActionableResponse::flatten
     pub fn flatten(&self) -> Vec<Transaction> {
         self.invoice_pending.clone()
         .into_iter()
