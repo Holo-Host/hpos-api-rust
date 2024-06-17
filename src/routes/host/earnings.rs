@@ -5,19 +5,37 @@ use holofuel_types::{error::FuelError, fuel::Fuel};
 use hpos_hc_connect::AppConnection;
 use log::warn;
 use rocket::{
-    get, http::Status, serde::{json::Json, Deserialize, Serialize}, State
+    get, http::Status, serde::{json::Json, Deserialize, Serialize}, FromFormField, State
 };
 use anyhow::{anyhow, Result};
 
 use crate::hpos::WsMutex;
 use crate::hpos::Ws;
 
+
+/// Returns list of all host invoices as needed for the host-console-ui invoice page
+/// -- includes optional invoice set param to allow querying the invoices by their status
+#[get("/invoices?<invoice_set>")]
+pub async fn invoices(wsm: &State<WsMutex>, invoice_set: Option<InvoiceSet>) -> Result<Json<Vec<TransactionAndInvoiceDetails>>, (Status, String)> {
+
+    let invoice_set = invoice_set.unwrap_or(InvoiceSet::All);
+
+    let mut ws = wsm.lock().await;
+
+    Ok(Json(handle_invoices(&mut ws, invoice_set)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
+    )
+}
+
 /// Returns overview of host earnings as needed for the host-console-ui dashboard page
 /// -- includes optional cutoff quantity param to control the volume of recent hosting payments to return to client
 #[get("/earnings?<quantity>")]
-pub async fn earnings(wsm: &State<WsMutex>, quantity: u16) -> Result<Json<HostEarningsResponse>, (Status, String)> {
+pub async fn earnings(wsm: &State<WsMutex>, quantity: Option<u16>) -> Result<Json<HostEarningsResponse>, (Status, String)> {
 
-    let mut ws = wsm.lock().await;
+    let quantity = quantity.unwrap_or(0);
+
+    let mut ws = wsm.lock().await;    
 
     Ok(Json(handle_earnings(&mut ws, quantity)
         .await
@@ -25,14 +43,25 @@ pub async fn earnings(wsm: &State<WsMutex>, quantity: u16) -> Result<Json<HostEa
     )
 }
 
+async fn handle_invoices(ws: &mut Ws, invoice_set: InvoiceSet) -> Result<Vec<TransactionAndInvoiceDetails>> {
+    let core_app_connection: &mut AppConnection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
+
+    let HostingInvoicesResponse {
+        transaction_and_invoice_details,
+        ..
+    } = get_hosting_invoices(core_app_connection.to_owned(), invoice_set).await?;
+
+    Ok(transaction_and_invoice_details)
+}
+
 async fn handle_earnings(ws: &mut Ws, quantity: u16) -> Result<HostEarningsResponse> {
-    let core_app_connection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
+    let core_app_connection: &mut AppConnection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
 
     let HostingInvoicesResponse {
         paid_hosting_invoices,
         transaction_and_invoice_details,
         ..
-    } = get_hosting_invoices(core_app_connection.to_owned()).await?;
+    } = get_hosting_invoices(core_app_connection.to_owned(), InvoiceSet::All).await?;
 
     let transaction_and_invoice_details = if quantity > 0 {
         transaction_and_invoice_details.into_iter().take(quantity.into()).collect()
@@ -101,7 +130,7 @@ fn calculate_earnings_in_days(days: u64, transactions: &Vec<Transaction>) -> Res
     .map_err(|e| anyhow!("Failed to sum Fuel in calculate_earnings_in_days: {:?}", e))
 }
 
-async fn get_hosting_invoices(mut core_app_connection: AppConnection) -> Result<HostingInvoicesResponse> {
+async fn get_hosting_invoices(mut core_app_connection: AppConnection, invoice_set: InvoiceSet) -> Result<HostingInvoicesResponse> {
     fn is_hosting_invoice (transaction: &Transaction) -> bool {
         if let Some(proof_of_service) = transaction.proof_of_service.clone() { 
             match proof_of_service {
@@ -113,29 +142,47 @@ async fn get_hosting_invoices(mut core_app_connection: AppConnection) -> Result<
         }
     }
 
-    let paid_hosting_invoices: Vec<Transaction> = core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
-        "holofuel".into(), 
-        "transactor".into(), 
-        "get_completed_transactions".into(), 
-        ()
-    ).await?
-    .into_iter()
-    .filter(is_hosting_invoice)
-    .collect();
+    let paid_hosting_invoices: Vec<Transaction> = if invoice_set.includes_paid() {
+        core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
+            "holofuel".into(), 
+            "transactor".into(), 
+            "get_completed_transactions".into(), 
+            ()
+        ).await?
+        .into_iter()
+        .filter(is_hosting_invoice)
+        .collect()
+    } else {
+        Vec::new()
+    };
 
-    let pending_txs: Vec<Transaction> = core_app_connection.zome_call_typed(
-        "holofuel".into(), 
-        "transactor".into(), 
-        "get_pending_transactions".into(), 
-        ()
-    ).await?;
+    let pending_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
+        core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
+            "holofuel".into(), 
+            "transactor".into(), 
+            "get_pending_transactions".into(), 
+            ()
+        ).await?
+        .into_iter()
+        .filter(is_hosting_invoice)
+        .collect()
+    } else {
+        Vec::new()
+    };
 
-    let actionable_txs: Vec<Transaction> = core_app_connection.zome_call_typed(
-        "holofuel".into(), 
-        "transactor".into(), 
-        "get_actionable_transactions".into(), 
-        ()
-    ).await?;
+    let actionable_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
+        core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
+            "holofuel".into(), 
+            "transactor".into(), 
+            "get_actionable_transactions".into(), 
+            ()
+        ).await?
+        .into_iter()
+        .filter(is_hosting_invoice)
+        .collect()
+    } else {
+        Vec::new()
+    };
 
     let unpaid_hosting_invoices: Vec<Transaction> = pending_txs
     .into_iter()
@@ -285,6 +332,31 @@ fn parse_invoiced_items(invoiced_items: &InvoicedItems) -> Result<(InvoiceUsage,
     let invoice_prices = serde_yaml::from_str(&invoiced_items.prices)?;
 
     Ok((invoice_usage, invoice_prices))
+}
+
+#[derive(Serialize, Deserialize, FromFormField)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub enum InvoiceSet {
+    All,
+    Paid,
+    Unpaid
+}
+
+impl InvoiceSet {
+    pub fn includes_paid(&self) -> bool {
+        match &self {
+            InvoiceSet::Unpaid => false,
+            _ => true
+        }
+    }
+
+    pub fn includes_unpaid(&self) -> bool {
+        match &self {
+            InvoiceSet::Paid => false,
+            _ => true
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
