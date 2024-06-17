@@ -1,3 +1,6 @@
+
+use super::keypair::Keys;
+
 use rocket::{
     http::Status,
     serde::json::Json,
