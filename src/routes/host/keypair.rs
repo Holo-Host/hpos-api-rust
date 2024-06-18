@@ -22,7 +22,7 @@ impl Keys {
         })
     }
 
-    // pub async fn sign(&self, payload: &Stats) -> Result<String> {
+    // pub async fn sign(&self, payload: &Config) -> Result<String> {
     //     let signature = self
     //         .keypair
     //         .try_sign(&payload.into_bytes()?)

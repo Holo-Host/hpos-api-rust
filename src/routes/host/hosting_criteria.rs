@@ -7,6 +7,8 @@ use rocket::{
     {get, State},
 };
 
+use holochain_client::AgentPubKey;
+
 use crate::hpos::WsMutex;
 
 use std::env;
