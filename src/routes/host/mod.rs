@@ -3,3 +3,4 @@ pub mod hosting_criteria;
 pub mod invoices;
 pub mod redeemable_histogram;
 pub mod redemptions;
+pub mod auth_payload;
