@@ -4,8 +4,9 @@ use rocket::{
 };
 use anyhow::Result;
 
-use crate::{get_hosting_invoices, hpos::WsMutex, HostingInvoicesResponse, InvoiceSet, TransactionAndInvoiceDetails};
+use crate::hpos::WsMutex;
 use crate::hpos::Ws;
+use crate::routes::host::shared::{InvoiceSet, TransactionAndInvoiceDetails, HostingInvoicesResponse, get_hosting_invoices};
 
 /// Returns list of all host invoices as needed for the host-console-ui invoice page
 /// -- includes optional invoice set param to allow querying the invoices by their status
