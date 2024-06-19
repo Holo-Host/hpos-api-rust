@@ -58,8 +58,8 @@ pub async fn rocket() -> Rocket<Build> {
                 earnings,             // TODO!!
                 invoices,             // TODO!!
                 redeemable_histogram, // done
-                kyc_level,            // TODO!!
-                hosting_criteria,     // TODO!!
+                kyc_level,            // done
+                hosting_criteria,     // done
                 redemptions           // TODO!!
             ],
         )
