@@ -21,7 +21,7 @@ use holofuel_types::fuel::Fuel;
 use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-/// 
+///
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
