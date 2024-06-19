@@ -6,11 +6,10 @@ use std::time::Duration;
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::ExternIO;
 use holofuel_types::fuel::Fuel;
-use hpos_api_rust::handlers::hosted_apps::register;
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
-use hpos_api_rust::handlers::hosted_apps::install::{self, HappPreferences};
+use hpos_api_rust::handlers::{install, register};
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
 use log::{debug, info};
@@ -200,6 +199,26 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, Happ::HHA.to_string());
 
+    // get earnings report
+    let path = format!("/host/earnings");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, "{\"earnings\":{\"last30days\":\"0\",\"last7days\":\"0\",\"lastday\":\"0\"},\"holofuel\":{\"redeemable\":\"0\",\"balance\":\"0\",\"available\":\"0\"},\"recentPayments\":[]}");
+
+    // get invoices report
+    let path = format!("/host/invoices");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, "[]");
+
     // Test installing a second hosted happ
     // publish second hosted happ
     let mut hosted_happ_payload = HappInput::default();
@@ -214,7 +233,7 @@ async fn install_components() {
     let install_payload = install::InstallHappBody {
         happ_id: second_test_hosted_happ_id.to_string(),
         membrane_proofs: HashMap::new(),
-        preferences: HappPreferences {
+        preferences: install::HappPreferences {
             max_fuel_before_invoice: Fuel::new(0),
             max_time_before_invoice: Duration::MAX,
             price_bandwidth: Fuel::new(0),
@@ -262,7 +281,7 @@ async fn install_components() {
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
 
-    // get second hosted happ
+    // get third hosted happ
     let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;

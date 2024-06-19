@@ -1,2 +1,3 @@
-pub mod hosted_apps;
 pub mod hosted_happs;
+pub mod install;
+pub mod register;

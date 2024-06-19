@@ -1,7 +1,6 @@
-use crate::common::types::{HappAndHost, Transaction};
-use crate::handlers::hosted_apps::{install, register};
 use crate::{
-    handlers::hosted_happs::*,
+    common::types::{HappAndHost, Transaction},
+    handlers::{hosted_happs::*, install, register},
     hpos::{Ws, WsMutex},
 };
 use anyhow::{anyhow, Result};
@@ -11,6 +10,7 @@ use holochain_types::{
     prelude::{holochain_serial, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use log::warn;
 use rocket::{
     http::Status,
@@ -305,7 +305,7 @@ pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<Host
 
     let s: ServiceloggerHappPreferences = app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "get_happ_preferences".into(),
             happ_id,

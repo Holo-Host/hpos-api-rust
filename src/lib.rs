@@ -55,8 +55,8 @@ pub async fn rocket() -> Rocket<Build> {
         .mount(
             "/host",
             routes![
-                earnings,             // TODO!!
-                invoices,             // TODO!!
+                earnings,             // done
+                invoices,             // done
                 redeemable_histogram, // done
                 kyc_level,            // TODO!!
                 hosting_criteria,     // TODO!!
