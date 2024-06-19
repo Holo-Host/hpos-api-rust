@@ -60,7 +60,7 @@ pub async fn rocket() -> Rocket<Build> {
                 redeemable_histogram, // done
                 kyc_level,            // TODO!!
                 hosting_criteria,     // TODO!!
-                redemptions           // TODO!!
+                redemptions           // done
             ],
         )
         .mount(
