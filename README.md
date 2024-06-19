@@ -22,6 +22,12 @@ This API is relying on an authentication mechanism [hp-admin-crypto](https://git
 
 This API is mounted on HPOS at v2 path of API, so all the calls should be of a format `/api/v2/<path>`, e.g. to get all hosted happs with usage calculated over last 7 days you would call `/api/v2/hosted_happs/?usage_interval=604800`.
 
+## Integration Tests
+
+```
+RUST_LOG=hpos-api-rust=trace,integration=trace cargo test -- --nocapture --test-threads=1
+```
+
 ### Endpoints
 
 #### GET `/hosted_happs/?quantity=<quantity>&usage_interval=<usage_interval>`

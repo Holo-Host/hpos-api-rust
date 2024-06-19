@@ -243,4 +243,18 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, Happ::HHA.to_string());
+
+    // get kyc_level
+    let path = format!("/host/kyc_level");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+
+    // get hosting_criteria
+    let path = format!("/host/hosting_criteria");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);    
 }
