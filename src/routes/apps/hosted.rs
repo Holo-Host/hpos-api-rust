@@ -1,10 +1,15 @@
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::{
+    get,
     http::Status,
-    serde::{json::Json, Deserialize, Serialize},
-    {get, post, State},
+    serde::{
+        json::{serde_json, Json},
+        Deserialize, Serialize,
+    },
+    {post, State},
 };
 
+use crate::{call_zome, routes::apps::types::HostedRegisterRequestBody, ZomeCallRequest};
 use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
 use crate::{
     common::types::Transaction,
@@ -21,7 +26,7 @@ use holofuel_types::fuel::Fuel;
 use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-/// 
+///
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
@@ -108,12 +113,75 @@ pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)>
     Ok(Json(()))
 }
 
-/// ???
-#[post("/hosted/register")]
-pub async fn register(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+#[derive(Serialize, Deserialize, Clone)]
+struct HostedRequestZomeCallDna {
+    hash: String,
+    src_url: String,
+    nick: String,
+}
+#[derive(Serialize, Deserialize, Clone)]
+struct HostedRegisterZomeCall {
+    name: String,
+    hosted_urls: Vec<String>,
+    bundle_url: String,
+    dnas: Vec<HostedRequestZomeCallDna>,
+    special_installed_app_id: Option<String>,
+    exclude_jurisdictions: bool,
+    uid: String,
+}
+
+#[post("/hosted/register", format = "json", data = "<request_body>")]
+pub async fn register(
+    request_body: Json<HostedRegisterRequestBody>,
+    wsm: &State<WsMutex>,
+) -> Result<Json<()>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
-    Ok(Json(()))
+    if request_body.name.is_empty() {
+        return Err((Status::BadRequest, "name is empty".to_string()));
+    }
+    if request_body.hosted_urls.is_empty() {
+        return Err((Status::BadRequest, "hosted_urls is empty".to_string()));
+    }
+    if request_body.bundle_url.is_empty() {
+        return Err((Status::BadRequest, "bundle_url is empty".to_string()));
+    }
+    if request_body.dnas.is_empty() {
+        return Err((Status::BadRequest, "dnas is empty".to_string()));
+    }
+
+    let mapped_dnas: Vec<HostedRequestZomeCallDna> = request_body
+        .dnas.clone()
+        .into_iter()
+        .map(|nick| HostedRequestZomeCallDna {
+            hash: "default-hash".to_string(),
+            src_url: "default-path".to_string(),
+            nick,
+        })
+        .collect();
+
+    let payload = HostedRegisterZomeCall {
+        name: request_body.name.clone(),
+        hosted_urls: request_body.hosted_urls.clone(),
+        bundle_url: request_body.bundle_url.clone(),
+        dnas: mapped_dnas,
+        special_installed_app_id: request_body.special_installed_app_id.clone(),
+        exclude_jurisdictions: true,
+        uid: request_body.network_seed.clone(),
+    };
+
+    let happ = call_zome(
+        Json(ZomeCallRequest {
+            app_id: "".to_string(),
+            role_id: "core-app".to_string(),
+            zome_name: "hha".to_string(),
+            fn_name: "register_happ".to_string(),
+            payload: serde_json::to_value(payload).unwrap()
+        }),
+        wsm,
+    ).await?;
+
+    Ok(Json(happ))
 }
 
 // Types

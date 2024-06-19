@@ -96,3 +96,8 @@ impl HappAndHost {
         })
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ErrorResponse {
+    pub message: String,
+}
