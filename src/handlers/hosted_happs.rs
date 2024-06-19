@@ -5,9 +5,9 @@ use holochain_types::prelude::{
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
-use crate::common::types::{HappAndHost, Transaction, POS};
+use crate::common::types::{HappAndHost, PresentedHappBundle, Transaction, POS};
 use crate::hpos::Ws;
-use crate::{HappDetails, PresentedHappBundle};
+use crate::HappDetails;
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
 use log::debug;

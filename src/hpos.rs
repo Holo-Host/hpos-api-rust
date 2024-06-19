@@ -106,7 +106,7 @@ impl Ws {
 pub fn get_host_pubkey() -> Result<Option<AgentPubKey>> {
     let host_pub_key_path: PathBuf = match env::var("HOST_PUBKEY_PATH") {
         Ok(p) => p.into(),
-        Err(e) => {
+        Err(_) => {
             if std::env::var("IS_TEST_ENV").is_ok() {
                 return Ok(None);
             }
@@ -116,7 +116,7 @@ pub fn get_host_pubkey() -> Result<Option<AgentPubKey>> {
         }
     };
 
-    let file = std::fs::File::open(&host_pub_key_path)?;
+    let file = std::fs::File::open(host_pub_key_path)?;
     let host_pub_key: AgentPubKey = rocket::serde::json::serde_json::from_reader(file)?;
 
     Ok(Some(host_pub_key))

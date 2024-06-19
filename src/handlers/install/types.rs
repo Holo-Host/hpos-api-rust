@@ -58,7 +58,7 @@ pub struct InstallHappBody {
 impl<'r> FromData<'r> for InstallHappBody {
     type Error = anyhow::Error;
 
-    async fn from_data(request: &'r Request<'_>, data: Data<'r>) -> data::Outcome<'r, Self> {
+    async fn from_data(_request: &'r Request<'_>, data: Data<'r>) -> data::Outcome<'r, Self> {
         let byte_unit_data = data.open(data::ByteUnit::max_value());
         let decoded_data = byte_unit_data.into_bytes().await.unwrap();
         let install_payload: InstallHappBody = match rocket::serde::json::serde_json::from_slice(&decoded_data.value) {

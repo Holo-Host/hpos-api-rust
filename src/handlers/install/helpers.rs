@@ -1,22 +1,23 @@
+use crate::common::types::PresentedHappBundle;
+use anyhow::{anyhow, Result};
 use holochain_client::{AdminResponse, InstalledAppId};
 use holochain_client::{AgentPubKey, AppInfo};
 use holochain_conductor_api::{AppStatusFilter, CellInfo};
-use hpos_hc_connect::AppConnection;
-use anyhow::{anyhow, Result};
-use holochain_types::dna::{ActionHash, DnaHashB64};
 use holochain_types::app::{AppManifest, InstallAppPayload};
+use holochain_types::dna::{ActionHash, DnaHashB64};
 use holochain_types::prelude::{AppBundleSource, RoleName, YamlProperties};
-use std::collections::HashMap;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::AppConnection;
 use mr_bundle::Bundle;
+use std::collections::HashMap;
 
-use crate::PresentedHappBundle;
-use super::types::{RawInstallAppPayload,SuccessfulInstallResult, CellInfoMap};
+use super::types::{CellInfoMap, RawInstallAppPayload, SuccessfulInstallResult};
 
 pub async fn handle_holochain_enable(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
-    installed_app_id: InstalledAppId,
+    installed_app_id: &InstalledAppId,
 ) -> Result<AppInfo> {
-    match admin_connection.enable_app(&installed_app_id).await {
+    match admin_connection.enable_app(installed_app_id).await {
         Ok(r) => match r {
             AdminResponse::AppEnabled { app, errors } => {
                 if !errors.is_empty() {
@@ -24,9 +25,9 @@ pub async fn handle_holochain_enable(
                 }
                 Ok(app)
             },
-            _ => return Err(anyhow!("Failed to enable installed_app_id {:?}.  Received invalid conductor admin response: {:#?}", installed_app_id, r))
+            _ => Err(anyhow!("Failed to enable installed_app_id {:?}.  Received invalid conductor admin response: {:#?}", installed_app_id, r))
         },
-        Err(e) => return Err(e)
+        Err(e) => Err(e)
     }
 }
 
@@ -54,7 +55,7 @@ pub async fn handle_install_app_raw(
     match admin_connection.install_app(p).await {
         Ok(r) => match r {
             AdminResponse::AppInstalled(a) => Ok(SuccessfulInstallResult::New(a)),
-            _ => return Err(anyhow!("Failed to install app with installed_app_id {:?}.  Received invalid installation response: {:#?}", installed_app_id, r))
+            _ => Err(anyhow!("Failed to install app with installed_app_id {:?}.  Received invalid installation response: {:#?}", installed_app_id, r))
         },
         Err(e) => {
             log::warn!("Warning while installing app {:?} : {:?}", installed_app_id, e);
@@ -101,7 +102,7 @@ pub async fn install_assigned_sl_instance(
     happ_id: &String,
     host_pub_key: AgentPubKey,
     core_happ_cell_info: &CellInfoMap,
-    sl_path_source: AppBundleSource, 
+    sl_path_source: AppBundleSource,
 ) -> Result<SuccessfulInstallResult> {
     log::debug!(
         "Starting installation process of servicelogger for hosted happ: {:?}",
@@ -111,15 +112,14 @@ pub async fn install_assigned_sl_instance(
     let sl_props_json = format!(
         r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
         happ_id,
-        get_base_dna_hash(core_happ_cell_info, "core-app".to_string())?,
-        get_base_dna_hash(core_happ_cell_info, "holofuel".to_string())?,
+        get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?,
+        get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?,
         get_sl_collector_pubkey()
     );
 
-    let sl_source =
-        update_happ_bundle(sl_path_source, sl_props_json)
-            .await
-            .unwrap();
+    let sl_source = update_happ_bundle(sl_path_source, sl_props_json)
+        .await
+        .unwrap();
 
     // Note: Assigned sl apps are those associated with a hosted happ
     // This is different than the baseline core sl app stored in WS.
@@ -143,15 +143,15 @@ pub async fn get_app_details(
     let happ_id_clone = happ_id.clone();
     core_app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "get_happ".into(),
             happ_id,
         )
-        .await.or_else(|e| {
-            return Err(anyhow!(
+        .await.map_err(|e| {
+            anyhow!(
                 "Failed to install happ id {:?}.  Supporting call to fetch happ details failed.  Error: {:#?}.", happ_id_clone, e
-            ))
+            )
         })
 }
 
@@ -162,7 +162,7 @@ pub async fn verify_is_new_install(
     match admin_connection
         .list_apps(Some(AppStatusFilter::Running) )
         .await {
-            Ok(apps) => Ok(apps.iter().any(|app| app.installed_app_id == installed_app_id)), 
+            Ok(apps) => Ok(apps.iter().any(|app| app.installed_app_id == installed_app_id)),
             Err(err) => {
                 Err(anyhow!(
                     "Failed to install happ id {:?}.  Supporting call to fetch running happs failed.  Error: {:#?}.", installed_app_id, err
@@ -189,7 +189,7 @@ pub fn get_base_dna_hash(cell_map: &CellInfoMap, role_name: RoleName) -> Result<
         Some(dna_hash) => {
             let hash_b64: DnaHashB64 = dna_hash.to_owned().into();
             Ok(hash_b64.to_string())
-        },
+        }
         None => Err(anyhow!(
             "Failed to install. Unable to locate cell info for {}",
             role_name
@@ -197,7 +197,10 @@ pub fn get_base_dna_hash(cell_map: &CellInfoMap, role_name: RoleName) -> Result<
     }
 }
 
-pub async fn get_host_pub_key(maybe_pubkey: Option<AgentPubKey>, core_app_connection: &mut AppConnection) -> Result<AgentPubKey> {
+pub async fn get_host_pub_key(
+    maybe_pubkey: Option<AgentPubKey>,
+    core_app_connection: &mut AppConnection,
+) -> Result<AgentPubKey> {
     if let Some(pub_key) = maybe_pubkey {
         Ok(pub_key)
     } else {
@@ -216,5 +219,6 @@ pub fn get_uid_override() -> String {
 }
 
 pub fn get_sl_collector_pubkey() -> String {
-    std::env::var("SL_COLLECTOR_PUB_KEY").expect("Failed to read SL_COLLECTOR_PUB_KEY. Is it set in env?")
+    std::env::var("SL_COLLECTOR_PUB_KEY")
+        .expect("Failed to read SL_COLLECTOR_PUB_KEY. Is it set in env?")
 }

@@ -3,13 +3,16 @@ mod utils;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use holochain_types::dna::ActionHashB64;
+use holochain_types::dna::{ActionHashB64, DnaHash, DnaHashB64};
 use holochain_types::prelude::ExternIO;
 use holofuel_types::fuel::Fuel;
+use hpos_api_rust::common::types::PresentedHappBundle;
+use hpos_api_rust::handlers::register::types::{DnaResource, LoginConfig, PublisherPricingPref};
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
 use hpos_api_rust::handlers::{install, register};
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
 use log::{debug, info};
@@ -165,7 +168,7 @@ async fn install_components() {
 
     let request = ZomeCallRequest {
         app_id: hha_app_id,
-        role_id: "core-app".to_string(),
+        role_id: CoreAppRoleName::HHA.into(),
         zome_name: "hha".to_string(),
         fn_name: "create_draft".to_string(),
         payload: serde_json::from_str(&serde_json::to_string(&payload).unwrap()).unwrap(),
@@ -220,14 +223,16 @@ async fn install_components() {
     assert_eq!(response_body, "[]");
 
     // Test installing a second hosted happ
-    // publish second hosted happ
+    // Publish second hosted happ
     let mut hosted_happ_payload = HappInput::default();
     hosted_happ_payload.name = "Hosted Happ 2".to_string();
+    hosted_happ_payload.bundle_url = HHA_URL.to_string(); // install with reference to actual core-app/hha bundle url
+    hosted_happ_payload.special_installed_app_id = None;
     let second_test_hosted_happ_id = publish_and_enable_hosted_happ(&mut hha, hosted_happ_payload)
         .await
         .unwrap();
 
-    // install new hosted happ on host's hp
+    // Install second hosted happ on host's hp
     let path = format!("/apps/hosted/install");
     info!("calling {}", &path);
     let install_payload = install::InstallHappBody {
@@ -249,28 +254,60 @@ async fn install_components() {
         .await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-
-    // get second hosted happ
-    let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
-    info!("calling {}", &path);
-    let response = client.get(path).dispatch().await;
-    debug!("status: {}", response.status());
-    assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &second_test_hosted_happ_id)));
+
+    // Test ability to call the second hosted happ:
+    // Open ws connection to servicelogger instance for hosted happ
+    let mut second_hosted_happ_ws = AppConnection::connect(
+        &mut test.admin_ws,
+        test.hc_env.keystore.clone(),
+        second_test_hosted_happ_id.to_string(),
+    )
+    .await
+    .unwrap();
+    let get_hosted_happs: Vec<PresentedHappBundle> = second_hosted_happ_ws
+        .zome_call_typed(
+            "hha".into(),
+            "get_my_happs".into(),
+            second_test_hosted_happ_id.to_string().into(),
+            payload,
+        )
+        .await
+        .unwrap();
+    assert!(get_hosted_happs
+        .iter()
+        .find(|h| h.id == second_test_hosted_happ_id)
+        .is_some());
 
     // Test registering with a third hosted happ
     // register a third hosted happ
     let path = format!("/apps/hosted/register");
     info!("calling {}", &path);
-    let register_payload = register::HappInput {
-        hosted_urls: ["test_happ_3_host_url".to_string()],
+    let place_holder_dna: DnaHashB64 =
+        DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
+            .unwrap()
+            .into();
+    let register_payload = register::types::HappInput {
+        hosted_urls: vec!["test_happ_3_host_url".to_string()],
         bundle_url: HHA_URL.to_string(),
         special_installed_app_id: None,
         name: "Test Happ 3".to_string(),
-        dnas: vec![HHA_URL],
+        dnas: vec![DnaResource {
+            hash: place_holder_dna.to_string(),
+            src_url: "hosted_happ_test_3.dna".to_string(),
+            nick: "happ test 3 dna".to_string(),
+        }],
         exclude_jurisdictions: false,
+        ui_src_url: None,
+        logo_url: None,
+        description: "Testing registration for dna of hosted happ 3".to_string(),
+        categories: vec![],
+        jurisdictions: vec![],
+        publisher_pricing_pref: PublisherPricingPref::default(),
+        login_config: LoginConfig::default(),
+        uid: None,
     };
     let response = client
         .post(path)
@@ -280,14 +317,27 @@ async fn install_components() {
         .await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    let third_test_hosted_happ =
+        serde_json::from_str::<PresentedHappBundle>(&response_body).unwrap();
+    let third_test_hosted_happ_id = third_test_hosted_happ.id;
+
+    // enable test_hosted_happ_id
+    let path = format!("/apps/hosted/{}/enable", &third_test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.post(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    debug!("body: {:#?}", response.into_string().await);
 
     // get third hosted happ
-    let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}", &third_test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    assert!(response_body.contains(&format!("{}", &second_test_hosted_happ_id)));
+    assert!(response_body.contains(&format!("{}", &third_test_hosted_happ_id)));
 }

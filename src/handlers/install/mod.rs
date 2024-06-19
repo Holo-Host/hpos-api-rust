@@ -14,20 +14,20 @@ Steps to install a happ bundle:
     }}
 */
 
-use anyhow::{anyhow, Result};
-use rocket::http::Status;
-use url::Url;
-
-use crate::hpos::Ws;
-use crate::PresentedHappBundle;
-use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::AppBundleSource;
 mod helpers;
 mod types;
+
+use anyhow::{anyhow, Result};
+use url::Url;
+
+use crate::common::types::PresentedHappBundle;
+use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
+use holochain_types::dna::ActionHashB64;
+use holochain_types::prelude::AppBundleSource;
 pub use types::*;
 
-pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<Status> {
+pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<String> {
     log::debug!("Calling zome hosted/install with payload: {:?}", &data);
     let maybe_pubkey = ws.host_pub_key.clone();
     let base_sl = ws.base_sl.clone();
@@ -87,7 +87,7 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
             };
 
             // 2. Enable the sl instance assigned to the hosted happ
-            helpers::handle_holochain_enable(&mut admin_connection, sl_app_id).await?;
+            helpers::handle_holochain_enable(&mut admin_connection, &sl_app_id).await?;
 
             // Steps 3 & 4 are only for non-core hosted apps (ie: whenever the app does not have the `special_installed_app_id` property)
             if happ_bundle_details.special_installed_app_id.is_none() {
@@ -112,14 +112,17 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 helpers::handle_install_app_raw(&mut admin_connection, raw_payload).await?;
 
                 // 4. Enable the hosted happ
-                helpers::handle_holochain_enable(&mut admin_connection, data.happ_id).await?;
+                helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
             }
         }
         false => {
             // NB: If app is already installed, then we only need to (re-)enable the happ bundle.
-            helpers::handle_holochain_enable(&mut admin_connection, data.happ_id).await?;
+            helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
         }
     }
 
-    Ok(Status::Ok)
+    Ok(format!(
+        "Successfully installed happ_id: {:?}",
+        data.happ_id
+    ))
 }

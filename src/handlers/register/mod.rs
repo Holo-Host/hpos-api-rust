@@ -1,22 +1,25 @@
+use crate::common::types::PresentedHappBundle;
 use anyhow::Result;
-use rocket::http::Status;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 
 pub mod types;
 use crate::hpos::Ws;
-use types::*;
 
-pub async fn handle_register_app(ws: &mut Ws, payload: types::HappInput) -> Result<Status> {
+pub async fn handle_register_app(
+    ws: &mut Ws,
+    payload: types::HappInput,
+) -> Result<PresentedHappBundle> {
     log::debug!("calling zome hosted/register with payload: {:?}", &payload);
     let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
 
-    app_connection
+    let happ = app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "register_happ".into(),
             payload,
         )
         .await?;
 
-    Ok(Status::Ok)
+    Ok(happ)
 }

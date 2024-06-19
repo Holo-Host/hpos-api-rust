@@ -17,14 +17,13 @@ use holochain_types::prelude::{
 };
 use holofuel_types::fuel::Fuel;
 use hpos_api_rust::common::consts::ADMIN_PORT;
-use hpos_api_rust::handlers::hosted_apps::install;
 use hpos_api_rust::handlers::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
 };
+use hpos_api_rust::handlers::install;
 
-use hpos_api_rust::common::types::HappAndHost;
-use hpos_api_rust::routes::apps::hosted::PresentedHappBundle;
+use hpos_api_rust::common::types::{HappAndHost, PresentedHappBundle};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
