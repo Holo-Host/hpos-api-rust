@@ -100,7 +100,7 @@ fn calculate_earnings_in_days(days: u64, transactions: &Vec<Transaction>) -> Res
     let days_ago = (Timestamp::now() - core::time::Duration::new(days * 24 * 60 * 60, 0))?;
 
     let result_of_vec_of_fuels: Result<Vec<Fuel>, FuelError> = transactions
-        .into_iter()
+        .iter()
         .filter(|tx| {
             if let Some(completed_date) = tx.completed_date {
                 completed_date > days_ago
@@ -199,7 +199,7 @@ pub async fn get_hosting_invoices(
         paid_hosting_invoices
             .clone()
             .into_iter()
-            .chain(unpaid_hosting_invoices.clone().into_iter())
+            .chain(unpaid_hosting_invoices.clone())
             .collect(),
     )?;
 
@@ -257,7 +257,7 @@ fn get_hosted_happ_invoice_details(
                     }
                 };
 
-                return Some(TransactionAndInvoiceDetails {
+                Some(TransactionAndInvoiceDetails {
                     id,
                     amount,
                     status,
@@ -290,12 +290,12 @@ fn get_hosted_happ_invoice_details(
                             price: invoice_prices.storage,
                         },
                     },
-                });
+                })
             } else {
                 None // in the js code, this value is "undefined"
             }
         })
-        .filter_map(|x| x)
+        .flatten()
         .collect();
 
     transaction_and_invoice_details.sort_by_key(|transaction| transaction.completed_date);
@@ -327,7 +327,7 @@ fn parse_note(unparsed_note: Option<String>) -> Option<Note> {
 // In the js code this does some additional checking that we get for free from serde
 fn is_valid_hosting_note(note: &Note) -> bool {
     let Note(human_readable_note, _) = note;
-    return human_readable_note.contains("Holo Hosting Invoice for");
+    human_readable_note.contains("Holo Hosting Invoice for")
 }
 
 fn read_happ_name(human_readable_note: &str) -> String {
@@ -336,7 +336,7 @@ fn read_happ_name(human_readable_note: &str) -> String {
         .nth(1)
     {
         let happ_name_part = happ.split("(...").next().unwrap_or("");
-        let name = happ_name_part.replace("\"", "").trim().to_string();
+        let name = happ_name_part.replace('"', "").trim().to_string();
         return name;
     }
 
@@ -426,7 +426,7 @@ impl ActionableResponse {
         self.invoice_actionable
             .clone()
             .into_iter()
-            .chain(self.promise_actionable.clone().into_iter())
+            .chain(self.promise_actionable.clone())
             .collect()
     }
 }
@@ -447,10 +447,10 @@ impl PendingResponse {
         self.invoice_pending
             .clone()
             .into_iter()
-            .chain(self.promise_pending.clone().into_iter())
-            .chain(self.invoice_declined.clone().into_iter())
-            .chain(self.promise_declined.clone().into_iter())
-            .chain(self.accepted.clone().into_iter())
+            .chain(self.promise_pending.clone())
+            .chain(self.invoice_declined.clone())
+            .chain(self.promise_declined.clone())
+            .chain(self.accepted.clone())
             .collect()
     }
 }
