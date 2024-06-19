@@ -1,15 +1,9 @@
-use rocket::{
-    http::Status,
-    serde::{json::Json, Deserialize, Serialize},
-    {get, post, State},
-};
-
-use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
+use crate::common::types::{HappAndHost, Transaction};
+use crate::handlers::hosted_apps::{install, register};
 use crate::{
-    common::types::Transaction,
+    handlers::hosted_happs::*,
     hpos::{Ws, WsMutex},
 };
-
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
@@ -18,9 +12,13 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
+use rocket::{
+    http::Status,
+    serde::{json::Json, Deserialize, Serialize},
+    {get, post, State},
+};
 use std::{fmt, str::FromStr, time::Duration};
 
-/// 
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
@@ -99,24 +97,29 @@ pub async fn logs(
     ))
 }
 
-/// ???
-#[post("/hosted/install")]
-pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+#[post("/hosted/install", format = "application/json", data = "<payload>")]
+pub async fn install_app(
+    wsm: &State<WsMutex>,
+    payload: install::InstallHappBody,
+) -> Result<Status, (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    Ok(Json(()))
+    Ok(install::handle_install_app(&mut ws, payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
 }
 
-/// ???
-#[post("/hosted/register")]
-pub async fn register(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+#[post("/hosted/register", format = "application/json", data = "<payload>")]
+pub async fn register_app(
+    wsm: &State<WsMutex>,
+    payload: register::types::HappInput,
+) -> Result<Status, (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    Ok(Json(()))
+    Ok(register::handle_register_app(&mut ws, payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
 }
 
 // Types
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]

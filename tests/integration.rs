@@ -1,13 +1,16 @@
 mod utils;
 
+use std::collections::HashMap;
+use std::time::Duration;
+
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::ExternIO;
-use hpos_api_rust::common::types::HappAndHost;
-// use log::{debug, info};
+use holofuel_types::fuel::Fuel;
+use hpos_api_rust::handlers::hosted_apps::register;
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
-use hpos_api_rust::routes::apps::hosted::PresentedHappBundle;
-use hpos_hc_connect::app_connection::CoreAppRoleName;
+
+use hpos_api_rust::handlers::hosted_apps::install::{self, HappPreferences};
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
 use log::{debug, info};
@@ -15,9 +18,8 @@ use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::{serde_json, Value};
 use rocket::tokio;
-use utils::core_apps::Happ;
-use utils::HappInput;
-use utils::Test;
+use utils::core_apps::{Happ, HHA_URL};
+use utils::{publish_and_enable_hosted_happ, HappInput, Test};
 
 #[tokio::test]
 async fn install_components() {
@@ -34,56 +36,10 @@ async fn install_components() {
     let hha_app_id = hha.app.id();
 
     // publish test happ to hha
-    // howto: https://github.com/Holo-Host/holo-hosting-app-rsm/blob/develop/tests/unit-test/provider-init.ts#L52
-    let payload = HappInput::default();
-    let draft_hha_bundle: PresentedHappBundle = hha
-        .app
-        .zome_call_typed(
-            CoreAppRoleName::HHA.into(),
-            "hha".into(),
-            "create_draft".into(),
-            payload,
-        )
+    let hosted_happ_payload = HappInput::default();
+    let test_hosted_happ_id = publish_and_enable_hosted_happ(&mut hha, hosted_happ_payload)
         .await
         .unwrap();
-
-    let payload = draft_hha_bundle.id;
-    let hha_bundle: PresentedHappBundle = hha
-        .app
-        .zome_call_typed(
-            CoreAppRoleName::HHA.into(),
-            "hha".into(),
-            "publish_happ".into(),
-            payload,
-        )
-        .await
-        .unwrap();
-
-    let test_hosted_happ_id = hha_bundle.id;
-    info!(
-        "Published hosted happ in hha with id {}",
-        &test_hosted_happ_id
-    );
-
-    // enable test happ in hha
-    let payload = HappAndHost {
-        happ_id: test_hosted_happ_id.clone(),
-        holoport_id: "5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq".to_string(),
-    };
-
-    debug!("payload: {:?}", payload);
-    let _: () = hha
-        .app
-        .zome_call_typed(
-            CoreAppRoleName::HHA.into(),
-            "hha".into(),
-            "enable_happ".into(),
-            payload,
-        )
-        .await
-        .unwrap();
-
-    info!("Hosted happ enabled in hha - OK");
 
     // Install SL for hosted happ with host_agent key
     let sl_app_info = test
@@ -243,4 +199,76 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, Happ::HHA.to_string());
+
+    // Test installing a second hosted happ
+    // publish second hosted happ
+    let mut hosted_happ_payload = HappInput::default();
+    hosted_happ_payload.name = "Hosted Happ 2".to_string();
+    let second_test_hosted_happ_id = publish_and_enable_hosted_happ(&mut hha, hosted_happ_payload)
+        .await
+        .unwrap();
+
+    // install new hosted happ on host's hp
+    let path = format!("/apps/hosted/install");
+    info!("calling {}", &path);
+    let install_payload = install::InstallHappBody {
+        happ_id: second_test_hosted_happ_id.to_string(),
+        membrane_proofs: HashMap::new(),
+        preferences: HappPreferences {
+            max_fuel_before_invoice: Fuel::new(0),
+            max_time_before_invoice: Duration::MAX,
+            price_bandwidth: Fuel::new(0),
+            price_compute: Fuel::new(0),
+            price_storage: Fuel::new(0),
+        },
+    };
+    let response = client
+        .post(path)
+        .body(serde_json::to_string(&install_payload).unwrap())
+        .header(ContentType::JSON)
+        .dispatch()
+        .await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+
+    // get second hosted happ
+    let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert!(response_body.contains(&format!("{}", &second_test_hosted_happ_id)));
+
+    // Test registering with a third hosted happ
+    // register a third hosted happ
+    let path = format!("/apps/hosted/register");
+    info!("calling {}", &path);
+    let register_payload = register::HappInput {
+        hosted_urls: ["test_happ_3_host_url".to_string()],
+        bundle_url: HHA_URL.to_string(),
+        special_installed_app_id: None,
+        name: "Test Happ 3".to_string(),
+        dnas: vec![HHA_URL],
+        exclude_jurisdictions: false,
+    };
+    let response = client
+        .post(path)
+        .body(serde_json::to_string(&register_payload).unwrap())
+        .header(ContentType::JSON)
+        .dispatch()
+        .await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+
+    // get second hosted happ
+    let path = format!("/apps/hosted/{}", &test_hosted_happ_id);
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert!(response_body.contains(&format!("{}", &second_test_hosted_happ_id)));
 }

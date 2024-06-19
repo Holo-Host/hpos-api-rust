@@ -4,8 +4,7 @@ use holochain_types::prelude::{
 };
 use rocket::serde::{Deserialize, Serialize};
 
-use crate::common::types::HappAndHost;
-use crate::common::types::{Transaction, POS};
+use crate::common::types::{HappAndHost, Transaction, POS};
 use crate::hpos::Ws;
 use crate::{HappDetails, PresentedHappBundle};
 use anyhow::Result;
@@ -16,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
-// Simplified typeype for yaml::to_str to extract happ_id form Invoice Note
+// Simplified type for yaml::to_str to extract happ_id form Invoice Note
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InvoiceNote {
     pub hha_id: ActionHashB64,
