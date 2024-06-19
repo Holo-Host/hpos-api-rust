@@ -1,116 +1,127 @@
-
-use holochain_types::{dna::{ActionHashB64, AgentPubKeyB64, EntryHashB64}, prelude::Timestamp};
-use hpos_hc_connect::AppConnection;
-use rocket::{
-    get, http::Status, serde::{json::Json, Deserialize, Serialize}, State
-};
 use anyhow::Result;
+use holochain_types::{
+    dna::{ActionHashB64, AgentPubKeyB64, EntryHashB64},
+    prelude::Timestamp,
+};
+use hpos_hc_connect::{app_connection::CoreAppRoleName, AppConnection};
+use rocket::{
+    get,
+    http::Status,
+    serde::{json::Json, Deserialize, Serialize},
+    State,
+};
 
 use crate::{common::hbs::call_hbs, hpos::WsMutex};
-use crate::hpos::Ws;
+use crate::{
+    common::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType, POS},
+    hpos::Ws,
+};
 
-use crate::routes::host::shared::{Transaction, PendingResponse};
-
-use super::shared::TransactionStatus;
+use crate::routes::host::shared::PendingResponse;
 
 /// ??
 #[get("/redemptions")]
-pub async fn redemptions(wsm: &State<WsMutex>) -> Result<Json<RedemptionsResponse>, (Status, String)> {
+pub async fn redemptions(
+    wsm: &State<WsMutex>,
+) -> Result<Json<RedemptionsResponse>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
-    Ok(Json(handle_redemptions(&mut ws)
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
-    )
+    Ok(Json(handle_redemptions(&mut ws).await.map_err(|e| {
+        (Status::InternalServerError, e.to_string())
+    })?))
 }
 
 async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
-    let core_app_connection: &mut AppConnection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
+    let core_app_connection: &mut AppConnection =
+        ws.get_connection(ws.core_app_id.clone()).await.unwrap();
 
-
-    fn is_redemption (transaction: &Transaction) -> bool {
+    fn is_redemption(transaction: &Transaction) -> bool {
         if let Some(pos) = &transaction.proof_of_service {
             match pos {
-                crate::routes::host::shared::POS::Redemption(_) => true,
-                crate::routes::host::shared::POS::Hosting(_) => false,
+                POS::Redemption(_) => true,
+                POS::Hosting(_) => false,
             }
         } else {
             false
         }
     }
 
-    let completed_redemption_transaction: Vec<Transaction> = core_app_connection.zome_call_typed::<(), Vec<Transaction>>(
-        "holofuel".into(), 
-        "transactor".into(), 
-        "get_completed_transactions".into(), 
-        ()
-    ).await?
-    .into_iter()
-    .filter(is_redemption)
-    .collect();
+    let completed_redemption_transaction: Vec<Transaction> = core_app_connection
+        .zome_call_typed::<(), Vec<Transaction>>(
+            CoreAppRoleName::Holofuel.into(),
+            "transactor".into(),
+            "get_completed_transactions".into(),
+            (),
+        )
+        .await?
+        .into_iter()
+        .filter(is_redemption)
+        .collect();
 
     let completed_redemption_ids: Vec<EntryHashB64> = completed_redemption_transaction
-    .clone()
-    .into_iter()
-    .map(|tx| tx.id)
-    .collect();
+        .clone()
+        .into_iter()
+        .map(|tx| tx.id)
+        .collect();
 
-    let completed_redemption_records: Vec<RedemptionRecord> = get_redemption_records(completed_redemption_ids).await?;
+    let completed_redemption_records: Vec<RedemptionRecord> =
+        get_redemption_records(completed_redemption_ids).await?;
 
-    let completed_transaction_with_redemptions: Vec<TransactionWithRedemption> = completed_redemption_transaction
-    .into_iter()
-    .map(|redemption_transaction| {
-        let matching_record = completed_redemption_records.clone().into_iter().find(|record| record.redemption_id == redemption_transaction.id);
-        if let Some(matching_record) = matching_record {
-            let mut transaction_with_redemption: TransactionWithRedemption = redemption_transaction.into();
-            transaction_with_redemption.holofuel_acceptance_hash = Some(matching_record.holofuel_acceptance_hash);
-            transaction_with_redemption.ethereum_transaction_hash = Some(matching_record.ethereum_transaction_hash);
+    let completed_transaction_with_redemptions: Vec<TransactionWithRedemption> =
+        completed_redemption_transaction
+            .into_iter()
+            .map(|redemption_transaction| {
+                let matching_record = completed_redemption_records
+                    .clone()
+                    .into_iter()
+                    .find(|record| record.redemption_id == redemption_transaction.id);
+                if let Some(matching_record) = matching_record {
+                    let mut transaction_with_redemption: TransactionWithRedemption =
+                        redemption_transaction.into();
+                    transaction_with_redemption.holofuel_acceptance_hash =
+                        Some(matching_record.holofuel_acceptance_hash);
+                    transaction_with_redemption.ethereum_transaction_hash =
+                        Some(matching_record.ethereum_transaction_hash);
 
+                    // I don't understand why the logic is this way in the rest of this function. Just directly copying from the js
+                    if matching_record.processing_stage == ProcessingStage::Finished {
+                        return transaction_with_redemption;
+                    }
 
-            // I don't understand why the logic is this way in the rest of this function. Just directly copying from the js
-            if matching_record.processing_stage == ProcessingStage::Finished {
-                return transaction_with_redemption
-            }
+                    transaction_with_redemption.status =
+                        TransactionWithRedemptionStatus::HfTransferred;
 
-            transaction_with_redemption.status = TransactionWithRedemptionStatus::HfTransferred;
-
-            return transaction_with_redemption
-        } else {
-            redemption_transaction.into()
-        }
-    })
-    .collect();
-
+                    return transaction_with_redemption;
+                } else {
+                    redemption_transaction.into()
+                }
+            })
+            .collect();
 
     let PendingResponse {
         promise_pending,
         promise_declined,
         accepted,
         ..
-    } = core_app_connection.zome_call_typed::<(), PendingResponse>(
-        "holofuel".into(), 
-        "transactor".into(), 
-        "get_pending_transactions".into(), 
-        ()
-    ).await?;
+    } = core_app_connection
+        .zome_call_typed::<(), PendingResponse>(
+            CoreAppRoleName::Holofuel.into(),
+            "transactor".into(),
+            "get_pending_transactions".into(),
+            (),
+        )
+        .await?;
 
-    let pending_redemption_transactions: Vec<Transaction> = promise_pending
-    .into_iter()
-    .filter(is_redemption)
-    .collect();
+    let pending_redemption_transactions: Vec<Transaction> =
+        promise_pending.into_iter().filter(is_redemption).collect();
 
-    let declined_redemption_transactions: Vec<Transaction> = promise_declined
-    .into_iter()
-    .filter(is_redemption)
-    .collect();
+    let declined_redemption_transactions: Vec<Transaction> =
+        promise_declined.into_iter().filter(is_redemption).collect();
 
-    let accepted_redemption_transactions: Vec<Transaction> = accepted
-    .into_iter()
-    .filter(is_redemption)
-    .collect();
+    let accepted_redemption_transactions: Vec<Transaction> =
+        accepted.into_iter().filter(is_redemption).collect();
 
-    
-    Ok(RedemptionsResponse{
+    Ok(RedemptionsResponse {
         pending: pending_redemption_transactions,
         declined: declined_redemption_transactions,
         accepted: accepted_redemption_transactions,
@@ -124,14 +135,12 @@ async fn get_redemption_records(ids: Vec<EntryHashB64>) -> Result<Vec<Redemption
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
-pub struct RedemptionsResponse
-{
+pub struct RedemptionsResponse {
     pending: Vec<Transaction>,
     declined: Vec<Transaction>,
     accepted: Vec<Transaction>,
-    completed: Vec<TransactionWithRedemption>,    
+    completed: Vec<TransactionWithRedemption>,
 }
-
 
 // This type is annoying, an artefact of translating directly from js (where variations on types is cheap) to rust.
 // We might want to rethink the output of this endpoint now that we're in rust, so that we can clean up some of these types.
@@ -144,16 +153,16 @@ pub struct TransactionWithRedemption {
     pub fee: String,
     pub created_date: Timestamp,
     pub completed_date: Option<Timestamp>,
-    pub transaction_type: super::shared::TransactionType, // The type returned will be the type of the initial transaction
+    pub transaction_type: TransactionType, // The type returned will be the type of the initial transaction
     pub counterparty: AgentPubKeyB64,
-    pub direction: super::shared::TransactionDirection,
+    pub direction: TransactionDirection,
     pub status: TransactionWithRedemptionStatus,
     pub note: Option<String>,
-    pub proof_of_service: Option<super::shared::POS>,
+    pub proof_of_service: Option<POS>,
     pub url: Option<String>,
     pub expiration_date: Option<Timestamp>,
     pub holofuel_acceptance_hash: Option<ActionHashB64>,
-    pub ethereum_transaction_hash: Option<String>,    
+    pub ethereum_transaction_hash: Option<String>,
 }
 
 impl From<Transaction> for TransactionWithRedemption {
@@ -176,18 +185,17 @@ impl From<Transaction> for TransactionWithRedemption {
             ethereum_transaction_hash: None,
         }
     }
-}  
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 
-struct RedemptionRecord
-{
+struct RedemptionRecord {
     redemption_id: EntryHashB64,
     holofuel_acceptance_hash: ActionHashB64,
     ethereum_transaction_hash: String,
-    processing_stage: ProcessingStage
+    processing_stage: ProcessingStage,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -217,7 +225,7 @@ pub enum TransactionWithRedemptionStatus {
     Completed,
     Declined,
     Expired,
-    HfTransferred
+    HfTransferred,
 }
 
 impl From<TransactionStatus> for TransactionWithRedemptionStatus {

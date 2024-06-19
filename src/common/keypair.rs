@@ -1,3 +1,4 @@
+use crate::rocket::serde::json::serde_json;
 use anyhow::{Context, Result};
 use base64::encode_config;
 use ed25519_dalek::*;
@@ -6,7 +7,6 @@ use hpos_config_seed_bundle_explorer::holoport_key;
 use serde::Serialize;
 use std::env;
 use std::fs::File;
-use crate::rocket::serde::json::serde_json;
 
 pub struct Keys {
     keypair: SigningKey,

@@ -1,3 +1,4 @@
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
@@ -20,7 +21,7 @@ use holofuel_types::fuel::Fuel;
 use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-/// 
+///
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
@@ -302,7 +303,7 @@ pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<Host
 
     let s: ServiceloggerHappPreferences = app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "get_happ_preferences".into(),
             happ_id,
