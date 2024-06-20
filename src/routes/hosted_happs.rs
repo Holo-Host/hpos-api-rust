@@ -1,3 +1,4 @@
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
@@ -13,14 +14,11 @@ use crate::{
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
-    dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64},
-    prelude::{
-        holochain_serial, Entry, Record, RecordEntry, SerializedBytes, Signature, Timestamp,
-    },
+    dna::{ActionHashB64, AgentPubKeyB64},
+    prelude::{holochain_serial, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
-use log::{debug, warn};
-use std::time::{SystemTime, UNIX_EPOCH};
+use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
 // Rocket will return 400 if query params are of a wrong type
@@ -77,33 +75,27 @@ pub async fn get_hosted_happ(
 #[post("/hosted_happs/<id>/enable")]
 pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-    let core_app_id = ws.core_app_id.clone();
 
     let payload = HappAndHost::init(id, &mut ws)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
-    debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
-    ws.call_zome(core_app_id, "core-app", "hha", "enable_happ", payload)
+    handle_enable(&mut ws, payload)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-    Ok(())
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
 #[post("/hosted_happs/<id>/disable")]
 pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-    let core_app_id = ws.core_app_id.clone();
 
     let payload = HappAndHost::init(id, &mut ws)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
-    debug!("calling zome hha/disable_happ with payload: {:?}", &payload);
-    ws.call_zome(core_app_id, "core-app", "hha", "disable_happ", payload)
+    handle_disable(&mut ws, payload)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-    Ok(())
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
 #[get("/hosted_happs/<id>/logs?<days>")]
@@ -114,50 +106,14 @@ pub async fn get_service_logs(
 ) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
-    // Validate format of happ id
     let id = ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let days = days.unwrap_or(7); // 7 days
-    let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
-    log::debug!("getting logs for happ: {}::servicelogger", id);
-    let result: Vec<Record> = ws
-        .call_zome(
-            format!("{}::servicelogger", id),
-            "servicelogger",
-            "service",
-            "querying_chain",
-            filter,
-        )
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
-
-    let four_weeks_ago = (SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_secs()
-        - (days as u64 * 24 * 60 * 60)) as i64;
-
-    log::debug!("filtering logs from {}", id);
-
-    let filtered_result: Vec<LogEntry> = result
-        .into_iter()
-        .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
-        // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),
-        // not holochain system entries
-        // and deserialize them into service logger's entries
-        .filter_map(|record| {
-            if let RecordEntry::Present(Entry::App(bytes)) = record.entry() {
-                if let Ok(log_entry) = ActivityLog::try_from(bytes.clone().into_sb()) {
-                    return Some(LogEntry::ActivityLog(Box::new(log_entry)));
-                } else if let Ok(log_entry) = DiskUsageLog::try_from(bytes.clone().into_sb()) {
-                    return Some(LogEntry::DiskUsageLog(log_entry));
-                }
-            }
-            None
-        })
-        .collect();
-
-    Ok(Json(filtered_result))
+    Ok(Json(
+        handle_get_service_logs(&mut ws, id, days)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
 }
 
 // Types
@@ -333,9 +289,11 @@ impl HappAndHost {
     pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
         // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
         // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
-        let (_, pub_key) = ws.get_cell(ws.core_app_id.clone(), "core-app").await?;
+        let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
 
-        let a = pub_key.get_raw_32();
+        let cell = app_connection.cell(CoreAppRoleName::HHA.into()).await?;
+
+        let a = cell.agent_pubkey().get_raw_32();
 
         let holoport_id = base36::encode(a);
 
@@ -363,95 +321,16 @@ pub struct ServiceloggerHappPreferences {
     pub max_time_before_invoice: Duration,
 }
 
-// --------servicelogger data types---------
-// https://github.com/Holo-Host/servicelogger-rsm/blob/develop/zomes/service_integrity/src/entries/mod.rs
-
-// Possible Servicelogger entry types
-#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
-pub enum LogEntry {
-    DiskUsageLog(DiskUsageLog),
-    ActivityLog(Box<ActivityLog>),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct ActivityLog {
-    pub request: ClientRequest,
-    pub response: HostResponse,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-// Corresponds to service logger ClientRequest
-pub struct ClientRequest {
-    pub agent_id: AgentPubKey, // This is the public key of the web user who issued this service request
-    pub request: RequestPayload,
-    pub request_signature: Signature,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct HostResponse {
-    pub host_metrics: HostMetrics, // All the metrics we want to record from the perspective of the Host
-    // things needed to be able to generate weblog compatible output
-    pub weblog_compat: ExtraWebLogData,
-}
-
-// cpu and bandwidth metrics that the host collects resulting from the zome call
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct HostMetrics {
-    pub cpu: u64,
-    pub bandwidth: u64,
-}
-
-// All the extra data that may be needed to produce weblog compatible exports/outputs
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ExtraWebLogData {
-    pub source_ip: String,
-    pub status_code: i16, // 200, 401, 403, 404, etc...
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RequestPayload {
-    pub host_id: String, // This should be the holoport pubkey as encoded in the url (ie Base36)
-    pub timestamp: Timestamp, // time according to the web user agent (client-side)
-    pub hha_pricing_pref: ActionHash,
-    pub call_spec: CallSpec,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CallSpec {
-    #[serde(with = "serde_bytes")]
-    pub args_hash: Vec<u8>, // hash of the arguments
-    pub function: String,     // function name being called
-    pub zome: String,         // zome name of the function being called
-    pub role_name: String,    // DNA alias/handle
-    pub hha_hash: ActionHash, // happ_id
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct DiskUsageLog {
-    pub files: Vec<File>,
-    pub source_chain_count: u32,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct File {
-    pub associated_dna: DnaHashB64,
-    /// Typically .sqlite3, .sqlite3-shm, or .sqlite3-wal
-    pub extension: String,
-    /// File size in bytes
-    pub size: u64,
-}
-
 // helper functions
 
 pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<HostingPlan>> {
-    let core_app_id = ws.core_app_id.clone();
+    let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
 
-    let s: ServiceloggerHappPreferences = ws
-        .call_zome(
-            core_app_id,
-            "core-app",
-            "hha",
-            "get_happ_preferences",
+    let s: ServiceloggerHappPreferences = app_connection
+        .zome_call_typed(
+            "core-app".into(),
+            "hha".into(),
+            "get_happ_preferences".into(),
             happ_id,
         )
         .await?;
@@ -508,13 +387,16 @@ async fn get_usage(
     usage_interval: i64,
     ws: &mut Ws,
 ) -> Result<Option<HappStats>> {
+    let app_connection = ws
+        .get_connection(format!("{}::servicelogger", happ_id))
+        .await?;
+
     log::debug!("Calling get_stats for happ: {}::servicelogger", happ_id);
-    let result: HappStats = ws
-        .call_zome(
-            format!("{}::servicelogger", happ_id),
-            "servicelogger",
-            "service",
-            "get_stats",
+    let result: HappStats = app_connection
+        .zome_call_typed(
+            "servicelogger".into(),
+            "service".into(),
+            "get_stats".into(),
             UsageTimeInterval {
                 duration_unit: "DAY".to_string(),
                 amount: usage_interval,

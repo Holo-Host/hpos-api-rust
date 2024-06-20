@@ -6,14 +6,17 @@ use holochain_types::prelude::ExternIO;
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::hosted_happs::{HappAndHost, PresentedHappBundle};
 use hpos_api_rust::routes::zome_call::ZomeCallRequest;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::hha_agent::HHAAgent;
+use hpos_hc_connect::AppConnection;
 use log::{debug, info};
 use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::{serde_json, Value};
 use rocket::tokio;
 use utils::core_apps::Happ;
+use utils::HappInput;
 use utils::Test;
-use utils::{to_cell, HappInput};
 
 #[tokio::test]
 async fn install_components() {
@@ -21,20 +24,39 @@ async fn install_components() {
 
     let mut test = Test::init().await;
 
-    let hha_app_info = test.install_app(Happ::HHA, None).await;
-    let hha_installed_app_id = hha_app_info.installed_app_id.clone();
-    let hha_cell = to_cell(hha_app_info, "core-app");
+    // Install hha
+    let _ = test.install_app(Happ::HHA, None).await;
+
+    // Connect to hha
+    let mut hha = HHAAgent::spawn(None).await.unwrap();
+
+    let hha_app_id = hha.app.id();
 
     // publish test happ to hha
     // howto: https://github.com/Holo-Host/holo-hosting-app-rsm/blob/develop/tests/unit-test/provider-init.ts#L52
     let payload = HappInput::default();
-    let draft_hha_bundle: PresentedHappBundle = test
-        .call_zome(&hha_cell, "hha", "create_draft", payload)
-        .await;
+    let draft_hha_bundle: PresentedHappBundle = hha
+        .app
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "create_draft".into(),
+            payload,
+        )
+        .await
+        .unwrap();
+
     let payload = draft_hha_bundle.id;
-    let hha_bundle: PresentedHappBundle = test
-        .call_zome(&hha_cell, "hha", "publish_happ", payload)
-        .await;
+    let hha_bundle: PresentedHappBundle = hha
+        .app
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "publish_happ".into(),
+            payload,
+        )
+        .await
+        .unwrap();
 
     let test_hosted_happ_id = hha_bundle.id;
     info!(
@@ -47,10 +69,18 @@ async fn install_components() {
         happ_id: test_hosted_happ_id.clone(),
         holoport_id: "5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq".to_string(),
     };
-    info!("payload: {:?}", payload);
-    let _: () = test
-        .call_zome(&hha_cell, "hha", "enable_happ", payload)
-        .await;
+
+    debug!("payload: {:?}", payload);
+    let _: () = hha
+        .app
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "enable_happ".into(),
+            payload,
+        )
+        .await
+        .unwrap();
 
     info!("Hosted happ enabled in hha - OK");
 
@@ -60,13 +90,27 @@ async fn install_components() {
         .await;
     debug!("sl_app_info: {:#?}", &sl_app_info);
 
+    // Open ws connection to servicelogger instance for hosted happ
+    let mut sl_ws = AppConnection::connect(
+        &mut test.admin_ws,
+        test.hc_env.keystore.clone(),
+        sl_app_info.installed_app_id,
+    )
+    .await
+    .unwrap();
+
     // Generate some SL activity
-    let sl_cell = to_cell(sl_app_info, "servicelogger");
     for _ in 1..10 {
-        let payload = test.generate_sl_payload(&sl_cell).await;
-        let sl_response: ActionHashB64 = test
-            .call_zome(&sl_cell, "service", "log_activity", payload)
-            .await;
+        let payload = test.generate_sl_payload(&mut sl_ws).await;
+        let sl_response: ActionHashB64 = sl_ws
+            .zome_call_typed(
+                "servicelogger".into(),
+                "service".into(),
+                "log_activity".into(),
+                payload,
+            )
+            .await
+            .unwrap();
         debug!("logged activity: {}", sl_response);
     }
 
@@ -164,7 +208,7 @@ async fn install_components() {
     payload.bundle_url = "Url123".to_string();
 
     let request = ZomeCallRequest {
-        app_id: hha_installed_app_id,
+        app_id: hha_app_id,
         role_id: "core-app".to_string(),
         zome_name: "hha".to_string(),
         fn_name: "create_draft".to_string(),
@@ -185,6 +229,7 @@ async fn install_components() {
     debug!("raw response body: {:?}", response_body);
     // decode with ExternIO
     let bundle: Value = ExternIO::decode(&ExternIO::from(response_body)).unwrap();
+    debug!("decoded response body: {:?}", bundle);
     // Check if deserialized zome call result is correct
     assert_eq!(&bundle["name"], "Test123");
     assert_eq!(&bundle["bundle_url"], "Url123");

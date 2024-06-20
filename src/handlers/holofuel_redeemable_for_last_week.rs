@@ -6,21 +6,20 @@ use crate::{
     HolofuelPaidUnpaid,
 };
 use anyhow::Result;
-use chrono::{DateTime, Days, NaiveDateTime, Utc};
+use chrono::{DateTime, Days, Utc};
 use holofuel_types::fuel::Fuel;
 use log::debug;
 
 // get current redemable holofuel
 pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
-    let core_app_id = ws.core_app_id.clone();
+    let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
 
     debug!("calling zome holofuel/transactor/get_redeemable");
-    let result = ws
-        .call_zome::<(), RedemptionState>(
-            core_app_id,
-            "holofuel",
-            "transactor",
-            "get_redeemable",
+    let result = app_connection
+        .zome_call_typed::<(), RedemptionState>(
+            "holofuel".into(),
+            "transactor".into(),
+            "get_redeemable".into(),
             (),
         )
         .await?;
@@ -30,7 +29,7 @@ pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
 
 // get holofuel paid/unpaid by day for the last week
 pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<HolofuelPaidUnpaid>> {
-    let core_app_id = ws.core_app_id.clone();
+    let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
 
     let one_week_ago = Utc::now()
         .checked_sub_days(Days::new(7))
@@ -38,12 +37,11 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
         .timestamp();
 
     debug!("calling zome holofuel/transactor/get_completed_transactions");
-    let completed_transactions = ws
-        .call_zome::<(), Vec<Transaction>>(
-            core_app_id.clone(),
-            "holofuel",
-            "transactor",
-            "get_completed_transactions",
+    let completed_transactions = app_connection
+        .zome_call_typed::<(), Vec<Transaction>>(
+            "holofuel".into(),
+            "transactor".into(),
+            "get_completed_transactions".into(),
             (),
         )
         .await?;
@@ -59,12 +57,11 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
         .collect();
 
     debug!("calling zome holofuel/transactor/get_pending_transactions");
-    let pending_transactions = ws
-        .call_zome::<(), PendingTransactions>(
-            core_app_id,
-            "holofuel",
-            "transactor",
-            "get_pending_transactions",
+    let pending_transactions = app_connection
+        .zome_call_typed::<(), PendingTransactions>(
+            "holofuel".into(),
+            "transactor".into(),
+            "get_pending_transactions".into(),
             (),
         )
         .await?;
@@ -89,8 +86,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
 }
 
 fn timestamp_to_date(timestamp: i64) -> DateTime<Utc> {
-    let naive = NaiveDateTime::from_timestamp_millis(timestamp).unwrap();
-    let date_time: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive, Utc);
+    let date_time: DateTime<Utc> = DateTime::from_timestamp_millis(timestamp).unwrap();
     date_time
 }
 
@@ -192,10 +188,7 @@ fn add_missing_days(
             .format("%Y-%m-%d")
             .to_string();
 
-        if let None = grouped_transactions_by_day
-            .iter()
-            .position(|t| t.date == date)
-        {
+        if !grouped_transactions_by_day.iter().any(|t| t.date == date) {
             grouped_transactions_by_day.push(HolofuelPaidUnpaid {
                 date,
                 paid: Fuel::new(0),
@@ -203,7 +196,7 @@ fn add_missing_days(
             });
         }
     }
-    return grouped_transactions_by_day;
+    grouped_transactions_by_day
 }
 
 #[cfg(test)]

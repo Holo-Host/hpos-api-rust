@@ -3,7 +3,7 @@
     [
       {
         "app_id": "core-app",
-        "bundle_url": "https://holo-host.github.io/holo-hosting-app-rsm/releases/downloads/core-app/0_5_27/core-app.0_5_27.happ",
+        "bundle_url": "https://holo-host.github.io/holo-hosting-app-rsm/releases/downloads/core-app/0_6_2/core-app.0_6_2.happ",
         "dnas":
           [
             {
@@ -18,8 +18,8 @@
       },
       {
         "app_id": "servicelogger",
-        "bundle_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_4_21/servicelogger.0_4_21.happ",
-        "sl_dna_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_4_21/servicelogger.0_4_21.dna",
+        "bundle_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_5_1/servicelogger.0_5_1.happ",
+        "sl_dna_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_5_1/servicelogger.0_5_1.dna",
       },
     ],
   "self_hosted_happs": [],

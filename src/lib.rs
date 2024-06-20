@@ -1,9 +1,9 @@
 pub mod common;
-mod handlers;
+pub mod handlers;
 mod hpos;
 pub mod routes;
 
-use hpos::{Keystore, Ws, WsMutex};
+use hpos::Ws;
 use log::debug;
 use rocket::{self, Build, Rocket};
 
@@ -19,10 +19,11 @@ pub async fn rocket() -> Rocket<Build> {
         );
     };
 
-    let keystore = Keystore::init().await.unwrap();
-    let wsm = WsMutex::new(Ws::connect(&keystore).await.unwrap());
+    let ws = Ws::connect()
+        .await
+        .expect("Failed to connect to lair kystore or holochain");
 
-    rocket::build().manage(wsm).mount(
+    rocket::build().manage(ws).mount(
         "/",
         rocket::routes![
             index,
