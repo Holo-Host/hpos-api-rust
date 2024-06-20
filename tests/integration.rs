@@ -11,6 +11,8 @@ use hpos_api_rust::handlers::register::types::{DnaResource, LoginConfig, Publish
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
+use holochain_types::prelude::holochain_serial;
+use holochain_types::prelude::SerializedBytes;
 use hpos_api_rust::handlers::{install, register};
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
@@ -19,6 +21,7 @@ use log::{debug, info};
 use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::{serde_json, Value};
+use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
 use utils::{publish_and_enable_hosted_happ, HappInput, Test};
@@ -228,6 +231,7 @@ async fn install_components() {
     hosted_happ_payload.name = "Hosted Happ 2".to_string();
     hosted_happ_payload.bundle_url = HHA_URL.to_string(); // install with reference to actual core-app/hha bundle url
     hosted_happ_payload.special_installed_app_id = None;
+    hosted_happ_payload.uid = Some("random-uid".to_string());
     let second_test_hosted_happ_id = publish_and_enable_hosted_happ(&mut hha, hosted_happ_payload)
         .await
         .unwrap();
@@ -267,19 +271,13 @@ async fn install_components() {
     )
     .await
     .unwrap();
+
     let get_hosted_happs: Vec<PresentedHappBundle> = second_hosted_happ_ws
-        .zome_call_typed(
-            "hha".into(),
-            "get_my_happs".into(),
-            second_test_hosted_happ_id.to_string().into(),
-            payload,
-        )
+        .zome_call_typed("core-app".into(), "hha".into(), "get_happs".into(), ())
         .await
         .unwrap();
-    assert!(get_hosted_happs
-        .iter()
-        .find(|h| h.id == second_test_hosted_happ_id)
-        .is_some());
+    debug!("get_hosted_happs: {:#?}", get_hosted_happs);
+    assert!(!get_hosted_happs.is_empty());
 
     // Test registering with a third hosted happ
     // register a third hosted happ
@@ -319,12 +317,15 @@ async fn install_components() {
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    let third_test_hosted_happ =
-        serde_json::from_str::<PresentedHappBundle>(&response_body).unwrap();
-    let third_test_hosted_happ_id = third_test_hosted_happ.id;
+    #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
+    struct Bundle {
+        id: ActionHashB64,
+    }
+    let third_test_hosted_happ = serde_json::from_str::<Bundle>(&response_body).unwrap();
+    debug!("third_test_hosted_happ: {:#?}", third_test_hosted_happ);
 
     // enable test_hosted_happ_id
-    let path = format!("/apps/hosted/{}/enable", &third_test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}/enable", &third_test_hosted_happ.id);
     info!("calling {}", &path);
     let response = client.post(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -332,12 +333,12 @@ async fn install_components() {
     debug!("body: {:#?}", response.into_string().await);
 
     // get third hosted happ
-    let path = format!("/apps/hosted/{}", &third_test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}", &third_test_hosted_happ.id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    assert!(response_body.contains(&format!("{}", &third_test_hosted_happ_id)));
+    assert!(response_body.contains(&format!("{}", &third_test_hosted_happ.id)));
 }

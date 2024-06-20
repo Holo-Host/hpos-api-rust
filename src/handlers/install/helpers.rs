@@ -45,9 +45,12 @@ pub async fn handle_install_app_raw(
         installed_app_id: Some(payload.installed_app_id),
         membrane_proofs: payload.membrane_proofs,
         network_seed: if payload.uid.is_some() {
-            Some(format!("{:?}::{:?}", payload.uid.unwrap(), uid_override))
+            match &uid_override {
+                Some(uid) => Some(format!("{:?}::{:?}", payload.uid.unwrap(), uid)),
+                None => Some(payload.uid.unwrap()),
+            }
         } else {
-            Some(uid_override)
+            uid_override
         },
     };
     log::trace!("Starting installation of app with bundle: {:?}", p.source);
@@ -155,7 +158,7 @@ pub async fn get_app_details(
         })
 }
 
-pub async fn verify_is_new_install(
+pub async fn is_already_installed(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
     installed_app_id: String,
 ) -> Result<bool> {
@@ -214,8 +217,8 @@ pub fn get_sl_id(happ_id: &String) -> String {
     format!("{:?}::servicelogger", happ_id)
 }
 
-pub fn get_uid_override() -> String {
-    std::env::var("DEV_UID_OVERRIDE").expect("Failed to read DEV_UID_OVERRIDE. Is it set in env?")
+pub fn get_uid_override() -> Option<String> {
+    std::env::var("DEV_UID_OVERRIDE").ok()
 }
 
 pub fn get_sl_collector_pubkey() -> String {

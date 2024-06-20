@@ -43,10 +43,14 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     )
     .await?;
 
-    match helpers::verify_is_new_install(&mut admin_connection, happ_bundle_details.id.to_string())
+    match helpers::is_already_installed(&mut admin_connection, happ_bundle_details.id.to_string())
         .await?
     {
         true => {
+            // NB: If app is already installed, then we only need to (re-)enable the happ bundle.
+            helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
+        }
+        false => {
             // NB: If the happ has not yet been installed, we must take 4 steps: 1. install app's sl, 2. enable app's sl, 3. install app, 4. enable app
             // 1. Install the sl instance assigned to the hosted happ
             // Download the servicelogger source code for sl happ instance install
@@ -114,10 +118,6 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 // 4. Enable the hosted happ
                 helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
             }
-        }
-        false => {
-            // NB: If app is already installed, then we only need to (re-)enable the happ bundle.
-            helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
         }
     }
 
