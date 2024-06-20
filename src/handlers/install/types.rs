@@ -50,7 +50,6 @@ pub struct HappPreferences {
 #[serde(crate = "rocket::serde")]
 pub struct InstallHappBody {
     pub happ_id: String,
-    pub preferences: HappPreferences,
     pub membrane_proofs: HashMap<String, MembraneProof>,
 }
 

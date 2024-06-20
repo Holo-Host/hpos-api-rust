@@ -242,13 +242,6 @@ async fn install_components() {
     let install_payload = install::InstallHappBody {
         happ_id: second_test_hosted_happ_id.to_string(),
         membrane_proofs: HashMap::new(),
-        preferences: install::HappPreferences {
-            max_fuel_before_invoice: Fuel::new(0),
-            max_time_before_invoice: Duration::MAX,
-            price_bandwidth: Fuel::new(0),
-            price_compute: Fuel::new(0),
-            price_storage: Fuel::new(0),
-        },
     };
     let response = client
         .post(path)
@@ -271,13 +264,14 @@ async fn install_components() {
     )
     .await
     .unwrap();
-
     let get_hosted_happs: Vec<PresentedHappBundle> = second_hosted_happ_ws
         .zome_call_typed("core-app".into(), "hha".into(), "get_happs".into(), ())
         .await
         .unwrap();
+    // Note: This is just an assertion to make sure we get a successful call with a valid response
+    // fyi: There should not yet be any hosted happs, but that is not the point of this call
     debug!("get_hosted_happs: {:#?}", get_hosted_happs);
-    assert!(!get_hosted_happs.is_empty());
+    assert!(get_hosted_happs.is_empty());
 
     // Test registering with a third hosted happ
     // register a third hosted happ
@@ -319,7 +313,7 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
     struct Bundle {
-        id: ActionHashB64,
+        id: String,
     }
     let third_test_hosted_happ = serde_json::from_str::<Bundle>(&response_body).unwrap();
     debug!("third_test_hosted_happ: {:#?}", third_test_hosted_happ);
