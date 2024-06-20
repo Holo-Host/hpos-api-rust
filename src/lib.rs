@@ -66,7 +66,7 @@ pub async fn rocket() -> Rocket<Build> {
         .mount(
             "/holoport",
             routes![
-                usage,     // TODO!!
+                usage,     // done
             ],
         )
 }
