@@ -204,7 +204,7 @@ impl Default for Earnings {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes, Default)]
 #[serde(crate = "rocket::serde")]
 pub struct HappStats {
     // we can return this is you want to return all source_chain that were running on this holoport
