@@ -21,7 +21,7 @@ use holofuel_types::fuel::Fuel;
 use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-/// 
+///
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
@@ -200,7 +200,7 @@ impl Default for Earnings {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes, Default)]
 #[serde(crate = "rocket::serde")]
 pub struct HappStats {
     // we can return this is you want to return all source_chain that were running on this holoport
