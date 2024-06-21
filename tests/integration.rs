@@ -263,4 +263,32 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "[]");
+
+
+    // the next endpoint depends on this env var
+    std::env::set_var("SL_PREFS_PATH", servicelogger_prefs_path());
+
+    // get billing_preferences
+    let path = format!("/host/billing_preferences");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // matches the contents of './servicelogger_prefs'
+    assert_eq!(response_body, "{\"max_fuel_before_invoice\":\"1000\",\"price_compute\":\"0.025\",\"price_storage\":\"0.025\",\"price_bandwidth\":\"0.025\",\"max_time_before_invoice\":{\"secs\":0,\"nanos\":0}}");
+}
+
+fn servicelogger_prefs_path () -> String {
+    let relative_path = std::path::Path::new("tests/servicelogger_prefs.yaml");
+
+    let current_dir = std::env::current_dir().expect("Failed to get current dir");
+
+    let combined_path = current_dir.join(relative_path);
+
+    std::fs::canonicalize(&combined_path).expect(&format!("Failed to canonicalize {:?}", combined_path))
+    .to_str()
+    .unwrap()
+    .to_string()
 }
