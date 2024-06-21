@@ -5,10 +5,9 @@ use holochain_types::prelude::{
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
-use crate::common::types::HappAndHost;
-use crate::common::types::{Transaction, POS};
+use crate::common::types::{HappAndHost, PresentedHappBundle, Transaction, POS};
 use crate::hpos::Ws;
-use crate::{HappDetails, PresentedHappBundle};
+use crate::HappDetails;
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
 use log::debug;
@@ -17,7 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 type AllTransactions = HashMap<ActionHashB64, Vec<Transaction>>;
 
-// Simplified typeype for yaml::to_str to extract happ_id form Invoice Note
+// Simplified type for yaml::to_str to extract happ_id form Invoice Note
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InvoiceNote {
     pub hha_id: ActionHashB64,
