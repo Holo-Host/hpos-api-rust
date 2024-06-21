@@ -134,14 +134,8 @@ pub async fn register(
     if request_body.name.is_empty() {
         return Err((Status::BadRequest, "name is empty".to_string()));
     }
-    if request_body.hosted_urls.is_empty() {
-        return Err((Status::BadRequest, "hosted_urls is empty".to_string()));
-    }
     if request_body.bundle_url.is_empty() {
         return Err((Status::BadRequest, "bundle_url is empty".to_string()));
-    }
-    if request_body.dnas.is_empty() {
-        return Err((Status::BadRequest, "dnas is empty".to_string()));
     }
 
     let mapped_dnas: Vec<DnaResource> = request_body
