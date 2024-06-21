@@ -6,7 +6,7 @@ use hpos_api_rust::common::types::HappAndHost;
 // use log::{debug, info};
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
-use hpos_api_rust::routes::apps::hosted::PresentedHappBundle;
+use hpos_api_rust::routes::apps::hosted::{HostedRegisterRequestBody, PresentedHappBundle};
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
@@ -15,7 +15,7 @@ use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
 use rocket::serde::json::{serde_json, Value};
 use rocket::tokio;
-use utils::core_apps::Happ;
+use utils::core_apps::{Happ, HHA_URL};
 use utils::HappInput;
 use utils::Test;
 
@@ -273,4 +273,26 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":108,\"bandwidth\":108}}");
+
+    // apps/hosted/register
+    let payload = HostedRegisterRequestBody {
+        name: "Hosted Happ 2".to_string(),
+        bundle_url: HHA_URL.to_string(),
+        hosted_urls: Vec::new(),
+        dnas: Vec::new(),
+        network_seed: Some("random-uid".to_string()),
+        special_installed_app_id: None,
+    };
+    let path = format!("/apps/hosted/register");
+    info!("calling {}", &path);
+    let response = client
+        .post(path)
+        .body(serde_json::to_string(&payload).unwrap())
+        .header(ContentType::JSON)
+        .dispatch()
+        .await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
 }
