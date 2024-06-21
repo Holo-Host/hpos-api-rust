@@ -16,6 +16,7 @@ use routes::host::hosting_criteria::*;
 use routes::host::invoices::*;
 use routes::host::redeemable_histogram::*;
 use routes::host::redemptions::*;
+use routes::host::billing_preferences::*;
 use routes::index;
 
 pub async fn rocket() -> Rocket<Build> {
@@ -60,7 +61,8 @@ pub async fn rocket() -> Rocket<Build> {
                 redeemable_histogram, // done
                 kyc_level,            // TODO!!
                 hosting_criteria,     // TODO!!
-                redemptions           // TODO!!
+                redemptions,          // TODO!!
+                billing_preferences,  // done
             ],
         )
         .mount(
