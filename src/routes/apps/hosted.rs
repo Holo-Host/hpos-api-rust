@@ -114,6 +114,13 @@ pub async fn register_app(
     payload: HappInput,
 ) -> Result<Json<PresentedHappBundle>, (Status, String)> {
     let mut ws = wsm.lock().await;
+    if payload.name.is_empty() {
+        return Err((Status::BadRequest, "name is empty".to_string()));
+    }
+    if payload.bundle_url.is_empty() {
+        return Err((Status::BadRequest, "bundle_url is empty".to_string()));
+    }
+    
     Ok(Json(
         register::handle_register_app(&mut ws, payload)
             .await
