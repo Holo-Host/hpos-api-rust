@@ -9,7 +9,6 @@ use rocket::{
     {post, State},
 };
 
-use crate::{call_zome, ZomeCallRequest};
 use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
 use crate::{
     common::types::Transaction,
@@ -20,7 +19,7 @@ use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
     dna::{ActionHashB64, AgentPubKeyB64},
-    prelude::{holochain_serial, SerializedBytes, Timestamp},
+    prelude::{holochain_serial, ExternIO, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
@@ -113,24 +112,23 @@ pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)>
     Ok(Json(()))
 }
 
-
 #[derive(Deserialize, Serialize, Clone)]
 struct HostedRegisterRequestBody {
-  pub name: String,
-  pub hosted_urls: Vec<String>,
-  pub bundle_url: String,
-  pub dnas: Vec<String>,
-  pub special_installed_app_id: Option<String>,
-  pub network_seed: String,
+    pub name: String,
+    pub hosted_urls: Vec<String>,
+    pub bundle_url: String,
+    pub dnas: Vec<String>,
+    pub special_installed_app_id: Option<String>,
+    pub network_seed: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct HostedRequestZomeCallDna {
     hash: String,
     src_url: String,
     nick: String,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct HostedRegisterZomeCall {
     name: String,
     hosted_urls: Vec<String>,
@@ -145,8 +143,9 @@ struct HostedRegisterZomeCall {
 pub async fn register(
     request_body: Json<HostedRegisterRequestBody>,
     wsm: &State<WsMutex>,
-) -> Result<Json<()>, (Status, String)> {
+) -> Result<Json<PresentedHappBundle>, (Status, String)> {
     let mut ws = wsm.lock().await;
+    let core_app_connection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
 
     if request_body.name.is_empty() {
         return Err((Status::BadRequest, "name is empty".to_string()));
@@ -182,20 +181,17 @@ pub async fn register(
         uid: request_body.network_seed.clone(),
     };
 
-    let happ = call_zome(
-        Json(ZomeCallRequest {
-            app_id: "".to_string(),
-            role_id: "core-app".to_string(),
-            zome_name: "hha".to_string(),
-            fn_name: "register_happ".to_string(),
-            payload: serde_json::to_value(payload)
-                .map_err(|e| (Status::InternalServerError, format!("{}", e)))?,
-        }),
-        wsm,
-    )
-    .await?;
+    let response: PresentedHappBundle = core_app_connection
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "register_happ".into(),
+            payload,
+        )
+        .await
+        .unwrap();
 
-    Ok(Json(happ))
+    Ok(Json(response))
 }
 
 // Types
