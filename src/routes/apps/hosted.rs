@@ -1,4 +1,4 @@
-use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::{app_connection::CoreAppRoleName, hha_types::{HappInput, LoginConfig}};
 use rocket::{
     get,
     http::Status,
@@ -116,24 +116,7 @@ pub struct HostedRegisterRequestBody {
     pub bundle_url: String,
     pub dnas: Vec<String>,
     pub special_installed_app_id: Option<String>,
-    pub network_seed: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct HostedRequestZomeCallDna {
-    hash: String,
-    src_url: String,
-    nick: String,
-}
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct HostedRegisterZomeCall {
-    name: String,
-    hosted_urls: Vec<String>,
-    bundle_url: String,
-    dnas: Vec<HostedRequestZomeCallDna>,
-    special_installed_app_id: Option<String>,
-    exclude_jurisdictions: bool,
-    uid: String,
+    pub network_seed: Option<String>,
 }
 
 #[post("/hosted/register", format = "json", data = "<request_body>")]
@@ -158,18 +141,18 @@ pub async fn register(
         return Err((Status::BadRequest, "dnas is empty".to_string()));
     }
 
-    let mapped_dnas: Vec<HostedRequestZomeCallDna> = request_body
+    let mapped_dnas: Vec<DnaResource> = request_body
         .dnas
         .clone()
         .into_iter()
-        .map(|nick| HostedRequestZomeCallDna {
+        .map(|nick| DnaResource {
             hash: "default-hash".to_string(),
             src_url: "default-path".to_string(),
             nick,
         })
         .collect();
 
-    let payload = HostedRegisterZomeCall {
+    let payload = HappInput {
         name: request_body.name.clone(),
         hosted_urls: request_body.hosted_urls.clone(),
         bundle_url: request_body.bundle_url.clone(),
@@ -177,6 +160,16 @@ pub async fn register(
         special_installed_app_id: request_body.special_installed_app_id.clone(),
         exclude_jurisdictions: true,
         uid: request_body.network_seed.clone(),
+        logo_url: None,
+        ui_src_url: None,
+        categories: [],
+        jurisdictions: [],
+        description: "".to_st,
+        login_config: LoginConfig {
+            display_publisher_name: false,
+            registration_info_url: None
+        },
+        publisher_pricing_pref: None
     };
 
     let response: PresentedHappBundle = core_app_connection
