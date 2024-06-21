@@ -120,7 +120,7 @@ pub async fn register_app(
     if payload.bundle_url.is_empty() {
         return Err((Status::BadRequest, "bundle_url is empty".to_string()));
     }
-    
+
     Ok(Json(
         register::handle_register_app(&mut ws, payload)
             .await
