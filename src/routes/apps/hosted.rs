@@ -145,7 +145,8 @@ pub async fn register(
     wsm: &State<WsMutex>,
 ) -> Result<Json<PresentedHappBundle>, (Status, String)> {
     let mut ws = wsm.lock().await;
-    let core_app_connection = ws.get_connection(ws.core_app_id.clone()).await.unwrap();
+    let core_app_id = ws.core_app_id.clone();
+    let core_app_connection = ws.get_connection(core_app_id).await.unwrap();
 
     if request_body.name.is_empty() {
         return Err((Status::BadRequest, "name is empty".to_string()));
