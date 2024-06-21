@@ -15,9 +15,9 @@ use crate::hpos::WsMutex;
 pub async fn billing_preferences(
     _wsm: &State<WsMutex>,
 ) -> Result<Json<PartialLoggerSettings>, (Status, String)> {
-    Ok(Json(handle_billing_preferences().await.map_err(
-        |e| (Status::InternalServerError, e.to_string()),
-    )?))
+    Ok(Json(handle_billing_preferences().await.map_err(|e| {
+        (Status::InternalServerError, e.to_string())
+    })?))
 }
 
 async fn handle_billing_preferences() -> Result<PartialLoggerSettings> {
@@ -30,7 +30,6 @@ async fn handle_billing_preferences() -> Result<PartialLoggerSettings> {
 
     Ok(billing_preferences)
 }
-
 
 // Copied from servicelogger-rsm. servicelogger_prefs.yaml contains a yaml encoding of this struct
 

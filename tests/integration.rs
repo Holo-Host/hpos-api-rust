@@ -264,7 +264,6 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "[]");
 
-
     // the next endpoint depends on this env var
     std::env::set_var("SL_PREFS_PATH", servicelogger_prefs_path());
 
@@ -280,15 +279,16 @@ async fn install_components() {
     assert_eq!(response_body, "{\"max_fuel_before_invoice\":\"1000\",\"price_compute\":\"0.025\",\"price_storage\":\"0.025\",\"price_bandwidth\":\"0.025\",\"max_time_before_invoice\":{\"secs\":0,\"nanos\":0}}");
 }
 
-fn servicelogger_prefs_path () -> String {
+fn servicelogger_prefs_path() -> String {
     let relative_path = std::path::Path::new("tests/servicelogger_prefs.yaml");
 
     let current_dir = std::env::current_dir().expect("Failed to get current dir");
 
     let combined_path = current_dir.join(relative_path);
 
-    std::fs::canonicalize(&combined_path).expect(&format!("Failed to canonicalize {:?}", combined_path))
-    .to_str()
-    .unwrap()
-    .to_string()
+    std::fs::canonicalize(&combined_path)
+        .expect(&format!("Failed to canonicalize {:?}", combined_path))
+        .to_str()
+        .unwrap()
+        .to_string()
 }

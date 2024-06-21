@@ -11,12 +11,12 @@ use routes::apps::call_zome::*;
 use routes::apps::core::*;
 use routes::apps::hosted::*;
 use routes::holoport::usage::*;
+use routes::host::billing_preferences::*;
 use routes::host::earnings::*;
 use routes::host::hosting_criteria::*;
 use routes::host::invoices::*;
 use routes::host::redeemable_histogram::*;
 use routes::host::redemptions::*;
-use routes::host::billing_preferences::*;
 use routes::index;
 
 pub async fn rocket() -> Rocket<Build> {
