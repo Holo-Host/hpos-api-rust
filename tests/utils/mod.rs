@@ -12,8 +12,7 @@ use holochain_env_setup::{
 };
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
-    AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp,
-    UnsafeBytes,
+    AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp, UnsafeBytes,
 };
 use hpos_api_rust::common::consts::ADMIN_PORT;
 use hpos_api_rust::handlers::hosted_happs::{

@@ -9,6 +9,9 @@ use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
 use holochain_types::prelude::holochain_serial;
 use holochain_types::prelude::SerializedBytes;
+use hpos_api_rust::common::types::{
+    DnaResource, HappInput, LoginConfig, PresentedHappBundle, PublisherPricingPref,
+};
 use hpos_api_rust::handlers::install;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
@@ -21,7 +24,6 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
 use utils::{publish_and_enable_hosted_happ, Test};
-use hpos_api_rust::common::types::{HappInput, PresentedHappBundle, DnaResource, LoginConfig, PublisherPricingPref};
 
 #[tokio::test]
 async fn install_components() {

@@ -150,7 +150,7 @@
       },
       "original": {
         "owner": "holochain",
-        "ref": "holochain-0.4.0-dev.1",
+        "ref": "holochain-0.4.0-dev.2",
         "repo": "holochain",
         "type": "github"
       }

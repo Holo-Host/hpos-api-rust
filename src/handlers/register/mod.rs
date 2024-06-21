@@ -5,10 +5,7 @@ use hpos_hc_connect::app_connection::CoreAppRoleName;
 pub mod types;
 use crate::hpos::Ws;
 
-pub async fn handle_register_app(
-    ws: &mut Ws,
-    payload: HappInput,
-) -> Result<PresentedHappBundle> {
+pub async fn handle_register_app(ws: &mut Ws, payload: HappInput) -> Result<PresentedHappBundle> {
     log::debug!("calling zome hosted/register with payload: {:?}", &payload);
     let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
 

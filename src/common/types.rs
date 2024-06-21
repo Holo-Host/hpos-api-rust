@@ -159,7 +159,6 @@ pub struct HostSettings {
     pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
 
-
 #[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
 #[serde(crate = "rocket::serde")]
 pub struct HappInput {
@@ -187,4 +186,3 @@ pub struct HappInput {
     #[serde(default)]
     pub uid: Option<String>,
 }
-
