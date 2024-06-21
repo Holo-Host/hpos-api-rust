@@ -129,6 +129,16 @@ pub struct PublisherPricingPref {
     pub bandwidth: Fuel,
 }
 
+impl Default for PublisherPricingPref {
+    fn default() -> Self {
+        PublisherPricingPref {
+            cpu: Fuel::new(0),
+            storage: Fuel::new(0),
+            bandwidth: Fuel::new(0),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
 pub struct LoginConfig {
     pub display_publisher_name: bool,
@@ -148,3 +158,33 @@ pub struct HostSettings {
     pub is_host_disabled: bool, // signals that the host was the origin of the last disable request/action
     pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
+
+
+#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
+#[serde(crate = "rocket::serde")]
+pub struct HappInput {
+    pub hosted_urls: Vec<String>,
+    pub bundle_url: String,
+    #[serde(default)]
+    pub ui_src_url: Option<String>,
+    #[serde(default)]
+    pub special_installed_app_id: Option<String>,
+    pub name: String,
+    #[serde(default)]
+    pub logo_url: Option<String>,
+    pub dnas: Vec<DnaResource>,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub categories: Vec<String>,
+    #[serde(default)]
+    pub jurisdictions: Vec<String>,
+    pub exclude_jurisdictions: bool,
+    #[serde(default)]
+    pub publisher_pricing_pref: PublisherPricingPref,
+    #[serde(default)]
+    pub login_config: LoginConfig,
+    #[serde(default)]
+    pub uid: Option<String>,
+}
+

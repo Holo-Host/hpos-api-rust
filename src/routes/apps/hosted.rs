@@ -1,5 +1,5 @@
 use crate::{
-    common::types::{HappAndHost, PresentedHappBundle, Transaction},
+    common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
     handlers::{hosted_happs::*, install, register},
     hpos::{Ws, WsMutex},
 };
@@ -111,7 +111,7 @@ pub async fn install_app(
 #[post("/hosted/register", format = "application/json", data = "<payload>")]
 pub async fn register_app(
     wsm: &State<WsMutex>,
-    payload: register::types::HappInput,
+    payload: HappInput,
 ) -> Result<Json<PresentedHappBundle>, (Status, String)> {
     let mut ws = wsm.lock().await;
     Ok(Json(

@@ -1,19 +1,15 @@
 mod utils;
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use holochain_types::dna::{ActionHashB64, DnaHash, DnaHashB64};
 use holochain_types::prelude::ExternIO;
-use holofuel_types::fuel::Fuel;
-use hpos_api_rust::common::types::PresentedHappBundle;
-use hpos_api_rust::handlers::register::types::{DnaResource, LoginConfig, PublisherPricingPref};
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
 use holochain_types::prelude::holochain_serial;
 use holochain_types::prelude::SerializedBytes;
-use hpos_api_rust::handlers::{install, register};
+use hpos_api_rust::handlers::install;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
@@ -24,7 +20,8 @@ use rocket::serde::json::{serde_json, Value};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
-use utils::{publish_and_enable_hosted_happ, HappInput, Test};
+use utils::{publish_and_enable_hosted_happ, Test};
+use hpos_api_rust::common::types::{HappInput, PresentedHappBundle, DnaResource, LoginConfig, PublisherPricingPref};
 
 #[tokio::test]
 async fn install_components() {
@@ -291,7 +288,7 @@ async fn install_components() {
         DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
             .unwrap()
             .into();
-    let register_payload = register::types::HappInput {
+    let register_payload = HappInput {
         hosted_urls: vec!["test_happ_3_host_url".to_string()],
         bundle_url: HHA_URL.to_string(),
         special_installed_app_id: None,

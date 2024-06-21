@@ -1,4 +1,4 @@
-use crate::common::types::PresentedHappBundle;
+use crate::common::types::{HappInput, PresentedHappBundle};
 use anyhow::Result;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 
@@ -7,7 +7,7 @@ use crate::hpos::Ws;
 
 pub async fn handle_register_app(
     ws: &mut Ws,
-    payload: types::HappInput,
+    payload: HappInput,
 ) -> Result<PresentedHappBundle> {
     log::debug!("calling zome hosted/register with payload: {:?}", &payload);
     let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;

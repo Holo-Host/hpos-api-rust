@@ -12,10 +12,9 @@ use holochain_env_setup::{
 };
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
-    holochain_serial, AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp,
+    AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp,
     UnsafeBytes,
 };
-use holofuel_types::fuel::Fuel;
 use hpos_api_rust::common::consts::ADMIN_PORT;
 use hpos_api_rust::handlers::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
@@ -23,7 +22,7 @@ use hpos_api_rust::handlers::hosted_happs::{
 };
 use hpos_api_rust::handlers::install;
 
-use hpos_api_rust::common::types::{HappAndHost, PresentedHappBundle};
+use hpos_api_rust::common::types::{HappAndHost, HappInput, PresentedHappBundle};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
@@ -32,8 +31,6 @@ use hpos_hc_connect::AdminWebsocket;
 use hpos_hc_connect::AppConnection;
 use log::{debug, info, trace};
 use rocket::serde::json::serde_json;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
@@ -195,7 +192,7 @@ impl Test {
                     place_holder_pubkey
                 );
 
-                /// Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
+                // Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
                 let sl_source =
                     install::update_happ_bundle(AppBundleSource::Path(happ_path), sl_props_json)
                         .await
@@ -316,71 +313,4 @@ pub async fn publish_and_enable_hosted_happ(
     info!("Hosted happ enabled in hha - OK");
 
     Ok(test_hosted_happ_id)
-}
-
-// /// generates nonce for zome calls
-// /// https://github.com/Holo-Host/hpos-service-crates/blob/e1d1baa0c9741a46a29626ce33d9e019c1391db8/crates/hpos_connect_hc/src/utils.rs#L13
-// fn fresh_nonce() -> (Nonce256Bits, Timestamp) {
-//     let mut bytes = [0; 32];
-//     getrandom::getrandom(&mut bytes).unwrap();
-//     let nonce = Nonce256Bits::from(bytes);
-//     // Rather arbitrary but we expire nonces after 5 mins.
-//     let expires: Timestamp = (Timestamp::now() + Duration::from_secs(60 * 5)).unwrap();
-//     (nonce, expires)
-// }
-
-// /// Extract destructively cell from AppInfo
-// pub fn to_cell(mut hha_app_info: AppInfo, role_name: &str) -> ProvisionedCell {
-//     let mut a = hha_app_info.cell_info.remove(role_name).unwrap();
-//     match a.pop() {
-//         Some(CellInfo::Provisioned(hha_cell)) => hha_cell,
-//         _ => panic!("Couldn't find cell for hha"),
-//     }
-// }
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct HappInput {
-    pub hosted_urls: Vec<String>,
-    pub bundle_url: String,
-    pub ui_src_url: Option<String>,
-    pub special_installed_app_id: Option<String>,
-    pub name: String,
-    pub logo_url: Option<String>,
-    pub dnas: Vec<DnaResource>,
-    pub description: String,
-    pub categories: Vec<String>,
-    pub jurisdictions: Vec<String>,
-    pub exclude_jurisdictions: bool,
-    pub publisher_pricing_pref: PublisherPricingPref,
-    pub login_config: LoginConfig,
-    pub uid: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct PublisherPricingPref {
-    pub cpu: Fuel,
-    pub storage: Fuel,
-    pub bandwidth: Fuel,
-}
-impl Default for PublisherPricingPref {
-    fn default() -> Self {
-        PublisherPricingPref {
-            cpu: Fuel::new(0),
-            storage: Fuel::new(0),
-            bandwidth: Fuel::new(0),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct LoginConfig {
-    pub display_publisher_name: bool,
-    pub registration_info_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct DnaResource {
-    pub hash: String,
-    pub src_url: String,
-    pub nick: String,
 }
