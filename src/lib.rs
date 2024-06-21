@@ -11,6 +11,7 @@ use routes::apps::call_zome::*;
 use routes::apps::core::*;
 use routes::apps::hosted::*;
 use routes::holoport::usage::*;
+use routes::host::billing_preferences::*;
 use routes::host::earnings::*;
 use routes::host::hosting_criteria::*;
 use routes::host::invoices::*;
@@ -41,15 +42,15 @@ pub async fn rocket() -> Rocket<Build> {
         .mount(
             "/apps",
             routes![
-                get_all,   // done
-                get_by_id, // done
-                enable,    // done
-                disable,   // done
-                call_zome, // done
-                logs,      // done
-                version,   // done
-                install,   // TODO!!
-                register   // TODO!!
+                get_all,      // done
+                get_by_id,    // done
+                enable,       // done
+                disable,      // done
+                call_zome,    // done
+                logs,         // done
+                version,      // done
+                install_app,  // done
+                register_app  // done
             ],
         )
         .mount(
@@ -60,7 +61,8 @@ pub async fn rocket() -> Rocket<Build> {
                 redeemable_histogram, // done
                 kyc_level,            // TODO!!
                 hosting_criteria,     // TODO!!
-                redemptions           // TODO!!
+                redemptions,          // TODO!!
+                billing_preferences,  // done
             ],
         )
         .mount(

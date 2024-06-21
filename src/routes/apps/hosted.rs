@@ -1,3 +1,4 @@
+
 use hpos_hc_connect::{
     app_connection::CoreAppRoleName,
     hha_types::{DnaResource, HappInput, LoginConfig, PublisherPricingPref},
@@ -10,22 +11,28 @@ use rocket::{
 };
 
 use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
+
 use crate::{
-    common::types::Transaction,
+    common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
+    handlers::{hosted_happs::*, install, register},
     hpos::{Ws, WsMutex},
 };
-
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
-    dna::{ActionHashB64, AgentPubKeyB64},
+    dna::ActionHashB64,
     prelude::{holochain_serial, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use log::warn;
+use rocket::{
+    http::Status,
+    serde::{json::Json, Deserialize, Serialize},
+    {get, post, State},
+};
 use std::{fmt, str::FromStr, time::Duration};
 
-///
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
@@ -104,12 +111,15 @@ pub async fn logs(
     ))
 }
 
-/// ???
-#[post("/hosted/install")]
-pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+#[post("/hosted/install", format = "application/json", data = "<payload>")]
+pub async fn install_app(
+    wsm: &State<WsMutex>,
+    payload: install::InstallHappBody,
+) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    Ok(Json(()))
+    Ok(install::handle_install_app(&mut ws, payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -183,7 +193,6 @@ pub async fn register(
 }
 
 // Types
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
