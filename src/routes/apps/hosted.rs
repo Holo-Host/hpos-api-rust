@@ -2,10 +2,7 @@ use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::{
     get,
     http::Status,
-    serde::{
-        json::{serde_json, Json},
-        Deserialize, Serialize,
-    },
+    serde::{json::Json, Deserialize, Serialize},
     {post, State},
 };
 
@@ -19,7 +16,7 @@ use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
     dna::{ActionHashB64, AgentPubKeyB64},
-    prelude::{holochain_serial, ExternIO, SerializedBytes, Timestamp},
+    prelude::{holochain_serial, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
 use log::warn;
@@ -113,7 +110,7 @@ pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)>
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-struct HostedRegisterRequestBody {
+pub struct HostedRegisterRequestBody {
     pub name: String,
     pub hosted_urls: Vec<String>,
     pub bundle_url: String,
