@@ -345,7 +345,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &third_test_hosted_happ.id)));
-  
+
     // the next endpoint depends on this env var
     std::env::set_var("SL_PREFS_PATH", servicelogger_prefs_path());
 
