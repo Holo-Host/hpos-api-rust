@@ -1,4 +1,7 @@
-use hpos_hc_connect::{app_connection::CoreAppRoleName, hha_types::{HappInput, LoginConfig}};
+use hpos_hc_connect::{
+    app_connection::CoreAppRoleName,
+    hha_types::{DnaResource, HappInput, LoginConfig, PublisherPricingPref},
+};
 use rocket::{
     get,
     http::Status,
@@ -162,14 +165,14 @@ pub async fn register(
         uid: request_body.network_seed.clone(),
         logo_url: None,
         ui_src_url: None,
-        categories: [],
-        jurisdictions: [],
-        description: "".to_st,
+        categories: Vec::new(),
+        jurisdictions: Vec::new(),
+        description: String::new(),
         login_config: LoginConfig {
             display_publisher_name: false,
-            registration_info_url: None
+            registration_info_url: None,
         },
-        publisher_pricing_pref: None
+        publisher_pricing_pref: PublisherPricingPref::default(),
     };
 
     let response: PresentedHappBundle = core_app_connection
@@ -319,26 +322,6 @@ pub struct PresentedHappBundle {
     pub special_installed_app_id: Option<String>,
     pub host_settings: HostSettings,
     pub last_edited: Timestamp,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PublisherPricingPref {
-    pub cpu: Fuel,
-    pub storage: Fuel,
-    pub bandwidth: Fuel,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct LoginConfig {
-    pub display_publisher_name: bool,
-    pub registration_info_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct DnaResource {
-    pub hash: String, // hash of the dna, not a stored dht address
-    pub src_url: String,
-    pub nick: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, SerializedBytes)]
