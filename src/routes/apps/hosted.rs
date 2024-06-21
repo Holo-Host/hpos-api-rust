@@ -9,7 +9,7 @@ use rocket::{
     {post, State},
 };
 
-use crate::{call_zome, routes::apps::types::HostedRegisterRequestBody, ZomeCallRequest};
+use crate::{call_zome, ZomeCallRequest};
 use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
 use crate::{
     common::types::Transaction,
@@ -113,6 +113,17 @@ pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)>
     Ok(Json(()))
 }
 
+
+#[derive(Deserialize, Serialize, Clone)]
+struct HostedRegisterRequestBody {
+  pub name: String,
+  pub hosted_urls: Vec<String>,
+  pub bundle_url: String,
+  pub dnas: Vec<String>,
+  pub special_installed_app_id: Option<String>,
+  pub network_seed: String,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct HostedRequestZomeCallDna {
     hash: String,
@@ -151,7 +162,8 @@ pub async fn register(
     }
 
     let mapped_dnas: Vec<HostedRequestZomeCallDna> = request_body
-        .dnas.clone()
+        .dnas
+        .clone()
         .into_iter()
         .map(|nick| HostedRequestZomeCallDna {
             hash: "default-hash".to_string(),
@@ -176,10 +188,12 @@ pub async fn register(
             role_id: "core-app".to_string(),
             zome_name: "hha".to_string(),
             fn_name: "register_happ".to_string(),
-            payload: serde_json::to_value(payload).unwrap()
+            payload: serde_json::to_value(payload)
+                .map_err(|e| (Status::InternalServerError, format!("{}", e)))?,
         }),
         wsm,
-    ).await?;
+    )
+    .await?;
 
     Ok(Json(happ))
 }
