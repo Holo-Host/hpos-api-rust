@@ -41,15 +41,15 @@ pub async fn rocket() -> Rocket<Build> {
         .mount(
             "/apps",
             routes![
-                get_all,   // done
-                get_by_id, // done
-                enable,    // done
-                disable,   // done
-                call_zome, // done
-                logs,      // done
-                version,   // done
-                install,   // TODO!!
-                register   // TODO!!
+                get_all,      // done
+                get_by_id,    // done
+                enable,       // done
+                disable,      // done
+                call_zome,    // done
+                logs,         // done
+                version,      // done
+                install_app,  // done
+                register_app  // done
             ],
         )
         .mount(

@@ -1,27 +1,24 @@
+use crate::{
+    common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
+    handlers::{hosted_happs::*, install, register},
+    hpos::{Ws, WsMutex},
+};
+use anyhow::{anyhow, Result};
+use holochain_client::AgentPubKey;
+use holochain_types::{
+    dna::ActionHashB64,
+    prelude::{holochain_serial, SerializedBytes, Timestamp},
+};
+use holofuel_types::fuel::Fuel;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
+use log::warn;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
     {get, post, State},
 };
-
-use crate::{common::types::HappAndHost, handlers::hosted_happs::*};
-use crate::{
-    common::types::Transaction,
-    hpos::{Ws, WsMutex},
-};
-
-use anyhow::{anyhow, Result};
-use holochain_client::AgentPubKey;
-use holochain_types::{
-    dna::{ActionHashB64, AgentPubKeyB64},
-    prelude::{holochain_serial, SerializedBytes, Timestamp},
-};
-use holofuel_types::fuel::Fuel;
-use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-///
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
     usage_interval: i64,
@@ -100,24 +97,31 @@ pub async fn logs(
     ))
 }
 
-/// ???
-#[post("/hosted/install")]
-pub async fn install(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+#[post("/hosted/install", format = "application/json", data = "<payload>")]
+pub async fn install_app(
+    wsm: &State<WsMutex>,
+    payload: install::InstallHappBody,
+) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    Ok(Json(()))
+    Ok(install::handle_install_app(&mut ws, payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
 }
 
-/// ???
-#[post("/hosted/register")]
-pub async fn register(wsm: &State<WsMutex>) -> Result<Json<()>, (Status, String)> {
+#[post("/hosted/register", format = "application/json", data = "<payload>")]
+pub async fn register_app(
+    wsm: &State<WsMutex>,
+    payload: HappInput,
+) -> Result<Json<PresentedHappBundle>, (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    Ok(Json(()))
+    Ok(Json(
+        register::handle_register_app(&mut ws, payload)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
 }
 
 // Types
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
@@ -225,58 +229,6 @@ impl fmt::Display for HostingPlan {
             HostingPlan::Paid => write!(f, "paid"),
         }
     }
-}
-
-// return type of hha/get_happs
-#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct PresentedHappBundle {
-    pub id: ActionHashB64,
-    pub provider_pubkey: AgentPubKeyB64,
-    pub is_draft: bool,
-    pub is_paused: bool,
-    pub uid: Option<String>,
-    pub bundle_url: String,
-    pub ui_src_url: Option<String>,
-    pub dnas: Vec<DnaResource>,
-    pub hosted_urls: Vec<String>,
-    pub name: String,
-    pub logo_url: Option<String>,
-    pub description: String,
-    pub categories: Vec<String>,
-    pub jurisdictions: Vec<String>,
-    pub exclude_jurisdictions: bool,
-    pub publisher_pricing_pref: PublisherPricingPref,
-    pub login_config: LoginConfig,
-    pub special_installed_app_id: Option<String>,
-    pub host_settings: HostSettings,
-    pub last_edited: Timestamp,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PublisherPricingPref {
-    pub cpu: Fuel,
-    pub storage: Fuel,
-    pub bandwidth: Fuel,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct LoginConfig {
-    pub display_publisher_name: bool,
-    pub registration_info_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct DnaResource {
-    pub hash: String, // hash of the dna, not a stored dht address
-    pub src_url: String,
-    pub nick: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct HostSettings {
-    pub is_enabled: bool,
-    pub is_host_disabled: bool, // signals that the host was the origin of the last disable request/action
-    pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
