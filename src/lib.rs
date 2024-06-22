@@ -58,9 +58,11 @@ pub async fn rocket() -> Rocket<Build> {
                 earnings,             // done
                 invoices,             // done
                 redeemable_histogram, // done
-                kyc_level,            // TODO!!
-                hosting_criteria,     // TODO!!
+
+                kyc_level,            // done
+                hosting_criteria,     // done
                 redemptions           // done
+
             ],
         )
         .mount(

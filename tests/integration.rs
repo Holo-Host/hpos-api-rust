@@ -254,6 +254,20 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "{\"earnings\":{\"last30days\":\"0\",\"last7days\":\"0\",\"lastday\":\"0\"},\"holofuel\":{\"redeemable\":\"0\",\"balance\":\"0\",\"available\":\"0\"},\"recentPayments\":[]}");
 
+    // get kyc_level
+    let path = format!("/host/kyc_level");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+
+    // get hosting_criteria
+    let path = format!("/host/hosting_criteria");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+  
     // get invoices report
     let path = format!("/host/invoices");
     info!("calling {}", &path);
@@ -264,7 +278,7 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "[]");
 
-    // get invoices report
+    // get redemptions
     let path = format!("/host/redemptions");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
