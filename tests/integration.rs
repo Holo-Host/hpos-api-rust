@@ -227,7 +227,7 @@ async fn install_components() {
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-  
+
     // get invoices report
     let path = format!("/host/invoices");
     info!("calling {}", &path);

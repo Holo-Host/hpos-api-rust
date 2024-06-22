@@ -61,7 +61,7 @@ pub async fn rocket() -> Rocket<Build> {
                 redeemable_histogram, // done
                 kyc_level,            // done
                 hosting_criteria,     // done
-                redemptions           // done
+                redemptions,          // done
                 billing_preferences,  // done
             ],
         )

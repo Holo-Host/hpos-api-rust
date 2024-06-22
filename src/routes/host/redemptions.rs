@@ -91,7 +91,7 @@ async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
                     transaction_with_redemption.status =
                         TransactionWithRedemptionStatus::HfTransferred;
 
-                    return transaction_with_redemption;
+                    transaction_with_redemption
                 } else {
                     redemption_transaction.into()
                 }
@@ -130,7 +130,7 @@ async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
 }
 
 async fn get_redemption_records(ids: Vec<EntryHashB64>) -> Result<Vec<RedemptionRecord>> {
-    Ok(call_hbs("/reserve/api/v2/redemptions/get".to_owned(), ids).await?)
+    call_hbs("/reserve/api/v2/redemptions/get".to_owned(), ids).await
 }
 
 #[derive(Serialize, Deserialize)]

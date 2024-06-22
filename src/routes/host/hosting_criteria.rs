@@ -1,18 +1,16 @@
 use anyhow::{anyhow, Context, Result};
 
-use rocket::{
-    http::Status,
-    serde::{json::Json, json::serde_json, Deserialize, Serialize},
-    {get, State},
-};
-
-use holochain_types::prelude::AgentPubKey;
-use crate::{common::hbs::call_hbs, hpos::WsMutex, hpos::Ws};
+use crate::common::hbs::call_hbs;
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
+use rocket::{
+    get,
+    http::Status,
+    serde::{json::serde_json, json::Json, Deserialize, Serialize},
+};
 
-use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::{env, fs::File};
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
@@ -34,7 +32,7 @@ pub struct HoloClientAuth {
 pub struct HostingCriteriaResponse {
     id: String,
     kyc: String,
-    jurisdiction: String
+    jurisdiction: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -51,7 +49,7 @@ impl AuthPayload {
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards")
             .as_secs();
-        
+
         AuthPayload {
             email,
             timestamp,
@@ -82,7 +80,11 @@ async fn from_config() -> Result<(String, String, String)> {
         File::open(&config_path).context(format!("Failed to open config file {}", config_path))?;
 
     match serde_json::from_reader(config_file)? {
-        Config::V2 { device_bundle, settings, .. } => {
+        Config::V2 {
+            device_bundle,
+            settings,
+            ..
+        } => {
             // take in password
             let public = unlock(&device_bundle, Some(password))
                 .await
@@ -94,7 +96,7 @@ async fn from_config() -> Result<(String, String, String)> {
             Ok((
                 public_key::to_holochain_encoded_agent_key(&public),
                 device_bundle,
-                settings.admin.email
+                settings.admin.email,
             ))
         }
         _ => Err(anyhow!("Unsupported version of hpos config")),
@@ -102,7 +104,7 @@ async fn from_config() -> Result<(String, String, String)> {
 }
 
 async fn get_holo_client_auth(payload: AuthPayload) -> Result<HoloClientAuth> {
-    Ok(call_hbs("/auth/api/v1/holo-client".to_owned(), payload).await?)
+    call_hbs("/auth/api/v1/holo-client".to_owned(), payload).await
 }
 
 /// Returns the hosting criteria of the holoport admin user as a json object
@@ -112,20 +114,16 @@ async fn get_holo_client_auth(payload: AuthPayload) -> Result<HoloClientAuth> {
 ///     "jurisdiction": "string"
 /// }
 #[get("/hosting_criteria")]
-pub async fn hosting_criteria(wsm: &State<WsMutex>) -> Result<Json<(HostingCriteriaResponse)>, (Status, String)> {
-    let mut ws = wsm.lock().await;
+pub async fn hosting_criteria() -> Result<Json<HostingCriteriaResponse>, (Status, String)> {
+    let hosting_criteria_response = handle_hosting_criteria()
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
 
-    let hosting_criteria_response = handle_hosting_criteria(&mut ws).await.map_err(|e| {
-        (Status::InternalServerError, e.to_string())
-    })?;
-
-    Ok(Json(hosting_criteria_response))    
+    Ok(Json(hosting_criteria_response))
 }
 
-async fn handle_hosting_criteria(ws: &mut Ws) -> Result<HostingCriteriaResponse> {
-    let (agent_string, _device_bundle, email) = from_config()
-    .await
-    .unwrap();
+async fn handle_hosting_criteria() -> Result<HostingCriteriaResponse> {
+    let (agent_string, _device_bundle, email) = from_config().await.unwrap();
 
     let payload = AuthPayload::new(email, agent_string);
 
@@ -134,30 +132,26 @@ async fn handle_hosting_criteria(ws: &mut Ws) -> Result<HostingCriteriaResponse>
     Ok(HostingCriteriaResponse {
         id: auth_result.id,
         kyc: auth_result.kyc,
-        jurisdiction: auth_result.jurisdiction
-    })        
+        jurisdiction: auth_result.jurisdiction,
+    })
 }
 
 /// Returns the kyc level of the holoport admin user as a string
 #[get("/kyc_level")]
-pub async fn kyc_level(wsm: &State<WsMutex>) -> Result<String, (Status, String)> {
-    let mut ws = wsm.lock().await;
-
-    let kyc_level = handle_kyc_level(&mut ws).await.map_err(|e| {
-        (Status::InternalServerError, e.to_string())
-    })?;
+pub async fn kyc_level() -> Result<String, (Status, String)> {
+    let kyc_level = handle_kyc_level()
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
 
     Ok(kyc_level)
 }
 
-async fn handle_kyc_level(ws: &mut Ws) -> Result<String> {
-    let (agent_string, _device_bundle, email) = from_config()
-    .await
-    .unwrap();
+async fn handle_kyc_level() -> Result<String> {
+    let (agent_string, _device_bundle, email) = from_config().await.unwrap();
 
     let payload = AuthPayload::new(email, agent_string);
 
     let auth_result = get_holo_client_auth(payload).await?;
 
-    Ok(auth_result.kyc)        
+    Ok(auth_result.kyc)
 }

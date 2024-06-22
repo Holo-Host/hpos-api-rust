@@ -148,7 +148,7 @@ fn get_hosted_happ_invoice_details(
                     }
                 };
 
-                return Some(TransactionAndInvoiceDetails {
+                Some(TransactionAndInvoiceDetails {
                     id,
                     amount,
                     status,
@@ -181,12 +181,12 @@ fn get_hosted_happ_invoice_details(
                             price: invoice_prices.storage,
                         },
                     },
-                });
+                })
             } else {
                 None // in the js code, this value is "undefined"
             }
         })
-        .filter_map(|x| x)
+        .flatten()
         .collect();
 
     transaction_and_invoice_details.sort_by_key(|transaction| transaction.completed_date);
@@ -218,7 +218,7 @@ fn parse_note(unparsed_note: Option<String>) -> Option<Note> {
 // In the js code this does some additional checking that we get for free from serde
 fn is_valid_hosting_note(note: &Note) -> bool {
     let Note(human_readable_note, _) = note;
-    return human_readable_note.contains("Holo Hosting Invoice for");
+    human_readable_note.contains("Holo Hosting Invoice for")
 }
 
 fn read_happ_name(human_readable_note: &str) -> String {
@@ -227,7 +227,7 @@ fn read_happ_name(human_readable_note: &str) -> String {
         .nth(1)
     {
         let happ_name_part = happ.split("(...").next().unwrap_or("");
-        let name = happ_name_part.replace("\"", "").trim().to_string();
+        let name = happ_name_part.replace('"', "").trim().to_string();
         return name;
     }
 

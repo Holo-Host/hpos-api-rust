@@ -99,11 +99,11 @@ fn calculate_earnings(transactions: Vec<Transaction>) -> Result<Earnings> {
     })
 }
 
-fn calculate_earnings_in_days(days: u64, transactions: &Vec<Transaction>) -> Result<Fuel> {
+fn calculate_earnings_in_days(days: u64, transactions: &[Transaction]) -> Result<Fuel> {
     let days_ago = (Timestamp::now() - core::time::Duration::new(days * 24 * 60 * 60, 0))?;
 
     let result_of_vec_of_fuels: Result<Vec<Fuel>, FuelError> = transactions
-        .into_iter()
+        .iter()
         .filter(|tx| {
             if let Some(completed_date) = tx.completed_date {
                 completed_date > days_ago
