@@ -6,6 +6,7 @@ use anyhow::Result;
 use chrono::{DateTime, Days, Utc};
 use holochain_types::prelude::{holochain_serial, SerializedBytes};
 use holofuel_types::fuel::Fuel;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use log::debug;
 use rocket::{
     http::Status,
@@ -53,7 +54,7 @@ pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
     debug!("calling zome holofuel/transactor/get_redeemable");
     let result = app_connection
         .zome_call_typed::<(), RedemptionState>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_redeemable".into(),
             (),
@@ -75,7 +76,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
     debug!("calling zome holofuel/transactor/get_completed_transactions");
     let completed_transactions = app_connection
         .zome_call_typed::<(), Vec<Transaction>>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_completed_transactions".into(),
             (),
@@ -95,7 +96,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
     debug!("calling zome holofuel/transactor/get_pending_transactions");
     let pending_transactions = app_connection
         .zome_call_typed::<(), PendingTransactions>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_pending_transactions".into(),
             (),

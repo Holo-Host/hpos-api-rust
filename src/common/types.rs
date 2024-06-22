@@ -78,6 +78,14 @@ pub struct HappAndHost {
     pub holoport_id: String, // in base36 encoding
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Ledger {
+    pub balance: Fuel,
+    pub promised: Fuel,
+    pub fees: Fuel,
+    pub available: Fuel,
+}
+
 impl HappAndHost {
     pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
         // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.

@@ -1,4 +1,3 @@
-
 use anyhow::{Context, Result};
 use log::debug;
 use reqwest::Client;
@@ -6,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use super::keypair::Keys;
 
-pub async fn call_hbs<T: Serialize, U: for<'a> Deserialize<'a> + for<'de> Deserialize<'de>>(path: String, payload: T) -> Result<U> {
+pub async fn call_hbs<T: Serialize, U: for<'a> Deserialize<'a> + for<'de> Deserialize<'de>>(
+    path: String,
+    payload: T,
+) -> Result<U> {
     let hbs_base = std::env::var("HBS_URL").context("Cannot read HBS_URL from env var")?;
 
     let full_path = format!("{}{}", hbs_base, path);

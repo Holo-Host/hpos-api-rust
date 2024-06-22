@@ -2,6 +2,7 @@ use holochain_client::AgentPubKey;
 use holochain_types::prelude::{
     holochain_serial, Entry, Record, RecordEntry, SerializedBytes, Signature, Timestamp,
 };
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
 use crate::common::types::HappAndHost;
@@ -32,7 +33,12 @@ pub async fn handle_get_all(
 
     debug!("calling zome hha/get_happs");
     let all_hosted_happs: Vec<PresentedHappBundle> = app_connection
-        .zome_call_typed("core-app".into(), "hha".into(), "get_happs".into(), ())
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "get_happs".into(),
+            (),
+        )
         .await?;
 
     // Ask holofuel for all transactions so that I can calculate earings - isn't it ridiculous?
@@ -76,7 +82,12 @@ pub async fn handle_get_one(
 
     debug!("calling zome hha/get_happs");
     let happ: PresentedHappBundle = app_connection
-        .zome_call_typed("core-app".into(), "hha".into(), "get_happ".into(), id)
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "get_happ".into(),
+            id,
+        )
         .await?;
 
     // Ask holofuel for all transactions so that I can calculate earings - isn't it ridiculous?
@@ -100,7 +111,7 @@ async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
     debug!("calling zome holofuel/transactor/get_completed_transactions");
     let mut a = app_connection
         .zome_call_typed::<(), Vec<Transaction>>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_completed_transactions".into(),
             (),
@@ -133,7 +144,7 @@ pub async fn handle_enable(ws: &mut Ws, payload: HappAndHost) -> Result<()> {
 
     app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "enable_happ".into(),
             payload,
@@ -150,7 +161,7 @@ pub async fn handle_disable(ws: &mut Ws, payload: HappAndHost) -> Result<()> {
 
     app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "disable_happ".into(),
             payload,
