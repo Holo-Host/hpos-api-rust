@@ -12,6 +12,9 @@ HPOS_CONFIG_PATH - set by hpos-init
 CORE_HAPP_FILE
 HOLOCHAIN_WORKING_DIR
 DEV_UID_OVERRIDE
+SL_COLLECTOR_PUB_KEY
+HOST_PUBKEY_PATH *(Required only in non-test envs)*
+IS_TEST_ENV *(Required only to be set as true in test env)* 
 ```
 
 ## Authentication

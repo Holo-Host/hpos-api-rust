@@ -10,25 +10,26 @@ use holochain_env_setup::{
     holochain::{create_log_dir, create_tmp_dir},
     storage_helpers::download_file,
 };
-use holochain_types::app::AppManifest;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
-    holochain_serial, AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp,
-    UnsafeBytes, YamlProperties,
+    AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp, UnsafeBytes,
 };
-use holofuel_types::fuel::Fuel;
 use hpos_api_rust::common::consts::ADMIN_PORT;
 use hpos_api_rust::handlers::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
 };
+use hpos_api_rust::handlers::install;
+
+use hpos_api_rust::common::types::{HappAndHost, HappInput, PresentedHappBundle};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
-use hpos_hc_connect::{AdminWebsocket, AppConnection};
+use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::hha_agent::HHAAgent;
+use hpos_hc_connect::AdminWebsocket;
+use hpos_hc_connect::AppConnection;
 use log::{debug, info, trace};
 use rocket::serde::json::serde_json;
-use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
@@ -42,7 +43,7 @@ impl Test {
     pub async fn init() -> Self {
         const PASSWORD: &str = "pass";
 
-        // Env vars required for runnig stuff that imitates HPOS
+        // Env vars required for running stuff that imitates HPOS
         env::set_var("HOLOCHAIN_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
         env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
         let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -52,6 +53,11 @@ impl Test {
             "CORE_HAPP_FILE",
             format!("{}/resources/test/config.yaml", &manifets_path),
         );
+        env::set_var(
+            "SL_COLLECTOR_PUB_KEY",
+            "uhCAk0vTcqgNCoZLnUVuozGzi6onFdi8jfR6CeUw8pNGd4-2Ht0tA", // dev env collector pub key
+        );
+        env::set_var("IS_TEST_ENV", "true");
 
         const HBS_BASE_PATH: &str = "https://hbs.dev.holotest.net";
         env::set_var("HBS_URL", HBS_BASE_PATH);
@@ -151,42 +157,6 @@ impl Test {
         }
     }
 
-    /// Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
-    pub async fn create_servicelogger_source(&mut self, path: PathBuf) -> Result<AppBundleSource> {
-        let mut source = AppBundleSource::Path(path);
-        use mr_bundle::Bundle;
-        let bundle = match source {
-            AppBundleSource::Bundle(bundle) => bundle.into_inner(),
-            AppBundleSource::Path(path) => Bundle::read_from_file(&path).await.unwrap(),
-        };
-        let AppManifest::V1(mut manifest) = bundle.manifest().clone();
-        let place_holder_dna =
-            DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP").unwrap();
-        let place_holder_pubkey =
-            AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC").unwrap();
-        let place_holder_happ_id =
-            ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy").unwrap();
-
-        for role_manifest in &mut manifest.roles {
-            let json = format!(
-                r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
-                place_holder_happ_id.to_string(),
-                place_holder_dna.to_string(),
-                place_holder_dna.to_string(),
-                place_holder_pubkey
-            );
-            let properties = Some(YamlProperties::new(serde_yaml::from_str(&json).unwrap()));
-            role_manifest.dna.modifiers.properties = properties
-        }
-        source = AppBundleSource::Bundle(
-            bundle
-                .update_manifest(AppManifest::V1(manifest))
-                .unwrap()
-                .into(),
-        );
-        Ok(source)
-    }
-
     pub async fn install_app(&mut self, happ: Happ, happ_id: Option<ActionHashB64>) -> AppInfo {
         let url = match happ {
             Happ::HHA => HHA_URL,
@@ -206,7 +176,30 @@ impl Test {
 
         let (installed_app_id, source) = match happ_id {
             Some(id) => {
-                let sl_source = self.create_servicelogger_source(happ_path).await.unwrap();
+                let place_holder_dna =
+                    DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
+                        .unwrap();
+                let place_holder_pubkey =
+                    AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC")
+                        .unwrap();
+                let place_holder_happ_id =
+                    ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy")
+                        .unwrap();
+
+                let sl_props_json = format!(
+                    r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
+                    place_holder_happ_id.to_string(),
+                    place_holder_dna.to_string(),
+                    place_holder_dna.to_string(),
+                    place_holder_pubkey
+                );
+
+                // Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
+                let sl_source =
+                    install::update_happ_bundle(AppBundleSource::Path(happ_path), sl_props_json)
+                        .await
+                        .unwrap();
+
                 (Some(format!("{}::servicelogger", id)), sl_source)
             }
             None => (Some(happ.to_string()), AppBundleSource::Path(happ_path)),
@@ -244,36 +237,6 @@ impl Test {
 
         app_info
     }
-
-    // pub async fn call_zome<T: Debug + Serialize, R: Debug + for<'de> Deserialize<'de>>(
-    //     &mut self,
-    //     hha_cell: &ProvisionedCell,
-    //     zome_name: &str,
-    //     fn_name: &str,
-    //     payload: T,
-    // ) -> R {
-    //     let (nonce, expires_at) = fresh_nonce();
-
-    //     let zome_call_unsigned = ZomeCallUnsigned {
-    //         provenance: self.agent.clone(),
-    //         cell_id: hha_cell.clone().cell_id,
-    //         zome_name: zome_name.into(),
-    //         fn_name: fn_name.into(),
-    //         cap_secret: None,
-    //         payload: ExternIO::encode(payload).unwrap(),
-    //         nonce,
-    //         expires_at,
-    //     };
-
-    //     let signed_zome_call =
-    //         ZomeCall::try_from_unsigned_zome_call(&self.hc_env.keystore, zome_call_unsigned)
-    //             .await
-    //             .unwrap();
-
-    //     let response = self.app_ws.call_zome(signed_zome_call).await.unwrap();
-
-    //     ExternIO::decode(&response).unwrap()
-    // }
 }
 
 async fn from_config(config_path: PathBuf, password: String) -> Result<(String, String)> {
@@ -300,69 +263,56 @@ async fn from_config(config_path: PathBuf, password: String) -> Result<(String, 
     }
 }
 
-// /// generates nonce for zome calls
-// /// https://github.com/Holo-Host/hpos-service-crates/blob/e1d1baa0c9741a46a29626ce33d9e019c1391db8/crates/hpos_connect_hc/src/utils.rs#L13
-// fn fresh_nonce() -> (Nonce256Bits, Timestamp) {
-//     let mut bytes = [0; 32];
-//     getrandom::getrandom(&mut bytes).unwrap();
-//     let nonce = Nonce256Bits::from(bytes);
-//     // Rather arbitrary but we expire nonces after 5 mins.
-//     let expires: Timestamp = (Timestamp::now() + Duration::from_secs(60 * 5)).unwrap();
-//     (nonce, expires)
-// }
+pub async fn publish_and_enable_hosted_happ(
+    hha: &mut HHAAgent,
+    payload: HappInput,
+) -> Result<ActionHashB64> {
+    // howto: https://github.com/Holo-Host/holo-hosting-app-rsm/blob/develop/tests/unit-test/provider-init.ts#L52
+    let draft_hha_bundle: PresentedHappBundle = hha
+        .app
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "create_draft".into(),
+            payload,
+        )
+        .await?;
 
-// /// Extract destructively cell from AppInfo
-// pub fn to_cell(mut hha_app_info: AppInfo, role_name: &str) -> ProvisionedCell {
-//     let mut a = hha_app_info.cell_info.remove(role_name).unwrap();
-//     match a.pop() {
-//         Some(CellInfo::Provisioned(hha_cell)) => hha_cell,
-//         _ => panic!("Couldn't find cell for hha"),
-//     }
-// }
+    let payload = draft_hha_bundle.id;
+    let hha_bundle: PresentedHappBundle = hha
+        .app
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "publish_happ".into(),
+            payload,
+        )
+        .await?;
 
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct HappInput {
-    pub hosted_urls: Vec<String>,
-    pub bundle_url: String,
-    pub ui_src_url: Option<String>,
-    pub special_installed_app_id: Option<String>,
-    pub name: String,
-    pub logo_url: Option<String>,
-    pub dnas: Vec<DnaResource>,
-    pub description: String,
-    pub categories: Vec<String>,
-    pub jurisdictions: Vec<String>,
-    pub exclude_jurisdictions: bool,
-    pub publisher_pricing_pref: PublisherPricingPref,
-    pub login_config: LoginConfig,
-    pub uid: Option<String>,
-}
+    let test_hosted_happ_id = hha_bundle.id;
+    info!(
+        "Published hosted happ in hha with id {}",
+        &test_hosted_happ_id
+    );
 
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct PublisherPricingPref {
-    pub cpu: Fuel,
-    pub storage: Fuel,
-    pub bandwidth: Fuel,
-}
-impl Default for PublisherPricingPref {
-    fn default() -> Self {
-        PublisherPricingPref {
-            cpu: Fuel::new(0),
-            storage: Fuel::new(0),
-            bandwidth: Fuel::new(0),
-        }
-    }
-}
+    // enable test happ in hha
+    let payload = HappAndHost {
+        happ_id: test_hosted_happ_id.clone(),
+        holoport_id: "5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq".to_string(),
+    };
 
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct LoginConfig {
-    pub display_publisher_name: bool,
-    pub registration_info_url: Option<String>,
-}
+    debug!("payload: {:?}", payload);
+    let _: () = hha
+        .app
+        .zome_call_typed(
+            CoreAppRoleName::HHA.into(),
+            "hha".into(),
+            "enable_happ".into(),
+            payload,
+        )
+        .await?;
 
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct DnaResource {
-    pub hash: String,
-    pub src_url: String,
-    pub nick: String,
+    info!("Hosted happ enabled in hha - OK");
+
+    Ok(test_hosted_happ_id)
 }
