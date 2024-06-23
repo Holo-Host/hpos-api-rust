@@ -2,9 +2,13 @@ use anyhow::{Context, Result};
 use holochain_types::{dna::EntryHashB64, prelude::Timestamp};
 use log::debug;
 use reqwest::Client;
+use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
 use super::{keypair::Keys, types::RedemptionRecord};
+
+/// Mutex that guards state of HB
+pub type HbSMutex = Mutex<HBS>;
 
 #[derive(Clone, Debug)]
 pub struct HBS {
@@ -27,7 +31,7 @@ impl HBS {
     /// Returns autorizarion token that is used by HBS
     /// which is obtained from HBS /auth/api/v1/holo-client endpoint
     /// Caches result for `EXPIERY` seconds
-    pub async fn token(mut self) -> Result<String> {
+    pub async fn token(&mut self) -> Result<String> {
         const EXPIERY: i64 = 24 * 60 * 60;
         if let Some(token) = &self.token {
             // Check token expiry
@@ -38,7 +42,7 @@ impl HBS {
         // Get new token and save with expiery
         self.token = Some(self.download_holo_client().await?.access_token);
         self.token_created = Timestamp::now();
-        Ok(self.token.unwrap())
+        Ok(self.token.clone().unwrap())
     }
 
     /// Returns HBS base url which is read from env var HBS_URL
@@ -88,37 +92,22 @@ impl HBS {
     /// Handles post requerst to HBS server under /reserve/api/v2/redemptions/get path
     /// Creates authorization header from HBS.token
     /// Returns `Vec<RedemptionRecord>`
-    pub async fn get_redemption_records(ids: Vec<EntryHashB64>) -> Result<Vec<RedemptionRecord>> {
-        call_hbs("/reserve/api/v2/redemptions/get".to_owned(), ids).await
+    pub async fn get_redemption_records(
+        &mut self,
+        ids: Vec<EntryHashB64>,
+    ) -> Result<Vec<RedemptionRecord>> {
+        let client = Client::new();
+        let res = client
+            .post(format!("{}/reserve/api/v2/redemptions/get", self.url()?))
+            .json(&ids)
+            .header("Authorization", format!("Bearer {}", self.token().await?))
+            .send()
+            .await?;
+
+        debug!("API response: {:?}", res);
+
+        res.json().await.context("Failed to parse response body")
     }
-}
-
-pub async fn call_hbs<T: Serialize, U: for<'a> Deserialize<'a> + for<'de> Deserialize<'de>>(
-    path: String,
-    payload: T,
-) -> Result<U> {
-    let hbs_base = std::env::var("HBS_URL").context("Cannot read HBS_URL from env var")?;
-
-    let full_path = format!("{}{}", hbs_base, path);
-
-    let hpos_key = Keys::new().await?;
-
-    let signature = hpos_key.sign(&payload).await?;
-    debug!("Signature: '{:?}'", &signature);
-
-    let client = Client::new();
-    let res = client
-        .post(url::Url::parse(&full_path)?)
-        .json(&payload)
-        .header("X-Signature", signature)
-        .send()
-        .await?;
-
-    debug!("API response: {:?}", res);
-
-    let parsed_response: U = res.json().await.context("Failed to parse response body")?;
-
-    Ok(parsed_response)
 }
 
 #[derive(Serialize, Deserialize, Clone)]

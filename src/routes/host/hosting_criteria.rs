@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::hpos::{Ws, WsMutex};
+use crate::common::hbs::{HbSMutex, HBS};
 use rocket::{
     get,
     http::Status,
@@ -24,18 +24,19 @@ pub struct HostingCriteriaResponse {
 /// }
 #[get("/hosting_criteria")]
 pub async fn hosting_criteria(
-    wsm: &State<WsMutex>,
+    hbsm: &State<HbSMutex>,
 ) -> Result<Json<HostingCriteriaResponse>, (Status, String)> {
-    let mut ws = wsm.lock().await;
-    let hosting_criteria_response = handle_hosting_criteria(&mut ws)
+    let mut hbs = hbsm.lock().await;
+
+    let hosting_criteria_response = handle_hosting_criteria(&mut hbs)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
 
     Ok(Json(hosting_criteria_response))
 }
 
-async fn handle_hosting_criteria(ws: &mut Ws) -> Result<HostingCriteriaResponse> {
-    let hbs_holo_client = ws.hbs.download_holo_client().await?.clone();
+async fn handle_hosting_criteria(hbs: &mut HBS) -> Result<HostingCriteriaResponse> {
+    let hbs_holo_client = hbs.download_holo_client().await?.clone();
 
     Ok(HostingCriteriaResponse {
         id: hbs_holo_client.id,
@@ -46,15 +47,15 @@ async fn handle_hosting_criteria(ws: &mut Ws) -> Result<HostingCriteriaResponse>
 
 /// Returns the kyc level of the holoport admin user as a string
 #[get("/kyc_level")]
-pub async fn kyc_level(wsm: &State<WsMutex>) -> Result<String, (Status, String)> {
-    let mut ws = wsm.lock().await;
-    let kyc_level = handle_kyc_level(&mut ws)
+pub async fn kyc_level(hbsm: &State<HbSMutex>) -> Result<String, (Status, String)> {
+    let mut hbs = hbsm.lock().await;
+    let kyc_level = handle_kyc_level(&mut hbs)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
 
     Ok(kyc_level)
 }
 
-async fn handle_kyc_level(ws: &mut Ws) -> Result<String> {
-    Ok(ws.hbs.download_holo_client().await?.kyc)
+async fn handle_kyc_level(hbs: &mut HBS) -> Result<String> {
+    Ok(hbs.download_holo_client().await?.kyc)
 }

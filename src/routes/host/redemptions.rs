@@ -11,33 +11,33 @@ use rocket::{
     State,
 };
 
-use crate::{
-    common::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType, POS},
-    hpos::Ws,
-};
+use crate::routes::host::shared::PendingResponse;
 use crate::{
     common::{
-        hbs::HBS,
-        types::{ProcessingStage, RedemptionRecord},
+        hbs::{HbSMutex, HBS},
+        types::{
+            ProcessingStage, RedemptionRecord, Transaction, TransactionDirection,
+            TransactionStatus, TransactionType, POS,
+        },
     },
-    hpos::WsMutex,
+    hpos::{Ws, WsMutex},
 };
-
-use crate::routes::host::shared::PendingResponse;
 
 /// ??
 #[get("/redemptions")]
 pub async fn redemptions(
     wsm: &State<WsMutex>,
+    hbsm: &State<HbSMutex>,
 ) -> Result<Json<RedemptionsResponse>, (Status, String)> {
     let mut ws = wsm.lock().await;
+    let mut hbs = hbsm.lock().await;
 
-    Ok(Json(handle_redemptions(&mut ws).await.map_err(|e| {
-        (Status::InternalServerError, e.to_string())
-    })?))
+    Ok(Json(handle_redemptions(&mut ws, &mut hbs).await.map_err(
+        |e| (Status::InternalServerError, e.to_string()),
+    )?))
 }
 
-async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
+async fn handle_redemptions(ws: &mut Ws, hbs: &mut HBS) -> Result<RedemptionsResponse> {
     let core_app_connection: &mut AppConnection =
         ws.get_connection(ws.core_app_id.clone()).await.unwrap();
 
@@ -71,7 +71,7 @@ async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
         .collect();
 
     let completed_redemption_records: Vec<RedemptionRecord> =
-        HBS::get_redemption_records(completed_redemption_ids).await?;
+        hbs.get_redemption_records(completed_redemption_ids).await?;
 
     let completed_transaction_with_redemptions: Vec<TransactionWithRedemption> =
         completed_redemption_transaction

@@ -3,6 +3,7 @@ pub mod handlers;
 mod hpos;
 pub mod routes;
 
+use common::hbs::HBS;
 use hpos::Ws;
 use log::debug;
 use rocket::{self, routes, Build, Rocket};
@@ -31,8 +32,11 @@ pub async fn rocket() -> Rocket<Build> {
         .await
         .expect("Failed to connect to lair kystore or holochain");
 
+    let hbs = HBS::default();
+
     rocket::build()
         .manage(ws)
+        .manage(hbs)
         .mount(
             "/",
             routes![
