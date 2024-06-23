@@ -11,7 +11,7 @@ use rocket::{
     State,
 };
 
-use crate::{common::hbs::call_hbs, hpos::WsMutex};
+use crate::{common::{hbs::HBS, types::{ProcessingStage, RedemptionRecord}}, hpos::WsMutex};
 use crate::{
     common::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType, POS},
     hpos::Ws,
@@ -65,7 +65,7 @@ async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
         .collect();
 
     let completed_redemption_records: Vec<RedemptionRecord> =
-        get_redemption_records(completed_redemption_ids).await?;
+        HBS::get_redemption_records(completed_redemption_ids).await?;
 
     let completed_transaction_with_redemptions: Vec<TransactionWithRedemption> =
         completed_redemption_transaction
@@ -129,10 +129,6 @@ async fn handle_redemptions(ws: &mut Ws) -> Result<RedemptionsResponse> {
     })
 }
 
-async fn get_redemption_records(ids: Vec<EntryHashB64>) -> Result<Vec<RedemptionRecord>> {
-    call_hbs("/reserve/api/v2/redemptions/get".to_owned(), ids).await
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct RedemptionsResponse {
@@ -185,31 +181,6 @@ impl From<Transaction> for TransactionWithRedemption {
             ethereum_transaction_hash: None,
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "rocket::serde")]
-#[serde(rename_all = "camelCase")]
-
-struct RedemptionRecord {
-    redemption_id: EntryHashB64,
-    holofuel_acceptance_hash: ActionHashB64,
-    ethereum_transaction_hash: String,
-    processing_stage: ProcessingStage,
-}
-
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
-#[serde(crate = "rocket::serde")]
-#[serde(rename_all = "camelCase")]
-pub enum ProcessingStage {
-    Invalid,
-    New,
-    Verified,
-    SentHolofuel,
-    AcceptedHolofuel,
-    ScheduledForCountersigning,
-    CountersignedHolofuel,
-    Finished,
 }
 
 // This is just TransactionStatus with one additional option.

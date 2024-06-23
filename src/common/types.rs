@@ -194,3 +194,28 @@ pub struct HappInput {
     #[serde(default)]
     pub uid: Option<String>,
 }
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+
+pub struct RedemptionRecord {
+    pub redemption_id: EntryHashB64,
+    pub holofuel_acceptance_hash: ActionHashB64,
+    pub ethereum_transaction_hash: String,
+    pub processing_stage: ProcessingStage,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub enum ProcessingStage {
+    Invalid,
+    New,
+    Verified,
+    SentHolofuel,
+    AcceptedHolofuel,
+    ScheduledForCountersigning,
+    CountersignedHolofuel,
+    Finished,
+}

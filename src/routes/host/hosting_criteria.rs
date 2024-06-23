@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 
-use crate::common::hbs::call_hbs;
+use crate::common::hbs::HBS;
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use rocket::{
@@ -103,9 +103,7 @@ async fn from_config() -> Result<(String, String, String)> {
     }
 }
 
-async fn get_holo_client_auth(payload: AuthPayload) -> Result<HoloClientAuth> {
-    call_hbs("/auth/api/v1/holo-client".to_owned(), payload).await
-}
+
 
 /// Returns the hosting criteria of the holoport admin user as a json object
 /// {
@@ -123,16 +121,12 @@ pub async fn hosting_criteria() -> Result<Json<HostingCriteriaResponse>, (Status
 }
 
 async fn handle_hosting_criteria() -> Result<HostingCriteriaResponse> {
-    let (agent_string, _device_bundle, email) = from_config().await.unwrap();
-
-    let payload = AuthPayload::new(email, agent_string);
-
-    let auth_result = get_holo_client_auth(payload).await?;
+    let hbs_holo_client = HBS::download_holo_client().await?;
 
     Ok(HostingCriteriaResponse {
-        id: auth_result.id,
-        kyc: auth_result.kyc,
-        jurisdiction: auth_result.jurisdiction,
+        id: hbs_holo_client.id,
+        kyc: hbs_holo_client.kyc,
+        jurisdiction: hbs_holo_client.jurisdiction,
     })
 }
 
@@ -147,11 +141,5 @@ pub async fn kyc_level() -> Result<String, (Status, String)> {
 }
 
 async fn handle_kyc_level() -> Result<String> {
-    let (agent_string, _device_bundle, email) = from_config().await.unwrap();
-
-    let payload = AuthPayload::new(email, agent_string);
-
-    let auth_result = get_holo_client_auth(payload).await?;
-
-    Ok(auth_result.kyc)
+    Ok(HBS::download_holo_client().await?.kyc)
 }
