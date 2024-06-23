@@ -8,6 +8,7 @@ use crate::HoloClientAuth;
 
 use super::{keypair::Keys, types::RedemptionRecord};
 
+#[derive(Clone, Debug, Default)]
 pub struct HBS {
     url: Option<String>,
     token: Option<String>
@@ -33,7 +34,7 @@ impl HBS {
         }
     }
 
-    pub async fn download_holo_client() -> Result<HoloClientAuth> {
+    pub async fn download_holo_client(&self) -> Result<HoloClientAuth> {
         Ok("abba".into())
     }
 

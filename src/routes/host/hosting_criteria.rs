@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 
-use crate::common::hbs::HBS;
+use crate::hpos::{Ws, WsMutex};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use rocket::{
     get,
     http::Status,
-    serde::{json::serde_json, json::Json, Deserialize, Serialize},
+    serde::{json::{serde_json, Json}, Deserialize, Serialize}, State,
 };
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -112,16 +112,17 @@ async fn from_config() -> Result<(String, String, String)> {
 ///     "jurisdiction": "string"
 /// }
 #[get("/hosting_criteria")]
-pub async fn hosting_criteria() -> Result<Json<HostingCriteriaResponse>, (Status, String)> {
-    let hosting_criteria_response = handle_hosting_criteria()
+pub async fn hosting_criteria(wsm: &State<WsMutex>) -> Result<Json<HostingCriteriaResponse>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let hosting_criteria_response = handle_hosting_criteria(&mut ws)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
 
     Ok(Json(hosting_criteria_response))
 }
 
-async fn handle_hosting_criteria() -> Result<HostingCriteriaResponse> {
-    let hbs_holo_client = HBS::download_holo_client().await?;
+async fn handle_hosting_criteria(ws: &mut Ws) -> Result<HostingCriteriaResponse> {
+    let hbs_holo_client = ws.hbs.download_holo_client().await?.clone();
 
     Ok(HostingCriteriaResponse {
         id: hbs_holo_client.id,
@@ -132,14 +133,15 @@ async fn handle_hosting_criteria() -> Result<HostingCriteriaResponse> {
 
 /// Returns the kyc level of the holoport admin user as a string
 #[get("/kyc_level")]
-pub async fn kyc_level() -> Result<String, (Status, String)> {
-    let kyc_level = handle_kyc_level()
+pub async fn kyc_level(wsm: &State<WsMutex>) -> Result<String, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let kyc_level = handle_kyc_level(&mut ws)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))?;
 
     Ok(kyc_level)
 }
 
-async fn handle_kyc_level() -> Result<String> {
-    Ok(HBS::download_holo_client().await?.kyc)
+async fn handle_kyc_level(ws: &mut Ws) -> Result<String> {
+    Ok(ws.hbs.download_holo_client().await?.kyc)
 }
