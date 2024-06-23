@@ -262,17 +262,11 @@ pub enum InvoiceSet {
 
 impl InvoiceSet {
     pub fn includes_paid(&self) -> bool {
-        match &self {
-            InvoiceSet::Unpaid => false,
-            _ => true,
-        }
+        !matches!(self, InvoiceSet::Unpaid)
     }
 
     pub fn includes_unpaid(&self) -> bool {
-        match &self {
-            InvoiceSet::Paid => false,
-            _ => true,
-        }
+        !matches!(self, InvoiceSet::Paid)
     }
 }
 

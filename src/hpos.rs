@@ -81,7 +81,7 @@ impl Ws {
             base_sl,
             hp_id,
             host_pub_key,
-            hbs: HBS::default()
+            hbs: HBS::default(),
         }))
     }
 

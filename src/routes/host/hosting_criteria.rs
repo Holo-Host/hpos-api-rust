@@ -4,7 +4,8 @@ use crate::hpos::{Ws, WsMutex};
 use rocket::{
     get,
     http::Status,
-    serde::{json:: Json, Deserialize, Serialize}, State,
+    serde::{json::Json, Deserialize, Serialize},
+    State,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -22,7 +23,9 @@ pub struct HostingCriteriaResponse {
 ///     "jurisdiction": "string"
 /// }
 #[get("/hosting_criteria")]
-pub async fn hosting_criteria(wsm: &State<WsMutex>) -> Result<Json<HostingCriteriaResponse>, (Status, String)> {
+pub async fn hosting_criteria(
+    wsm: &State<WsMutex>,
+) -> Result<Json<HostingCriteriaResponse>, (Status, String)> {
     let mut ws = wsm.lock().await;
     let hosting_criteria_response = handle_hosting_criteria(&mut ws)
         .await

@@ -11,10 +11,16 @@ use rocket::{
     State,
 };
 
-use crate::{common::{hbs::HBS, types::{ProcessingStage, RedemptionRecord}}, hpos::WsMutex};
 use crate::{
     common::types::{Transaction, TransactionDirection, TransactionStatus, TransactionType, POS},
     hpos::Ws,
+};
+use crate::{
+    common::{
+        hbs::HBS,
+        types::{ProcessingStage, RedemptionRecord},
+    },
+    hpos::WsMutex,
 };
 
 use crate::routes::host::shared::PendingResponse;
