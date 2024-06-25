@@ -273,7 +273,7 @@ mod test {
         }
 
         let string = serde_yaml::to_string(&In {
-            a: "abba".into(),
+            a: "obba".into(),
             b: "bbba".into(),
             c: "cbba".into(),
         })

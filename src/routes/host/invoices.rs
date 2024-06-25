@@ -3,9 +3,9 @@ use hpos_hc_connect::AppConnection;
 use rocket::{get, http::Status, serde::json::Json, State};
 
 use crate::hpos::Ws;
-use crate::{
-    get_hosting_invoices, hpos::WsMutex, HostingInvoicesResponse, InvoiceSet,
-    TransactionAndInvoiceDetails,
+use crate::hpos::WsMutex;
+use crate::routes::host::shared::{
+    get_hosting_invoices, HostingInvoicesResponse, InvoiceSet, TransactionAndInvoiceDetails,
 };
 
 /// Returns list of all host invoices as needed for the host-console-ui invoice page

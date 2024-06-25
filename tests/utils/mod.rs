@@ -59,6 +59,9 @@ impl Test {
         );
         env::set_var("IS_TEST_ENV", "true");
 
+        const HBS_BASE_PATH: &str = "https://hbs.dev.holotest.net";
+        env::set_var("HBS_URL", HBS_BASE_PATH);
+
         // Get device_bundle from hpos-config and pass it to setup_environment so that lair
         // can import a keypar for an agent from hpos-config
         let (agent_string, device_bundle) = from_config(hpos_config_path.into(), PASSWORD.into())

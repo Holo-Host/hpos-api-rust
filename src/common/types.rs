@@ -78,6 +78,14 @@ pub struct HappAndHost {
     pub holoport_id: String, // in base36 encoding
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Ledger {
+    pub balance: Fuel,
+    pub promised: Fuel,
+    pub fees: Fuel,
+    pub available: Fuel,
+}
+
 impl HappAndHost {
     pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
         // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
@@ -185,4 +193,29 @@ pub struct HappInput {
     pub login_config: LoginConfig,
     #[serde(default)]
     pub uid: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+
+pub struct RedemptionRecord {
+    pub redemption_id: EntryHashB64,
+    pub holofuel_acceptance_hash: ActionHashB64,
+    pub ethereum_transaction_hash: String,
+    pub processing_stage: ProcessingStage,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub enum ProcessingStage {
+    Invalid,
+    New,
+    Verified,
+    SentHolofuel,
+    AcceptedHolofuel,
+    ScheduledForCountersigning,
+    CountersignedHolofuel,
+    Finished,
 }

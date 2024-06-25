@@ -103,9 +103,9 @@ pub async fn install_app(
     payload: install::InstallHappBody,
 ) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
-    Ok(install::handle_install_app(&mut ws, payload)
+    install::handle_install_app(&mut ws, payload)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?)
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
 #[post("/hosted/register", format = "application/json", data = "<payload>")]
