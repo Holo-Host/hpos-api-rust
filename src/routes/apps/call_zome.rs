@@ -9,8 +9,8 @@ use rocket::{
     Responder, State,
 };
 
-#[post("/zome_call", format = "json", data = "<data>")]
-pub async fn zome_call(
+#[post("/call_zome", format = "json", data = "<data>")]
+pub async fn call_zome(
     data: Json<ZomeCallRequest>,
     wsm: &State<WsMutex>,
 ) -> Result<ZomeCallResponse, (Status, String)> {
@@ -40,6 +40,8 @@ pub async fn zome_call(
 
     Ok(ZomeCallResponse(res.as_bytes()))
 }
+
+// Request and Response types
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]

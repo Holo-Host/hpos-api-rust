@@ -1,14 +1,51 @@
-use std::{collections::HashMap, str::FromStr};
-
 use crate::{
     common::types::{PendingTransactions, RedemptionState, Transaction, TransactionDirection},
-    hpos::Ws,
-    HolofuelPaidUnpaid,
+    hpos::WsMutex,
 };
 use anyhow::Result;
 use chrono::{DateTime, Days, Utc};
+use holochain_types::prelude::{holochain_serial, SerializedBytes};
 use holofuel_types::fuel::Fuel;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
 use log::debug;
+use rocket::{
+    http::Status,
+    serde::{json::Json, Deserialize, Serialize},
+    {get, State},
+};
+use std::{collections::HashMap, str::FromStr};
+
+use crate::hpos::Ws;
+
+#[get("/redeemable_histogram")]
+pub async fn redeemable_histogram(
+    wsm: &State<WsMutex>,
+) -> Result<Json<RedemableHolofuelHistogramResponse>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    let holofuel = get_redeemable_holofuel(&mut ws)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+    let dailies = get_last_weeks_redeemable_holofuel(&mut ws)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?;
+    Ok(Json(RedemableHolofuelHistogramResponse {
+        dailies,
+        redeemed: holofuel.available,
+    }))
+}
+
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct HolofuelPaidUnpaid {
+    pub date: String,
+    pub paid: Fuel,
+    pub unpaid: Fuel,
+}
+
+#[derive(Serialize, Deserialize, Debug, SerializedBytes, Clone)]
+pub struct RedemableHolofuelHistogramResponse {
+    pub dailies: Vec<HolofuelPaidUnpaid>,
+    pub redeemed: Fuel,
+}
 
 // get current redemable holofuel
 pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
@@ -17,7 +54,7 @@ pub async fn get_redeemable_holofuel(ws: &mut Ws) -> Result<RedemptionState> {
     debug!("calling zome holofuel/transactor/get_redeemable");
     let result = app_connection
         .zome_call_typed::<(), RedemptionState>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_redeemable".into(),
             (),
@@ -39,7 +76,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
     debug!("calling zome holofuel/transactor/get_completed_transactions");
     let completed_transactions = app_connection
         .zome_call_typed::<(), Vec<Transaction>>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_completed_transactions".into(),
             (),
@@ -59,7 +96,7 @@ pub async fn get_last_weeks_redeemable_holofuel(ws: &mut Ws) -> Result<Vec<Holof
     debug!("calling zome holofuel/transactor/get_pending_transactions");
     let pending_transactions = app_connection
         .zome_call_typed::<(), PendingTransactions>(
-            "holofuel".into(),
+            CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_pending_transactions".into(),
             (),
@@ -236,7 +273,7 @@ mod test {
         }
 
         let string = serde_yaml::to_string(&In {
-            a: "abba".into(),
+            a: "obba".into(),
             b: "bbba".into(),
             c: "cbba".into(),
         })

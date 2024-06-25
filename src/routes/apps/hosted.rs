@@ -1,29 +1,26 @@
+use crate::{
+    common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
+    handlers::{hosted_happs::*, install, register},
+    hpos::{Ws, WsMutex},
+};
+use anyhow::{anyhow, Result};
+use holochain_client::AgentPubKey;
+use holochain_types::{
+    dna::ActionHashB64,
+    prelude::{holochain_serial, SerializedBytes, Timestamp},
+};
+use holofuel_types::fuel::Fuel;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
+use log::warn;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
     {get, post, State},
 };
-
-use crate::handlers::hosted_happs::*;
-use crate::{
-    common::types::Transaction,
-    hpos::{Ws, WsMutex},
-};
-
-use anyhow::{anyhow, Result};
-use holochain_client::AgentPubKey;
-use holochain_types::{
-    dna::{ActionHashB64, AgentPubKeyB64},
-    prelude::{holochain_serial, SerializedBytes, Timestamp},
-};
-use holofuel_types::fuel::Fuel;
-use log::warn;
 use std::{fmt, str::FromStr, time::Duration};
 
-// Rocket will return 400 if query params are of a wrong type
-#[get("/hosted_happs?<usage_interval>&<quantity>")]
-pub async fn get_all_hosted_happs(
+#[get("/hosted?<usage_interval>&<quantity>")]
+pub async fn get_all(
     usage_interval: i64,
     quantity: Option<usize>,
     wsm: &State<WsMutex>,
@@ -37,25 +34,9 @@ pub async fn get_all_hosted_happs(
     ))
 }
 
-// Routes
-
-#[get("/")]
-pub async fn index(wsm: &State<WsMutex>) -> String {
-    let mut ws = wsm.lock().await;
-
-    // Construct sample HappAndHost just to retrieve holoport_id
-    let sample = HappAndHost::init(
-        "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC",
-        &mut ws,
-    )
-    .await
-    .unwrap();
-
-    format!("🤖 I'm your holoport {}", sample.holoport_id)
-}
-
-#[get("/hosted_happs/<id>?<usage_interval>")]
-pub async fn get_hosted_happ(
+/// ???
+#[get("/hosted/<id>?<usage_interval>")]
+pub async fn get_by_id(
     id: String,
     usage_interval: Option<i64>,
     wsm: &State<WsMutex>,
@@ -72,8 +53,8 @@ pub async fn get_hosted_happ(
     ))
 }
 
-#[post("/hosted_happs/<id>/enable")]
-pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+#[post("/hosted/<id>/enable")]
+pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
     let payload = HappAndHost::init(id, &mut ws)
@@ -85,8 +66,8 @@ pub async fn enable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, 
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[post("/hosted_happs/<id>/disable")]
-pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
+#[post("/hosted/<id>/disable")]
+pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
     let payload = HappAndHost::init(id, &mut ws)
@@ -98,8 +79,8 @@ pub async fn disable_happ(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status,
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[get("/hosted_happs/<id>/logs?<days>")]
-pub async fn get_service_logs(
+#[get("/hosted/<id>/logs?<days>")]
+pub async fn logs(
     id: &str,
     days: Option<i32>,
     wsm: &State<WsMutex>,
@@ -116,8 +97,38 @@ pub async fn get_service_logs(
     ))
 }
 
-// Types
+#[post("/hosted/install", format = "application/json", data = "<payload>")]
+pub async fn install_app(
+    wsm: &State<WsMutex>,
+    payload: install::InstallHappBody,
+) -> Result<String, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    install::handle_install_app(&mut ws, payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
+}
 
+#[post("/hosted/register", format = "application/json", data = "<payload>")]
+pub async fn register_app(
+    wsm: &State<WsMutex>,
+    payload: HappInput,
+) -> Result<Json<PresentedHappBundle>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    if payload.name.is_empty() {
+        return Err((Status::BadRequest, "name is empty".to_string()));
+    }
+    if payload.bundle_url.is_empty() {
+        return Err((Status::BadRequest, "bundle_url is empty".to_string()));
+    }
+
+    Ok(Json(
+        register::handle_register_app(&mut ws, payload)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
+}
+
+// Types
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
@@ -200,7 +211,7 @@ impl Default for Earnings {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, Clone, SerializedBytes, Default)]
 #[serde(crate = "rocket::serde")]
 pub struct HappStats {
     // we can return this is you want to return all source_chain that were running on this holoport
@@ -224,83 +235,6 @@ impl fmt::Display for HostingPlan {
             HostingPlan::Free => write!(f, "free"),
             HostingPlan::Paid => write!(f, "paid"),
         }
-    }
-}
-
-// return type of hha/get_happs
-#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct PresentedHappBundle {
-    pub id: ActionHashB64,
-    pub provider_pubkey: AgentPubKeyB64,
-    pub is_draft: bool,
-    pub is_paused: bool,
-    pub uid: Option<String>,
-    pub bundle_url: String,
-    pub ui_src_url: Option<String>,
-    pub dnas: Vec<DnaResource>,
-    pub hosted_urls: Vec<String>,
-    pub name: String,
-    pub logo_url: Option<String>,
-    pub description: String,
-    pub categories: Vec<String>,
-    pub jurisdictions: Vec<String>,
-    pub exclude_jurisdictions: bool,
-    pub publisher_pricing_pref: PublisherPricingPref,
-    pub login_config: LoginConfig,
-    pub special_installed_app_id: Option<String>,
-    pub host_settings: HostSettings,
-    pub last_edited: Timestamp,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PublisherPricingPref {
-    pub cpu: Fuel,
-    pub storage: Fuel,
-    pub bandwidth: Fuel,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone, Default)]
-pub struct LoginConfig {
-    pub display_publisher_name: bool,
-    pub registration_info_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes, Clone)]
-pub struct DnaResource {
-    pub hash: String, // hash of the dna, not a stored dht address
-    pub src_url: String,
-    pub nick: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, SerializedBytes)]
-pub struct HostSettings {
-    pub is_enabled: bool,
-    pub is_host_disabled: bool, // signals that the host was the origin of the last disable request/action
-    pub is_auto_disabled: bool, // signals that an internal hpos service was the origin of the last disable request/action
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct HappAndHost {
-    pub happ_id: ActionHashB64,
-    pub holoport_id: String, // in base36 encoding
-}
-
-impl HappAndHost {
-    pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
-        // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
-        // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
-        let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
-
-        let cell = app_connection.cell(CoreAppRoleName::HHA.into()).await?;
-
-        let a = cell.agent_pubkey().get_raw_32();
-
-        let holoport_id = base36::encode(a);
-
-        Ok(HappAndHost {
-            happ_id: ActionHashB64::from_b64_str(happ_id)?,
-            holoport_id,
-        })
     }
 }
 
@@ -328,7 +262,7 @@ pub async fn get_plan(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Option<Host
 
     let s: ServiceloggerHappPreferences = app_connection
         .zome_call_typed(
-            "core-app".into(),
+            CoreAppRoleName::HHA.into(),
             "hha".into(),
             "get_happ_preferences".into(),
             happ_id,

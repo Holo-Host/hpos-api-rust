@@ -12,6 +12,9 @@ HPOS_CONFIG_PATH - set by hpos-init
 CORE_HAPP_FILE
 HOLOCHAIN_WORKING_DIR
 DEV_UID_OVERRIDE
+SL_COLLECTOR_PUB_KEY
+HOST_PUBKEY_PATH *(Required only in non-test envs)*
+IS_TEST_ENV *(Required only to be set as true in test env)* 
 ```
 
 ## Authentication
@@ -21,6 +24,12 @@ This API is relying on an authentication mechanism [hp-admin-crypto](https://git
 ## API
 
 This API is mounted on HPOS at v2 path of API, so all the calls should be of a format `/api/v2/<path>`, e.g. to get all hosted happs with usage calculated over last 7 days you would call `/api/v2/hosted_happs/?usage_interval=604800`.
+
+## Integration Tests
+
+```
+RUST_LOG=hpos-api-rust=trace,integration=trace cargo test -- --nocapture --test-threads=1
+```
 
 ### Endpoints
 
