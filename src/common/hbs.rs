@@ -1,7 +1,10 @@
 use anyhow::{Context, Result};
-use holochain_types::{dna::EntryHashB64, prelude::{ExternIO, Timestamp}};
+use holochain_types::{
+    dna::EntryHashB64,
+    prelude::{ExternIO, Timestamp},
+};
 
-use log::debug;
+use log::{debug, trace};
 use reqwest::Client;
 use rocket::tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
@@ -69,22 +72,25 @@ impl HBS {
         // extrackt pub_key
         let pub_key = keys.pubkey_base36.clone();
 
+        // format timestamp to the one with milisecs
+        let now = Timestamp::now().as_seconds_and_nanos();
+        let timestamp: u64 = <i64 as TryInto<u64>>::try_into(now.0 * 1000).unwrap()
+            + <u32 as Into<u64>>::into(now.1 / 1_000_000);
+
         let payload = AuthPayload {
             email,
-            timestamp: Timestamp::now()
-                .as_seconds_and_nanos()
-                .0
-                .try_into()
-                .unwrap(),
+            timestamp,
             pub_key,
         };
-println!("payload: {:?}", payload);
+        trace!("payload: {:?}", payload);
+
         // msgpack payload
         let encoded_payload = ExternIO::encode(&payload)?;
 
         // sign encoded_bytes
         let signature = keys.sign(encoded_payload).await?;
-println!("signature: {:?}", signature);
+        trace!("signature: {:?}", signature);
+
         let client = Client::new();
         let res = client
             .post(format!("{}/auth/api/v1/holo-client", self.url()?))
@@ -93,7 +99,7 @@ println!("signature: {:?}", signature);
             .send()
             .await?;
 
-println!("API response: {:?}", res);
+        trace!("API response: {:?}", res);
 
         res.json().await.context("Failed to parse response body")
     }
@@ -119,16 +125,14 @@ println!("API response: {:?}", res);
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 pub struct HoloClientAuth {
     pub id: String,
     email: String,
     access_token: String,
-    permissions: String,
-    profile_image: String,
-    display_name: String,
+    permissions: Vec<String>,
     pub kyc: String,
     pub jurisdiction: String,
     public_key: String,
@@ -136,21 +140,72 @@ pub struct HoloClientAuth {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
 pub struct AuthPayload {
     pub email: String,
     pub timestamp: u64,
     pub pub_key: String,
 }
 
-impl AuthPayload {
-    // Method to convert the struct into bytes
-    pub fn into_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::new();
+#[cfg(test)]
+mod test {
+    use std::env;
 
-        bytes.extend(self.email.as_bytes());
-        bytes.extend(&self.timestamp.to_be_bytes());
-        bytes.extend(self.pub_key.as_bytes());
+    use holochain_types::prelude::ExternIO;
+    use rocket::tokio;
 
-        bytes
+    use crate::common::{hbs::AuthPayload, keypair::Keys};
+
+    #[tokio::test]
+    // test if signature crteated from config file is valid which means that it
+    // matches one created previously in hpos-holochain-api js version that passes HBS verification
+    async fn create_valid_signatures() {
+        // set up environment
+        env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", "pass");
+        let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let hpos_config_path = format!("{}/resources/test/hpos-config.json", &manifets_path);
+        env::set_var("HPOS_CONFIG_PATH", &hpos_config_path);
+
+        let keys = Keys::new().await.unwrap();
+
+        // extract email
+        let email = keys.email.clone();
+        assert_eq!(email, "alastair.ong@holo.host");
+
+        // extract pub_key
+        let pub_key = keys.pubkey_base36.clone();
+        assert_eq!(
+            pub_key,
+            "uhCAknSCMGPEKHN6znj7RUOXjcvE-0qZkN5fusCRQb1Ir4VOL8Muw"
+        );
+
+        // use know timestamp for deteministic signature
+        let timestamp: u64 = 1719348253188;
+
+        let payload = AuthPayload {
+            email,
+            timestamp,
+            pub_key,
+        };
+
+        // msgpack payload
+        let encoded_payload = ExternIO::encode(&payload).unwrap();
+
+        let expected_encoded_payload = vec![
+            131, 165, 101, 109, 97, 105, 108, 182, 97, 108, 97, 115, 116, 97, 105, 114, 46, 111,
+            110, 103, 64, 104, 111, 108, 111, 46, 104, 111, 115, 116, 169, 116, 105, 109, 101, 115,
+            116, 97, 109, 112, 207, 0, 0, 1, 144, 81, 36, 82, 4, 166, 112, 117, 98, 75, 101, 121,
+            217, 53, 117, 104, 67, 65, 107, 110, 83, 67, 77, 71, 80, 69, 75, 72, 78, 54, 122, 110,
+            106, 55, 82, 85, 79, 88, 106, 99, 118, 69, 45, 48, 113, 90, 107, 78, 53, 102, 117, 115,
+            67, 82, 81, 98, 49, 73, 114, 52, 86, 79, 76, 56, 77, 117, 119,
+        ];
+
+        assert_eq!(encoded_payload.clone().into_vec(), expected_encoded_payload);
+
+        // sign encoded_bytes
+        let signature = keys.sign(ExternIO::from(encoded_payload)).await.unwrap();
+        let expected_signature = "JOy1vrrP+9P3DQ8hW5K9KKieN3V4dUKS95t8Nsb55ivD19kq8V0a1J0DqQ7m/8suhUmW7WY2NgqP3l38+lVaBA";
+
+        assert_eq!(signature, expected_signature);
     }
 }

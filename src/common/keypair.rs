@@ -6,7 +6,6 @@ use holochain_types::prelude::ExternIO;
 use hpos_config_core::public_key;
 use hpos_config_core::Config;
 use hpos_config_seed_bundle_explorer::unlock;
-use serde::Serialize;
 use std::env;
 use std::fs::File;
 
@@ -30,17 +29,14 @@ impl Keys {
     pub async fn sign(&self, payload: ExternIO) -> Result<String> {
         let signature = self
             .keypair
-            .try_sign(&into_bytes(payload)?)
+            .try_sign(payload.as_bytes())
             .context("Failed to sign payload")?;
+
         Ok(encode_config(
             &signature.to_bytes()[..],
             base64::STANDARD_NO_PAD,
         ))
     }
-}
-
-fn into_bytes<T: Serialize>(payload: T) -> Result<Vec<u8>> {
-    serde_json::to_vec(&payload).context("Failed to convert payload to bytes")
 }
 
 async fn from_config() -> Result<(SigningKey, String)> {
@@ -66,10 +62,7 @@ async fn from_config() -> Result<(SigningKey, String)> {
                     "unable to unlock the device bundle from {}",
                     &config_path
                 ))?;
-            Ok((
-                signing_key,
-                settings.admin.email,
-            ))
+            Ok((signing_key, settings.admin.email))
         }
         _ => Err(anyhow!("Unsupported version of hpos config")),
     }
