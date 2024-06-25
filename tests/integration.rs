@@ -93,7 +93,7 @@ async fn install_components() {
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", &response_body);
-    assert!(response_body.contains("5z1bbcrtjrcgzfm26xgwivrggdx1d02tqe88aj8pj9pva8l9hq"));
+    assert!(response_body.contains("3wzfdfbwd4q0ct01sfnux3jsz4sygef5dhjm2a43eij2iqt5cj"));
 
     // get all hosted happs
     let path = format!("/apps/hosted?usage_interval=5");
