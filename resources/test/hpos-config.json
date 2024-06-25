@@ -1,13 +1,13 @@
 {
-    "v2": {
-      "device_bundle": "k6VoY3NiMJGWonB3xBDRrEU6dq6wixMCO-z2SU5SzSAAAcQYmeqqRhSsZZT36fjXEJWH2q7OzgDqQf4yxDGayKYR2KiMrPRZ5kVpe_XlyWzxyssu7_EvmWBdbEHni7Tag12X-l4WVKi4Q9Ay92dGxCyCrWRldmljZV9udW1iZXIAq2dlbmVyYXRlX2J5r3F1aWNrc3RhcnQtdjIuMA",
-      "derivation_path": "0",
-      "registration_code": "1115hq+oIR0baMtNEhIovWcWIcsypWVituumH0nEGEKB4wY+D+scOPMNglkX2niFveu3/hP2FYi1RL105e481Q==",
-      "settings": {
-        "admin": {
-          "email": "pj@abba.pl",
-          "public_key": "Hqsu4kvclO8S31fIJ3bSZ695h7bxlhg004HzKrpgs5E"
-        }
+  "v2": {
+    "device_bundle": "k6VoY3NiMJGWonB3xBDHg7bpOmPIW7G_nn0soIjczSAAAcQYSVFY8Q2iuHvzrkecjtYhkKylRzFKwhe6xDFiezuC6aPXuqGe4CuZaRDm9yHmE-bGhZOU0czk0Isv5Y9C67_oVNxTOAw37cXwMZIcxCyCrWRldmljZV9udW1iZXIAq2dlbmVyYXRlX2J5r3F1aWNrc3RhcnQtdjIuMA",
+    "derivation_path": "0",
+    "registration_code": "j9SHopnehiGUJwt1VKYfXocLWdrTu0V2u95mNz949uIWFNCPla6HpApotBaZDN9mk2b8vA0HgvN8F0SOmrCeRQ==",
+    "settings": {
+      "admin": {
+        "email": "alastair.ong@holo.host",
+        "public_key": "U18BTMqz6at6GOBLDH3YuZOQyv8iaY3wef3U76WTEUM"
       }
     }
   }
+}

@@ -18,17 +18,15 @@ pub struct HBS {
     token_created: Timestamp,
 }
 
-impl Default for HBS {
-    fn default() -> Self {
-        HBS {
+impl HBS {
+    pub fn new() -> HbSMutex {
+        Mutex::new(HBS {
             url: None,
             token: None,
             token_created: Timestamp::from_micros(0),
-        }
+        })
     }
-}
 
-impl HBS {
     /// Returns autorizarion token that is used by HBS
     /// which is obtained from HBS /auth/api/v1/holo-client endpoint
     /// Caches result for `EXPIERY` seconds
@@ -80,13 +78,13 @@ impl HBS {
                 .unwrap(),
             pub_key,
         };
-
+println!("payload: {:?}", payload);
         // msgpack payload
         let encoded_payload = ExternIO::encode(&payload)?;
 
         // sign encoded_bytes
         let signature = keys.sign(encoded_payload).await?;
-
+println!("signature: {:?}", signature);
         let client = Client::new();
         let res = client
             .post(format!("{}/auth/api/v1/holo-client", self.url()?))
@@ -95,7 +93,7 @@ impl HBS {
             .send()
             .await?;
 
-        debug!("API response: {:?}", res);
+println!("API response: {:?}", res);
 
         res.json().await.context("Failed to parse response body")
     }

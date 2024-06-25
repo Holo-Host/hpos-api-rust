@@ -32,7 +32,7 @@ pub async fn rocket() -> Rocket<Build> {
         .await
         .expect("Failed to connect to lair kystore or holochain");
 
-    let hbs = HBS::default();
+    let hbs = HBS::new();
 
     rocket::build()
         .manage(ws)

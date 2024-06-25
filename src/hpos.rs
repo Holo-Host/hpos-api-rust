@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::{consts::ADMIN_PORT, hbs::HBS};
+use crate::common::consts::ADMIN_PORT;
 use anyhow::{anyhow, Context, Result};
 use holochain_client::AgentPubKey;
 use holochain_keystore::MetaLairClient;
@@ -35,7 +35,6 @@ pub struct Ws {
     pub base_sl: Happ,
     pub hp_id: String,
     pub host_pub_key: Option<AgentPubKey>,
-    pub hbs: HBS,
 }
 
 impl Ws {
@@ -81,7 +80,6 @@ impl Ws {
             base_sl,
             hp_id,
             host_pub_key,
-            hbs: HBS::default(),
         }))
     }
 
