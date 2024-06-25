@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use holochain_types::{dna::EntryHashB64, prelude::Timestamp};
+use holochain_types::{dna::EntryHashB64, prelude::{ExternIO, Timestamp}};
+
 use log::debug;
 use reqwest::Client;
 use rocket::tokio::sync::Mutex;
@@ -61,8 +62,14 @@ impl HBS {
     /// Creates signature from agent's key that is verified by HBS
     /// Returns `HoloClientAuth` struct
     pub async fn download_holo_client(&mut self) -> Result<HoloClientAuth> {
-        let email = "abba".into();
-        let pub_key = "abba".into();
+        // create keypair that contains email from config, pubkey to_holochain_encoded_agent_key and signing_key
+        let keys = Keys::new().await?;
+
+        // extract email
+        let email = keys.email.clone();
+
+        // extrackt pub_key
+        let pub_key = keys.pubkey_base36.clone();
 
         let payload = AuthPayload {
             email,
@@ -74,7 +81,11 @@ impl HBS {
             pub_key,
         };
 
-        let signature = "abba";
+        // msgpack payload
+        let encoded_payload = ExternIO::encode(&payload)?;
+
+        // sign encoded_bytes
+        let signature = keys.sign(encoded_payload).await?;
 
         let client = Client::new();
         let res = client
@@ -125,7 +136,7 @@ pub struct HoloClientAuth {
     public_key: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct AuthPayload {
     pub email: String,
@@ -145,5 +156,3 @@ impl AuthPayload {
         bytes
     }
 }
-
-// let (agent_string, _device_bundle, email) = from_config().await.unwrap();
