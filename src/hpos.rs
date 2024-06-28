@@ -42,16 +42,27 @@ impl Ws {
         let admin = AdminWebsocket::connect(ADMIN_PORT)
             .await
             .context("failed to connect to holochain's app interface")?;
+        println!("Admin connected yeah!");
+
+        let pass = holo_config::default_password()?.as_bytes().to_vec();
+        println!("pass: {:?}", pass);
 
         let passphrase =
-            sodoken::BufRead::from(holo_config::default_password()?.as_bytes().to_vec());
+            sodoken::BufRead::from(pass);
+        println!("passphrase: {:?}", passphrase);
+
+        let lair_url = holo_config::get_lair_url(None)?;
+        println!("lair_url: {:?}", lair_url);
+
         let keystore = holochain_keystore::lair_keystore::spawn_lair_keystore(
-            url2::url2!("{}", holo_config::get_lair_url(None)?),
+            url2::url2!("{}", lair_url),
             passphrase,
         )
-        .await?;
-
+        .await.context("failed to spawn lair keystore")?;
+    
         let app_file = HappsFile::load_happ_file_from_env(None)?;
+        println!("app_file: {:?}", app_file);
+
         let core_app_id = app_file
             .core_happs
             .iter()
@@ -67,8 +78,10 @@ impl Ws {
             .to_owned();
 
         let hp_id = get_holoport_id();
+        println!("hp_id: {:?}", hp_id);
 
         let host_pub_key = get_host_pubkey()?;
+        println!("host_pub_key: {:?}", host_pub_key);
 
         let apps = HashMap::new();
 
@@ -147,6 +160,8 @@ pub fn get_holoport_id() -> String {
 
     let hp_id = String::from_utf8(output.stdout)
         .expect("Output for `hpos-config-into-base36-id` was not valid utf-8");
+
+    println!("hp_id: {:?}", hp_id);
 
     hp_id.trim().to_string()
 }
