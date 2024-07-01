@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::common::consts::ADMIN_PORT;
+use crate::{common::consts::ADMIN_PORT, handlers::hosted_happs};
 use anyhow::{anyhow, Context, Result};
 use holochain_client::AgentPubKey;
 use holochain_keystore::MetaLairClient;
@@ -116,8 +116,9 @@ pub fn get_host_pubkey() -> Result<Option<AgentPubKey>> {
         }
     };
 
-    let file = std::fs::File::open(host_pub_key_path)?;
-    let host_pub_key: AgentPubKey = rocket::serde::json::serde_json::from_reader(file)?;
+    // let file = std::fs::File::open(host_pub_key_path)?;
+    // let host_pub_key: AgentPubKey = rocket::serde::json::serde_json::from_reader(file)?;
+    let host_pub_key = AgentPubKey::from_raw_39(std::fs::read(host_pub_key_path)?)?;
 
     Ok(Some(host_pub_key))
 }
