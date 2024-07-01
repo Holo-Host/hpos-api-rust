@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{common::consts::ADMIN_PORT, handlers::hosted_happs};
+use crate::common::consts::ADMIN_PORT;
 use anyhow::{anyhow, Context, Result};
 use holochain_client::AgentPubKey;
 use holochain_keystore::MetaLairClient;
@@ -150,4 +150,24 @@ pub fn get_holoport_id() -> String {
         .expect("Output for `hpos-config-into-base36-id` was not valid utf-8");
 
     hp_id.trim().to_string()
+}
+
+#[cfg(test)]
+mod test {
+    use std::env::{self, set_var};
+
+    use super::get_host_pubkey;
+
+    #[test]
+    fn parse_pubkey_from_file() {
+        let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let pubkey_path = format!("{}/resources/test/host-key.pub", &manifets_path);
+        set_var("HOST_PUBKEY_PATH", pubkey_path);
+
+        let host_key = get_host_pubkey().unwrap().unwrap();
+        assert_eq!(
+            "AgentPubKey(uhCAkMdhGSO7W7ccCEd7UthPCiB37tNcO10MTEuBDIC5fS1MI2IsR)",
+            format!("{:?}", host_key)
+        );
+    }
 }
