@@ -116,8 +116,7 @@ pub fn get_host_pubkey() -> Result<Option<AgentPubKey>> {
         }
     };
 
-    let file = std::fs::File::open(host_pub_key_path)?;
-    let host_pub_key: AgentPubKey = rocket::serde::json::serde_json::from_reader(file)?;
+    let host_pub_key = AgentPubKey::from_raw_39(std::fs::read(host_pub_key_path)?)?;
 
     Ok(Some(host_pub_key))
 }
@@ -149,4 +148,24 @@ pub fn get_holoport_id() -> String {
         .expect("Output for `hpos-config-into-base36-id` was not valid utf-8");
 
     hp_id.trim().to_string()
+}
+
+#[cfg(test)]
+mod test {
+    use std::env::{self, set_var};
+
+    use super::get_host_pubkey;
+
+    #[test]
+    fn parse_pubkey_from_file() {
+        let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let pubkey_path = format!("{}/resources/test/host-key.pub", &manifets_path);
+        set_var("HOST_PUBKEY_PATH", pubkey_path);
+
+        let host_key = get_host_pubkey().unwrap().unwrap();
+        assert_eq!(
+            "AgentPubKey(uhCAkMdhGSO7W7ccCEd7UthPCiB37tNcO10MTEuBDIC5fS1MI2IsR)",
+            format!("{:?}", host_key)
+        );
+    }
 }
