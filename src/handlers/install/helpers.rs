@@ -1,12 +1,13 @@
 use crate::common::types::PresentedHappBundle;
 use crate::common::utils::build_json_sl_props;
+use crate::hpos::Ws;
 use anyhow::{anyhow, Result};
 use holochain_client::{AdminResponse, InstalledAppId};
 use holochain_client::{AgentPubKey, AppInfo};
 use holochain_conductor_api::{AppStatusFilter, CellInfo};
-use holochain_types::app::{AppManifest, InstallAppPayload};
+use holochain_types::app::{AppManifest, CreateCloneCellPayload, InstallAppPayload};
 use holochain_types::dna::{ActionHash, DnaHashB64};
-use holochain_types::prelude::{AppBundleSource, RoleName, YamlProperties};
+use holochain_types::prelude::{AppBundleSource, ClonedCell, DnaModifiersOpt, RoleName, YamlProperties};
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::AppConnection;
 use mr_bundle::Bundle;
@@ -102,32 +103,50 @@ pub async fn update_happ_bundle(
     Ok(source)
 }
 
+// Install & enable the sl instance and create the first time-bucket clone.  Returns the sl app id.
 pub async fn install_assigned_sl_instance(
-    admin_connection: &mut hpos_hc_connect::AdminWebsocket,
+    ws: &mut Ws,
+//    admin_connection: &mut hpos_hc_connect::AdminWebsocket,
     happ_id: &String,
     host_pub_key: AgentPubKey,
     core_happ_cell_info: &CellInfoMap,
     sl_path_source: AppBundleSource,
     bucket_size: u32, 
     time_bucket: u32,
-) -> Result<SuccessfulInstallResult> {
+) -> Result<String> {
     log::debug!(
         "Starting installation process of servicelogger for hosted happ: {:?}",
         happ_id
     );
 
+    let mut admin_connection = ws.admin.clone();
+
+    let bound_hha_dna = get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?;
+    let bound_hf_dna = get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?;
+    let sl_collector_pubkey = get_sl_collector_pubkey();
+
+    // base instance uses 0 timebucket for now.  This will be removed when we can do CloneOnly install.
     let sl_props_json = build_json_sl_props(
         happ_id,
-        &get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?,
-        &get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?,
-        &get_sl_collector_pubkey(),
+        &bound_hha_dna,
+        &bound_hf_dna,
+        &sl_collector_pubkey,
+        bucket_size,
+        0,
+    );
+
+    let sl_source = update_happ_bundle(sl_path_source, sl_props_json.clone())
+        .await
+        .unwrap();
+
+    let sl_props_json = build_json_sl_props(
+        happ_id,
+        &bound_hha_dna,
+        &bound_hf_dna,
+        &sl_collector_pubkey,
         bucket_size,
         time_bucket,
     );
-
-    let sl_source = update_happ_bundle(sl_path_source, sl_props_json)
-        .await
-        .unwrap();
 
     // Note: Assigned sl apps are those associated with a hosted happ
     // This is different than the baseline core sl app stored in WS.
@@ -141,7 +160,30 @@ pub async fn install_assigned_sl_instance(
         uid: None, // sl apps should use the pure `DEV_UID_OVERRIDE` env var as the network id
     };
 
-    handle_install_app_raw(admin_connection, sl_install_payload).await
+    let sl_app_id = match handle_install_app_raw(&mut admin_connection, sl_install_payload).await?
+    {
+        SuccessfulInstallResult::New(a) => a.installed_app_id,
+        SuccessfulInstallResult::AlreadyInstalled => get_sl_id(&happ_id),
+    };
+
+    handle_holochain_enable(&mut admin_connection, &sl_app_id).await?;
+
+    let app_ws = ws.get_connection(sl_app_id.clone()).await?;
+    handle_install_sl_clone(app_ws, sl_props_json, time_bucket).await?;
+
+    Ok(sl_app_id)
+
+}
+
+pub async fn handle_install_sl_clone(app_ws: &mut AppConnection, sl_props_json: String, time_bucket: u32) -> Result<ClonedCell> {
+    let payload = CreateCloneCellPayload {
+        role_name: "servicelogger".into(),
+        modifiers: DnaModifiersOpt::none().with_properties(YamlProperties::new(
+            serde_yaml::from_str(&sl_props_json).unwrap())),
+        membrane_proof: None,
+        name: Some(format!("{}", time_bucket)),
+    };
+     app_ws.create_clone(payload).await
 }
 
 pub async fn get_app_details(

@@ -2,9 +2,8 @@ mod utils;
 
 use std::collections::HashMap;
 
-use holochain_types::app::CreateCloneCellPayload;
 use holochain_types::dna::{ActionHashB64, DnaHash, DnaHashB64};
-use holochain_types::prelude::{DnaModifiersOpt, ExternIO, YamlProperties};
+use holochain_types::prelude::ExternIO;
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
@@ -26,6 +25,7 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
 use utils::{publish_and_enable_hosted_happ, sample_sl_props, Test};
+use hpos_api_rust::handlers::install::helpers::handle_install_sl_clone;
 
 #[tokio::test]
 async fn install_components() {
@@ -69,18 +69,9 @@ async fn install_components() {
     debug!("previous_time_bucket {}", previous_time_bucket);
 
     for bucket in vec![previous_time_bucket.clone(), time_bucket.clone()] {
-        let payload = CreateCloneCellPayload {
-            role_name: "servicelogger".into(),
-            modifiers: DnaModifiersOpt::none().with_properties(YamlProperties::new(
-                serde_yaml::from_str(&sample_sl_props(SL_BUCKET_SIZE_DAYS, bucket)).unwrap())),
-            membrane_proof: None,
-            name: Some(format!("{}",bucket)),
-        };
-    
-        debug!("cloning sl: {:#?}", &payload);
-        let cloned_cell = sl_ws.create_clone(payload)
-         .await
-         .unwrap();
+        let props = sample_sl_props(SL_BUCKET_SIZE_DAYS, bucket);
+        debug!("cloning sl: {:#?}", &props);
+        let cloned_cell = handle_install_sl_clone(&mut sl_ws, props, bucket).await.unwrap();
         debug!("sl_cloned_cell: {:#?}", &cloned_cell);
     }
     for bucket in vec![previous_time_bucket, time_bucket] {

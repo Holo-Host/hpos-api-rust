@@ -14,7 +14,7 @@ Steps to install a happ bundle:
     }}
 */
 
-mod helpers;
+pub mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
@@ -51,7 +51,7 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
             helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
         }
         false => {
-            // NB: If the happ has not yet been installed, we must take 4 steps: 1. install app's sl, 2. enable app's sl, 3. install app, 4. enable app
+            // NB: If the happ has not yet been installed, we must take 4 steps: 1. install app's sl, enable app's and clone sl, 2. install app, 3. enable app
             // 1. Install the sl instance assigned to the hosted happ
             // Download the servicelogger source code for sl happ instance install
             let bundle_url = match base_sl.bundle_url {
@@ -77,8 +77,8 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
             );
             let sl_bundle_path = hpos_hc_connect::utils::download_file(&bundle_url).await?;
 
-            let sl_app_id = match helpers::install_assigned_sl_instance(
-                &mut admin_connection,
+            helpers::install_assigned_sl_instance(
+                ws,
                 &data.happ_id,
                 host_pub_key.to_owned(),
                 &core_happ_cell_info,
@@ -86,16 +86,9 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 SL_BUCKET_SIZE_DAYS,
                 sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)
             )
-            .await?
-            {
-                SuccessfulInstallResult::New(a) => a.installed_app_id,
-                SuccessfulInstallResult::AlreadyInstalled => helpers::get_sl_id(&data.happ_id),
-            };
+            .await?;
 
-            // 2. Enable the sl instance assigned to the hosted happ
-            helpers::handle_holochain_enable(&mut admin_connection, &sl_app_id).await?;
-
-            // Steps 3 & 4 are only for non-core hosted apps (ie: whenever the app does not have the `special_installed_app_id` property)
+            // Steps 2 & 3 are only for non-core hosted apps (ie: whenever the app does not have the `special_installed_app_id` property)
             if happ_bundle_details.special_installed_app_id.is_none() {
                 // 3. Install the hosted happ
                 // Download the app source code to install
