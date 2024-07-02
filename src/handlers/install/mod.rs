@@ -18,9 +18,11 @@ mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
+use log::info;
 use url::Url;
 
 use crate::common::types::PresentedHappBundle;
+use crate::common::utils::{get_current_time_bucket, BUCKET_SIZE_DAYS};
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
@@ -42,7 +44,6 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
         ActionHashB64::from_b64_str(&data.happ_id)?.into(),
     )
     .await?;
-
     match helpers::is_already_installed(&mut admin_connection, happ_bundle_details.id.to_string())
         .await?
     {
@@ -83,6 +84,8 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 host_pub_key.to_owned(),
                 &core_happ_cell_info,
                 AppBundleSource::Path(sl_bundle_path),
+                BUCKET_SIZE_DAYS,
+                get_current_time_bucket(BUCKET_SIZE_DAYS)
             )
             .await?
             {
@@ -124,5 +127,12 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     Ok(format!(
         "Successfully installed happ_id: {:?}",
         data.happ_id
+    ))
+}
+
+pub async fn handle_clone_service_logger(ws: &mut Ws, data: ServiceLoggerTimeBucket) -> Result<String> {
+    Ok(format!(
+        "Not implmented to clone service logger: {:?}",
+        data.version
     ))
 }

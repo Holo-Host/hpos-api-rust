@@ -1,5 +1,5 @@
 use crate::{
-    common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
+    common::{types::{HappAndHost, HappInput, PresentedHappBundle, Transaction}, utils::{get_current_time_bucket, get_service_logger_bucket_range, BUCKET_SIZE_DAYS}},
     handlers::{hosted_happs::*, install, register},
     hpos::{Ws, WsMutex},
 };
@@ -17,11 +17,12 @@ use rocket::{
     serde::{json::Json, Deserialize, Serialize},
     {get, post, State},
 };
+use core::time;
 use std::{fmt, str::FromStr, time::Duration};
 
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
-    usage_interval: i64,
+    usage_interval: u32,
     quantity: Option<usize>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
@@ -38,7 +39,7 @@ pub async fn get_all(
 #[get("/hosted/<id>?<usage_interval>")]
 pub async fn get_by_id(
     id: String,
-    usage_interval: Option<i64>,
+    usage_interval: Option<u32>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<HappDetails>, (Status, String)> {
     let mut ws = wsm.lock().await;
@@ -82,7 +83,7 @@ pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Stri
 #[get("/hosted/<id>/logs?<days>")]
 pub async fn logs(
     id: &str,
-    days: Option<i32>,
+    days: Option<u32>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
     let mut ws = wsm.lock().await;
@@ -104,6 +105,17 @@ pub async fn install_app(
 ) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
     install::handle_install_app(&mut ws, payload)
+        .await
+        .map_err(|e| (Status::InternalServerError, e.to_string()))
+}
+
+#[post("/hosted/sl-clone", format = "application/json", data = "<payload>")]
+pub async fn clone_service_logger(
+    wsm: &State<WsMutex>,
+    payload: install::ServiceLoggerTimeBucket,
+) -> Result<String, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    install::handle_clone_service_logger(&mut ws, payload)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
@@ -152,7 +164,7 @@ impl HappDetails {
     pub async fn init(
         happ: &PresentedHappBundle,
         transactions: Vec<Transaction>,
-        usage_interval: i64,
+        usage_interval: u32,
         ws: &mut Ws,
     ) -> Self {
         HappDetails {
@@ -318,24 +330,45 @@ pub fn count_days_hosted(since: Timestamp) -> Result<Option<u16>> {
 
 async fn get_usage(
     happ_id: ActionHashB64,
-    usage_interval: i64,
+    usage_interval: u32,
     ws: &mut Ws,
 ) -> Result<Option<HappStats>> {
     let app_connection = ws
         .get_connection(format!("{}::servicelogger", happ_id))
         .await?;
 
-    log::debug!("Calling get_stats for happ: {}::servicelogger", happ_id);
-    let result: HappStats = app_connection
-        .zome_call_typed(
-            "servicelogger".into(),
-            "service".into(),
-            "get_stats".into(),
-            UsageTimeInterval {
-                duration_unit: "DAY".to_string(),
-                amount: usage_interval,
+    let (bucket_size, time_bucket, buckets_for_days_in_request) = get_service_logger_bucket_range(vec![], usage_interval);
+
+    let mut stats = HappStats {
+        cpu: 0,
+        bandwidth: 0,
+        disk_usage: 0,
+    };
+    let mut days_left = usage_interval;
+    for bucket in ((time_bucket-buckets_for_days_in_request)..=time_bucket).rev() {
+        let days = if days_left >  bucket_size {bucket_size} else {days_left};
+        days_left -= days;
+        log::debug!("Calling get_stats for happ: {}::servicelogger.{} for {} days", happ_id, time_bucket, days);
+        let result: Result<HappStats,> = app_connection
+            .clone_zome_call_typed(
+                "servicelogger".into(),
+                format!("{}",time_bucket),
+                "service".into(),
+                "get_stats".into(),
+                UsageTimeInterval {
+                    duration_unit: "DAY".to_string(),
+                    amount: days.into(),
+                },
+            )
+            .await;
+        match result {
+            Ok(s) => {
+                stats.cpu += s.cpu;
+                stats.bandwidth += s.bandwidth;
+                stats.disk_usage += s.disk_usage;
             },
-        )
-        .await?;
-    Ok(Some(result))
+            Err(err) => log::debug!("Got error while getting stats in bucket {}: {}", bucket, err)
+        }
+    }
+    Ok(Some(stats))
 }

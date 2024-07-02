@@ -15,6 +15,7 @@ use holochain_types::prelude::{
     AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp, UnsafeBytes,
 };
 use hpos_api_rust::common::consts::ADMIN_PORT;
+use hpos_api_rust::common::utils::build_json_sl_props;
 use hpos_api_rust::handlers::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
@@ -33,6 +34,24 @@ use rocket::serde::json::serde_json;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
+pub fn sample_sl_props(bucket_size: u32, time_bucket: u32) -> String {
+    let place_holder_dna =
+    DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
+        .unwrap();
+    let place_holder_pubkey =
+        AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC")
+            .unwrap();
+    let place_holder_happ_id =
+        ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy")
+            .unwrap();
+    build_json_sl_props(&place_holder_happ_id.to_string(),
+    &place_holder_dna.to_string(),
+    &place_holder_dna.to_string(),
+    &place_holder_pubkey.to_string(),
+    bucket_size,
+    time_bucket,)
+}
+
 pub struct Test {
     pub hc_env: Environment,
     pub agent: AgentPubKey,
@@ -46,12 +65,12 @@ impl Test {
         // Env vars required for running stuff that imitates HPOS
         env::set_var("HOLOCHAIN_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
         env::set_var("DEVICE_SEED_DEFAULT_PASSWORD", PASSWORD); // required by holochain_env_setup crate
-        let manifets_path = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let hpos_config_path = format!("{}/resources/test/hpos-config.json", &manifets_path);
+        let manifest_path = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let hpos_config_path = format!("{}/resources/test/hpos-config.json", &manifest_path);
         env::set_var("HPOS_CONFIG_PATH", &hpos_config_path);
         env::set_var(
             "CORE_HAPP_FILE",
-            format!("{}/resources/test/config.yaml", &manifets_path),
+            format!("{}/resources/test/config.yaml", &manifest_path),
         );
         env::set_var(
             "SL_COLLECTOR_PUB_KEY",
@@ -83,7 +102,8 @@ impl Test {
             .await
             .expect("Error spinning up Holochain environment");
 
-        info!("Started holochain in tmp dir {:?}", &tmp_dir);
+            info!("Started holochain in tmp dir {:?}", &tmp_dir);
+            info!("Sending holochain logs to {:?}", &log_dir);
 
         let admin_ws = AdminWebsocket::connect(ADMIN_PORT)
             .await
@@ -127,7 +147,6 @@ impl Test {
         };
 
         //let sl_websocket
-
         let request_signature: Signature = ws
             .zome_call_typed(
                 "servicelogger".into(),
@@ -176,23 +195,8 @@ impl Test {
 
         let (installed_app_id, source) = match happ_id {
             Some(id) => {
-                let place_holder_dna =
-                    DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
-                        .unwrap();
-                let place_holder_pubkey =
-                    AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC")
-                        .unwrap();
-                let place_holder_happ_id =
-                    ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy")
-                        .unwrap();
-
-                let sl_props_json = format!(
-                    r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
-                    place_holder_happ_id.to_string(),
-                    place_holder_dna.to_string(),
-                    place_holder_dna.to_string(),
-                    place_holder_pubkey
-                );
+                
+                let sl_props_json = sample_sl_props(0,0);
 
                 // Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
                 let sl_source =

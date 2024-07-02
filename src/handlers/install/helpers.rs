@@ -1,4 +1,5 @@
 use crate::common::types::PresentedHappBundle;
+use crate::common::utils::build_json_sl_props;
 use anyhow::{anyhow, Result};
 use holochain_client::{AdminResponse, InstalledAppId};
 use holochain_client::{AgentPubKey, AppInfo};
@@ -90,6 +91,7 @@ pub async fn update_happ_bundle(
 
         role_manifest.dna.modifiers.properties = properties
     }
+    manifest.roles[0].provisioning = Some(holochain_types::app::CellProvisioning::Create { deferred: false });
     source = AppBundleSource::Bundle(
         bundle
             .update_manifest(AppManifest::V1(manifest))
@@ -106,18 +108,21 @@ pub async fn install_assigned_sl_instance(
     host_pub_key: AgentPubKey,
     core_happ_cell_info: &CellInfoMap,
     sl_path_source: AppBundleSource,
+    bucket_size: u32, 
+    time_bucket: u32,
 ) -> Result<SuccessfulInstallResult> {
     log::debug!(
         "Starting installation process of servicelogger for hosted happ: {:?}",
         happ_id
     );
 
-    let sl_props_json = format!(
-        r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
+    let sl_props_json = build_json_sl_props(
         happ_id,
-        get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?,
-        get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?,
-        get_sl_collector_pubkey()
+        &get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?,
+        &get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?,
+        &get_sl_collector_pubkey(),
+        bucket_size,
+        time_bucket,
     );
 
     let sl_source = update_happ_bundle(sl_path_source, sl_props_json)

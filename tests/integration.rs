@@ -2,8 +2,9 @@ mod utils;
 
 use std::collections::HashMap;
 
+use holochain_types::app::CreateCloneCellPayload;
 use holochain_types::dna::{ActionHashB64, DnaHash, DnaHashB64};
-use holochain_types::prelude::ExternIO;
+use holochain_types::prelude::{DnaModifiersOpt, ExternIO, YamlProperties};
 use hpos_api_rust::rocket;
 use hpos_api_rust::routes::apps::call_zome::ZomeCallRequest;
 
@@ -12,6 +13,7 @@ use holochain_types::prelude::SerializedBytes;
 use hpos_api_rust::common::types::{
     DnaResource, HappInput, LoginConfig, PresentedHappBundle, PublisherPricingPref,
 };
+use hpos_api_rust::common::utils::{get_current_time_bucket, BUCKET_SIZE_DAYS};
 use hpos_api_rust::handlers::install;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
@@ -23,12 +25,11 @@ use rocket::serde::json::{serde_json, Value};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
-use utils::{publish_and_enable_hosted_happ, Test};
+use utils::{publish_and_enable_hosted_happ, sample_sl_props, Test};
 
 #[tokio::test]
 async fn install_components() {
     env_logger::init();
-
     let mut test = Test::init().await;
 
     // Install hha
@@ -60,19 +61,45 @@ async fn install_components() {
     .await
     .unwrap();
 
-    // Generate some SL activity
-    for _ in 1..10 {
-        let payload = test.generate_sl_payload(&mut sl_ws).await;
-        let sl_response: ActionHashB64 = sl_ws
-            .zome_call_typed(
-                "servicelogger".into(),
-                "service".into(),
-                "log_activity".into(),
-                payload,
-            )
-            .await
-            .unwrap();
-        debug!("logged activity: {}", sl_response);
+    // create two time buckets into which sampl activity is logged.
+
+    let time_bucket: u32 = get_current_time_bucket(BUCKET_SIZE_DAYS);
+    debug!("get_current_time_bucket {}", time_bucket);
+    let previous_time_bucket = time_bucket-1;
+    debug!("previous_time_bucket {}", previous_time_bucket);
+
+    for bucket in vec![previous_time_bucket.clone(), time_bucket.clone()] {
+        let payload = CreateCloneCellPayload {
+            role_name: "servicelogger".into(),
+            modifiers: DnaModifiersOpt::none().with_properties(YamlProperties::new(
+                serde_yaml::from_str(&sample_sl_props(BUCKET_SIZE_DAYS, bucket)).unwrap())),
+            membrane_proof: None,
+            name: Some(format!("{}",bucket)),
+        };
+    
+        debug!("cloning sl: {:#?}", &payload);
+        let cloned_cell = sl_ws.create_clone(payload)
+         .await
+         .unwrap();
+        debug!("sl_cloned_cell: {:#?}", &cloned_cell);
+    }
+    for bucket in vec![previous_time_bucket, time_bucket] {
+        // Generate some SL activity
+        for _ in 1..=5 {
+            debug!("BUCKET {}", bucket);
+            let payload = test.generate_sl_payload(&mut sl_ws).await;
+            let sl_response: ActionHashB64 = sl_ws
+                .clone_zome_call_typed(
+                    "servicelogger".into(),
+                    format!("{}",bucket),
+                    "service".into(),
+                    "log_activity".into(),
+                    payload,
+                )
+                .await
+                .unwrap();
+            debug!("logged activity: {}", sl_response);
+        }
     }
 
     // Test API
@@ -142,7 +169,7 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // get service logs for happ
-    let path = format!("/apps/hosted/{}/logs", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}/logs?days=30", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -245,16 +272,26 @@ async fn install_components() {
     // debug!("status: {}", response.status());
     // assert_eq!(response.status(), Status::Ok);
 
-    //  get usage report
-    let path = format!("/holoport/usage?usage_interval=5");
+    //  get usage report for 6 days
+    let path = format!("/holoport/usage?usage_interval=6");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":108,\"bandwidth\":108}}");
+    assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":60,\"bandwidth\":60}}");
 
+    //  get usage report for 15 days
+    let path = format!("/holoport/usage?usage_interval=15");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":120,\"bandwidth\":120}}");
+    
     // Test installing a second hosted happ
     // Publish second hosted happ
     let mut hosted_happ_payload = HappInput::default();
@@ -380,6 +417,7 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     // matches the contents of './servicelogger_prefs'
     assert_eq!(response_body, "{\"max_fuel_before_invoice\":\"1000\",\"price_compute\":\"0.025\",\"price_storage\":\"0.025\",\"price_bandwidth\":\"0.025\",\"max_time_before_invoice\":{\"secs\":0,\"nanos\":0}}");
+
 }
 
 fn servicelogger_prefs_path() -> String {

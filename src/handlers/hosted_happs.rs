@@ -6,6 +6,7 @@ use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
 use crate::common::types::{HappAndHost, PresentedHappBundle, Transaction, POS};
+use crate::common::utils::{get_current_time_bucket, get_service_logger_bucket_range, BUCKET_SIZE_DAYS};
 use crate::hpos::Ws;
 use crate::HappDetails;
 use anyhow::Result;
@@ -24,7 +25,7 @@ pub struct InvoiceNote {
 
 // fetch all transactions for every hApp
 pub async fn handle_get_all(
-    usage_interval: i64,
+    usage_interval: u32,
     quantity: Option<usize>,
     ws: &mut Ws,
 ) -> Result<Vec<HappDetails>> {
@@ -74,7 +75,7 @@ pub async fn handle_get_all(
 // fetch all transactions for 1 happ
 pub async fn handle_get_one(
     id: ActionHashB64,
-    usage_interval: i64,
+    usage_interval: u32,
     ws: &mut Ws,
 ) -> Result<HappDetails> {
     let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
@@ -174,21 +175,38 @@ pub async fn handle_disable(ws: &mut Ws, payload: HappAndHost) -> Result<()> {
 pub async fn handle_get_service_logs(
     ws: &mut Ws,
     id: ActionHashB64,
-    days: i32,
+    days: u32,
 ) -> Result<Vec<LogEntry>> {
     let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
     let app_connection = ws.get_connection(format!("{}::servicelogger", id)).await?;
+    
+    let role_name = String::from("servicelogger");
+    let clone_cells = app_connection.clone_cells(role_name.clone()).await?;
+    if clone_cells.len() == 0{
+        return Ok(vec![])
+    }
 
-    log::debug!("getting logs for happ: {:?}::servicelogger", id);
-    let result: Vec<Record> = app_connection
-        .zome_call_typed(
-            "servicelogger".into(),
-            "service".into(),
-            "querying_chain".into(),
-            filter,
-        )
-        .await?;
+    let (_bucket_size, time_bucket, buckets_for_days_in_request) = get_service_logger_bucket_range(clone_cells, days);
+
+    let mut logs: Vec<Record> = Vec::new();
+    for bucket in ((time_bucket-buckets_for_days_in_request)..=time_bucket).rev() {
+       
+        log::debug!("getting logs for happ: {:?}::servicelogger.{}", id, bucket);
+        let result: Result<Vec<Record>, > = app_connection
+            .clone_zome_call_typed(
+                role_name.clone(),
+                format!("{}", bucket),
+                "service".into(),
+                "querying_chain".into(),
+                filter.clone(),
+            )
+            .await;
+        match result {
+            Ok(mut records) => logs.append(&mut records),
+            Err(err) => log::debug!("Got error while searching for logs in bucket {}: {}", bucket, err)
+        }
+    }
 
     let four_weeks_ago = (SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -198,7 +216,7 @@ pub async fn handle_get_service_logs(
 
     log::debug!("filtering logs from {}", id);
 
-    let filtered_result: Vec<LogEntry> = result
+    let filtered_result: Vec<LogEntry> = logs
         .into_iter()
         .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
         // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),
