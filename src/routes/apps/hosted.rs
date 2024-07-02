@@ -1,5 +1,5 @@
 use crate::{
-    common::{types::{HappAndHost, HappInput, PresentedHappBundle, Transaction}, utils::{get_current_time_bucket, get_service_logger_bucket_range, BUCKET_SIZE_DAYS}},
+    common::{types::{HappAndHost, HappInput, PresentedHappBundle, Transaction}},
     handlers::{hosted_happs::*, install, register},
     hpos::{Ws, WsMutex},
 };
@@ -11,13 +11,13 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::sl_utils::sl_get_bucket_range;
 use log::warn;
 use rocket::{
     http::Status,
     serde::{json::Json, Deserialize, Serialize},
     {get, post, State},
 };
-use core::time;
 use std::{fmt, str::FromStr, time::Duration};
 
 #[get("/hosted?<usage_interval>&<quantity>")]
@@ -337,7 +337,7 @@ async fn get_usage(
         .get_connection(format!("{}::servicelogger", happ_id))
         .await?;
 
-    let (bucket_size, time_bucket, buckets_for_days_in_request) = get_service_logger_bucket_range(vec![], usage_interval);
+    let (bucket_size, time_bucket, buckets_for_days_in_request) = sl_get_bucket_range(vec![], usage_interval);
 
     let mut stats = HappStats {
         cpu: 0,

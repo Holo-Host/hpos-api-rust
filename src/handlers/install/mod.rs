@@ -18,11 +18,10 @@ mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
-use log::info;
 use url::Url;
 
 use crate::common::types::PresentedHappBundle;
-use crate::common::utils::{get_current_time_bucket, BUCKET_SIZE_DAYS};
+use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, SL_BUCKET_SIZE_DAYS};
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
@@ -84,8 +83,8 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 host_pub_key.to_owned(),
                 &core_happ_cell_info,
                 AppBundleSource::Path(sl_bundle_path),
-                BUCKET_SIZE_DAYS,
-                get_current_time_bucket(BUCKET_SIZE_DAYS)
+                SL_BUCKET_SIZE_DAYS,
+                sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)
             )
             .await?
             {

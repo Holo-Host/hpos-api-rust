@@ -13,11 +13,11 @@ use holochain_types::prelude::SerializedBytes;
 use hpos_api_rust::common::types::{
     DnaResource, HappInput, LoginConfig, PresentedHappBundle, PublisherPricingPref,
 };
-use hpos_api_rust::common::utils::{get_current_time_bucket, BUCKET_SIZE_DAYS};
 use hpos_api_rust::handlers::install;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
 use hpos_hc_connect::AppConnection;
+use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, SL_BUCKET_SIZE_DAYS};
 use log::{debug, info};
 use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
@@ -63,7 +63,7 @@ async fn install_components() {
 
     // create two time buckets into which sampl activity is logged.
 
-    let time_bucket: u32 = get_current_time_bucket(BUCKET_SIZE_DAYS);
+    let time_bucket: u32 = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
     debug!("get_current_time_bucket {}", time_bucket);
     let previous_time_bucket = time_bucket-1;
     debug!("previous_time_bucket {}", previous_time_bucket);
@@ -72,7 +72,7 @@ async fn install_components() {
         let payload = CreateCloneCellPayload {
             role_name: "servicelogger".into(),
             modifiers: DnaModifiersOpt::none().with_properties(YamlProperties::new(
-                serde_yaml::from_str(&sample_sl_props(BUCKET_SIZE_DAYS, bucket)).unwrap())),
+                serde_yaml::from_str(&sample_sl_props(SL_BUCKET_SIZE_DAYS, bucket)).unwrap())),
             membrane_proof: None,
             name: Some(format!("{}",bucket)),
         };

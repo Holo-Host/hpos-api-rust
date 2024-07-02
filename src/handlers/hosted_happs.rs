@@ -6,7 +6,7 @@ use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
 use crate::common::types::{HappAndHost, PresentedHappBundle, Transaction, POS};
-use crate::common::utils::{get_current_time_bucket, get_service_logger_bucket_range, BUCKET_SIZE_DAYS};
+use hpos_hc_connect::sl_utils::sl_get_bucket_range;
 use crate::hpos::Ws;
 use crate::HappDetails;
 use anyhow::Result;
@@ -187,7 +187,7 @@ pub async fn handle_get_service_logs(
         return Ok(vec![])
     }
 
-    let (_bucket_size, time_bucket, buckets_for_days_in_request) = get_service_logger_bucket_range(clone_cells, days);
+    let (_bucket_size, time_bucket, buckets_for_days_in_request) = sl_get_bucket_range(clone_cells, days);
 
     let mut logs: Vec<Record> = Vec::new();
     for bucket in ((time_bucket-buckets_for_days_in_request)..=time_bucket).rev() {

@@ -2300,11 +2300,11 @@ dependencies = [
 [[package]]
 name = "hpos_hc_connect"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=a4b725e6590e029597a44a512e42e75bd7577ddc#a4b725e6590e029597a44a512e42e75bd7577ddc"
 dependencies = [
  "again",
  "anyhow",
  "base64 0.13.1",
+ "chrono",
  "ed25519-dalek",
  "getrandom 0.2.14",
  "holochain_conductor_api",
