@@ -179,6 +179,7 @@ pub struct HappInput {
     pub name: String,
     #[serde(default)]
     pub logo_url: Option<String>,
+    #[serde(default)]
     pub dnas: Vec<DnaResource>,
     #[serde(default)]
     pub description: String,
@@ -186,6 +187,7 @@ pub struct HappInput {
     pub categories: Vec<String>,
     #[serde(default)]
     pub jurisdictions: Vec<String>,
+    #[serde(default)]
     pub exclude_jurisdictions: bool,
     #[serde(default)]
     pub publisher_pricing_pref: PublisherPricingPref,
