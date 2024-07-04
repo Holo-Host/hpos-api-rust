@@ -18,18 +18,17 @@ pub mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
-use helpers::{build_json_sl_props, get_base_dna_hash, get_sl_collector_pubkey, handle_install_sl_clone, FixedDataForSlCloneCall};
+use helpers::{build_json_sl_props, handle_install_sl_clone, FixedDataForSlCloneCall};
 use holochain_conductor_api::CellInfo;
-use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::AppConnection;
 use url::Url;
 
 use crate::common::types::PresentedHappBundle;
-use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, SL_BUCKET_SIZE_DAYS};
+use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE};
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::AppBundleSource;
+use holochain_types::prelude::{AppBundleSource, ClonedCell};
 pub use types::*;
 
 pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<String> {
@@ -126,6 +125,25 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     ))
 }
 
+// do the cloning but ignore any duplicate cell errors
+async fn do_cloning(app_ws: &mut AppConnection, happ_id: &str, sl_clone_data: &FixedDataForSlCloneCall) -> Result<bool> {
+    let sl_props_json = build_json_sl_props(
+        &happ_id,
+        sl_clone_data,
+    );
+    let x: std::prelude::v1::Result<holochain_types::prelude::ClonedCell, anyhow::Error> = handle_install_sl_clone(app_ws, sl_props_json, sl_clone_data.time_bucket).await;
+    match x {
+        Err(err) => {
+            let err_text = format!("{:?}",err);
+            if !err_text.contains("DuplicateCellId") {
+                return Err(err);
+            }
+            Ok(false)
+        },
+        Ok(_) => Ok(true)
+    }
+}
+
 pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLoggersResult> {
     let mut result = CheckServiceLoggersResult {
         service_loggers_cloned: 0
@@ -143,23 +161,42 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
     let current_time_bucket = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
     let current_time_bucket_name = format!("{}",current_time_bucket);
 
+    let clone_for_next = sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS,SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
+    let next_time_bucket_name = format!("{}",current_time_bucket+1);
+
     for happ_id in apps.into_iter().filter(|id| id.ends_with("::servicelogger")) {
         let app_ws = ws.get_connection(happ_id.clone()).await?;
         let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
-
-        // if there is no clone cell for this bucket, the we gotta make it!
-        if clone_cells.into_iter().find(|cell| cell.name == current_time_bucket_name).is_none() {
+        log::debug!("Checking {} for cells {:?} for bucket {}, clone_for_next {}",happ_id, clone_cells, current_time_bucket_name, clone_for_next);
+        // if there is no clone cell for the current bucket, the we gotta make it!
+        if clone_cells.clone().into_iter().find(|cell| cell.name == current_time_bucket_name).is_none() {
             if maybe_sl_clone_data.is_none() {
                 maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket)?);
             }
             if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                // base instance uses 0 timebucket for now.  This will be removed when we can do CloneOnly install.
-                let sl_props_json = build_json_sl_props(
-                    &happ_id,
-                    sl_clone_data,
-                );
-                handle_install_sl_clone(app_ws,sl_props_json, sl_clone_data.time_bucket).await?;
-                result.service_loggers_cloned += 1;
+                if do_cloning(app_ws, &happ_id, sl_clone_data).await? {
+                    result.service_loggers_cloned += 1;
+                }
+            }
+        }
+        if result.service_loggers_cloned > 0 {
+            let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
+            log::debug!("CLONE CELLS AFTER: {:?}" , clone_cells);
+        }
+
+        // if we are just before the next time bucket, and that bucket doesn't exist, also clone!
+        if clone_for_next {
+            // reset clone data
+            maybe_sl_clone_data = None;
+            if clone_cells.into_iter().find(|cell| cell.name == next_time_bucket_name).is_none() {
+                if maybe_sl_clone_data.is_none() {
+                    maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket+1)?);
+                }
+                if let Some(ref sl_clone_data) = maybe_sl_clone_data {
+                    if do_cloning(app_ws,&happ_id, sl_clone_data).await? {
+                        result.service_loggers_cloned += 1;
+                    }
+                }
             }
         }
     }

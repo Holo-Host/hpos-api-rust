@@ -1,6 +1,7 @@
 mod utils;
 
 use std::collections::HashMap;
+use std::env;
 
 use holochain_types::dna::{ActionHashB64, DnaHash, DnaHashB64};
 use holochain_types::prelude::ExternIO;
@@ -420,6 +421,49 @@ async fn install_components() {
     // no clones because still in same time bucket
     assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
     
+    env::set_var("SL_TEST_TIME_BUCKET", format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)+1));
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // two clones because we are in the next time bucket
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":2}");
+
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // no more clones because we are in the next time bucket and they were just made
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
+
+    env::set_var("SL_TEST_IS_BEFORE_NEXT_BUCKET", format!("true"));
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // two more clones because we are just before the next time bucket
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":2}");
+
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // no more clones because we already cloned them
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
+
+
 }
 
 fn servicelogger_prefs_path() -> String {
