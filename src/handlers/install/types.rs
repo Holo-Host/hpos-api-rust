@@ -52,28 +52,6 @@ pub struct ServiceLoggerTimeBucket {
     pub version: String,
 }
 
-#[rocket::async_trait]
-impl<'r> FromData<'r> for ServiceLoggerTimeBucket {
-    type Error = anyhow::Error;
-
-    async fn from_data(_request: &'r Request<'_>, data: Data<'r>) -> data::Outcome<'r, Self> {
-        let byte_unit_data = data.open(data::ByteUnit::max_value());
-        let decoded_data = byte_unit_data.into_bytes().await.unwrap();
-        let clone_sl_payload: ServiceLoggerTimeBucket = match rocket::serde::json::serde_json::from_slice(&decoded_data.value) {
-            Ok(payload) => payload,
-            Err(e) => {
-                return Outcome::Error((
-                    Status::UnprocessableEntity,
-                    anyhow!("Provided payload to `apps/hosted/sl-clone` does not match expected payload. Error: {:?}", e),
-                ))
-            }
-        };
-
-        Outcome::Success(clone_sl_payload)
-    }
-}
-
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct InstallHappBody {
@@ -100,4 +78,11 @@ impl<'r> FromData<'r> for InstallHappBody {
 
         Outcome::Success(install_payload)
     }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+#[serde(rename_all = "camelCase")]
+pub struct CheckServiceLoggersResult {
+    pub service_loggers_cloned: u32,
 }

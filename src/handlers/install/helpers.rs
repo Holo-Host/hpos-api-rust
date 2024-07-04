@@ -1,5 +1,4 @@
 use crate::common::types::PresentedHappBundle;
-use crate::common::utils::build_json_sl_props;
 use crate::hpos::Ws;
 use anyhow::{anyhow, Result};
 use holochain_client::{AdminResponse, InstalledAppId};
@@ -14,6 +13,37 @@ use mr_bundle::Bundle;
 use std::collections::HashMap;
 
 use super::types::{CellInfoMap, RawInstallAppPayload, SuccessfulInstallResult};
+
+pub struct FixedDataForSlCloneCall {
+    pub bound_hha_dna: String,
+    pub bound_hf_dna: String,
+    pub holo_admin: String,
+    pub bucket_size: u32,
+    pub time_bucket: u32,
+}
+impl FixedDataForSlCloneCall {
+    pub fn init(core_happ_cell_info: &CellInfoMap, bucket_size:u32, time_bucket: u32) -> Result<Self> {
+        Ok(Self {
+            bound_hha_dna: get_base_dna_hash(&core_happ_cell_info, CoreAppRoleName::HHA.into())?,
+            bound_hf_dna: get_base_dna_hash(&core_happ_cell_info, CoreAppRoleName::Holofuel.into())?,
+            holo_admin: get_sl_collector_pubkey(),
+            bucket_size,
+            time_bucket,
+        })
+    }
+}
+
+pub fn build_json_sl_props(bound_happ_id: &str, data: &FixedDataForSlCloneCall) -> String {
+    format!(
+        r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}", "bucket_size": {}, "time_bucket": {}}}"#,
+        bound_happ_id,
+        data.bound_hha_dna,
+        data.bound_hf_dna,
+        data.holo_admin,
+        data.bucket_size,
+        data.time_bucket,
+    )
+}
 
 pub async fn handle_holochain_enable(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
@@ -121,31 +151,22 @@ pub async fn install_assigned_sl_instance(
 
     let mut admin_connection = ws.admin.clone();
 
-    let bound_hha_dna = get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?;
-    let bound_hf_dna = get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?;
-    let sl_collector_pubkey = get_sl_collector_pubkey();
+    let mut data = FixedDataForSlCloneCall::init(&core_happ_cell_info, bucket_size, 0)?;
 
     // base instance uses 0 timebucket for now.  This will be removed when we can do CloneOnly install.
     let sl_props_json = build_json_sl_props(
         happ_id,
-        &bound_hha_dna,
-        &bound_hf_dna,
-        &sl_collector_pubkey,
-        bucket_size,
-        0,
+        &data
     );
 
     let sl_source = update_happ_bundle(sl_path_source, sl_props_json.clone())
         .await
         .unwrap();
 
+    data.time_bucket = time_bucket;
     let sl_props_json = build_json_sl_props(
         happ_id,
-        &bound_hha_dna,
-        &bound_hf_dna,
-        &sl_collector_pubkey,
-        bucket_size,
-        time_bucket,
+        &data,
     );
 
     // Note: Assigned sl apps are those associated with a hosted happ
@@ -261,7 +282,7 @@ pub async fn get_host_pub_key(
 }
 
 pub fn get_sl_id(happ_id: &String) -> String {
-    format!("{:?}::servicelogger", happ_id)
+    format!("{}::servicelogger", happ_id)
 }
 
 pub fn get_uid_override() -> Option<String> {

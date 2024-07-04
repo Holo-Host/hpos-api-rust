@@ -19,6 +19,7 @@ use rocket::{
     {get, post, State},
 };
 use std::{fmt, str::FromStr, time::Duration};
+use crate::routes::apps::hosted::install::CheckServiceLoggersResult;
 
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
@@ -109,15 +110,14 @@ pub async fn install_app(
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
 
-#[post("/hosted/sl-clone", format = "application/json", data = "<payload>")]
-pub async fn clone_service_logger(
+#[get("/hosted/sl-check")]
+pub async fn check_service_loggers(
     wsm: &State<WsMutex>,
-    payload: install::ServiceLoggerTimeBucket,
-) -> Result<String, (Status, String)> {
+) -> Result<Json<CheckServiceLoggersResult>, (Status, String)> {
     let mut ws = wsm.lock().await;
-    install::handle_clone_service_logger(&mut ws, payload)
+    Ok(Json(install::handle_check_service_loggers(&mut ws)
         .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))
+        .map_err(|e| (Status::InternalServerError, e.to_string()))?))
 }
 
 #[post("/hosted/register", format = "application/json", data = "<payload>")]

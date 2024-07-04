@@ -15,7 +15,6 @@ use holochain_types::prelude::{
     AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp, UnsafeBytes,
 };
 use hpos_api_rust::common::consts::ADMIN_PORT;
-use hpos_api_rust::common::utils::build_json_sl_props;
 use hpos_api_rust::handlers::hosted_happs::{
     ActivityLog, CallSpec, ClientRequest, ExtraWebLogData, HostMetrics, HostResponse,
     RequestPayload,
@@ -23,6 +22,7 @@ use hpos_api_rust::handlers::hosted_happs::{
 use hpos_api_rust::handlers::install;
 
 use hpos_api_rust::common::types::{HappAndHost, HappInput, PresentedHappBundle};
+use hpos_api_rust::handlers::install::helpers::{build_json_sl_props, FixedDataForSlCloneCall};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
@@ -35,21 +35,22 @@ use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
 pub fn sample_sl_props(bucket_size: u32, time_bucket: u32) -> String {
-    let place_holder_dna =
-    DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
-        .unwrap();
-    let place_holder_pubkey =
-        AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC")
-            .unwrap();
+
+    let placeholder_data = FixedDataForSlCloneCall {
+        bound_hha_dna: DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
+            .unwrap().to_string(),
+        bound_hf_dna: DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
+            .unwrap().to_string(),
+        holo_admin: AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC")
+            .unwrap().to_string(),
+        bucket_size,
+        time_bucket
+    };
+
     let place_holder_happ_id =
         ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy")
             .unwrap();
-    build_json_sl_props(&place_holder_happ_id.to_string(),
-    &place_holder_dna.to_string(),
-    &place_holder_dna.to_string(),
-    &place_holder_pubkey.to_string(),
-    bucket_size,
-    time_bucket,)
+    build_json_sl_props(&place_holder_happ_id.to_string(),&placeholder_data)
 }
 
 pub struct Test {

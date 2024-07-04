@@ -409,6 +409,17 @@ async fn install_components() {
     // matches the contents of './servicelogger_prefs'
     assert_eq!(response_body, "{\"max_fuel_before_invoice\":\"1000\",\"price_compute\":\"0.025\",\"price_storage\":\"0.025\",\"price_bandwidth\":\"0.025\",\"max_time_before_invoice\":{\"secs\":0,\"nanos\":0}}");
 
+    // test cloning of service loggers
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // no clones because still in same time bucket
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
+    
 }
 
 fn servicelogger_prefs_path() -> String {

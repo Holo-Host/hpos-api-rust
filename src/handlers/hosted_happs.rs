@@ -192,7 +192,7 @@ pub async fn handle_get_service_logs(
     let mut logs: Vec<Record> = Vec::new();
     for bucket in ((time_bucket-buckets_for_days_in_request)..=time_bucket).rev() {
        
-        log::debug!("getting logs for happ: {:?}::servicelogger.{}", id, bucket);
+        log::debug!("getting logs for happ: {}::servicelogger.{}", id, bucket);
         let result: Result<Vec<Record>, > = app_connection
             .clone_zome_call_typed(
                 role_name.clone(),

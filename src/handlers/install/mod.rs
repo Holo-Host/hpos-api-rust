@@ -18,6 +18,10 @@ pub mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
+use helpers::{build_json_sl_props, get_base_dna_hash, get_sl_collector_pubkey, handle_install_sl_clone, FixedDataForSlCloneCall};
+use holochain_conductor_api::CellInfo;
+use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::AppConnection;
 use url::Url;
 
 use crate::common::types::PresentedHappBundle;
@@ -122,9 +126,44 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     ))
 }
 
-pub async fn handle_clone_service_logger(ws: &mut Ws, data: ServiceLoggerTimeBucket) -> Result<String> {
-    Ok(format!(
-        "Not implmented to clone service logger: {:?}",
-        data.version
-    ))
+pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLoggersResult> {
+    let mut result = CheckServiceLoggersResult {
+        service_loggers_cloned: 0
+    };
+    let apps = ws.admin.list_enabled_apps().await?;
+
+    // It would be nice to only get the core_hap_cell_info if we are actually going to do an clone,
+    // but I cant put it in the loop because it make a double mutable borrow of ws, and I don't know how 
+    // to get around that.
+    let core_app_connection: &mut AppConnection = ws.get_connection(ws.core_app_id.clone()).await?;
+    let core_happ_cell_info: std::collections::HashMap<String, Vec<CellInfo>> = core_app_connection.app_info().await?.cell_info;
+
+    let mut maybe_sl_clone_data: Option<FixedDataForSlCloneCall> = None;
+
+    let current_time_bucket = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
+    let current_time_bucket_name = format!("{}",current_time_bucket);
+
+    for happ_id in apps.into_iter().filter(|id| id.ends_with("::servicelogger")) {
+        let app_ws = ws.get_connection(happ_id.clone()).await?;
+        let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
+
+        // if there is no clone cell for this bucket, the we gotta make it!
+        if clone_cells.into_iter().find(|cell| cell.name == current_time_bucket_name).is_none() {
+            if maybe_sl_clone_data.is_none() {
+                maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket)?);
+            }
+            if let Some(ref sl_clone_data) = maybe_sl_clone_data {
+                // base instance uses 0 timebucket for now.  This will be removed when we can do CloneOnly install.
+                let sl_props_json = build_json_sl_props(
+                    &happ_id,
+                    sl_clone_data,
+                );
+                handle_install_sl_clone(app_ws,sl_props_json, sl_clone_data.time_bucket).await?;
+                result.service_loggers_cloned += 1;
+            }
+        }
+    }
+    Ok(result)
 }
+
+
