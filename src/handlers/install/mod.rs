@@ -18,18 +18,21 @@ pub mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
-use helpers::{FixedDataForSlCloneCall, do_sl_cloning};
+use helpers::{do_sl_cloning, FixedDataForSlCloneCall};
 use holochain_conductor_api::CellInfo;
 use holochain_types::app::{DeleteCloneCellPayload, DisableCloneCellPayload};
 use hpos_hc_connect::AppConnection;
 use url::Url;
 
 use crate::common::types::PresentedHappBundle;
-use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, time_bucket_from_date, SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE};
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{AppBundleSource, CloneCellId};
+use hpos_hc_connect::sl_utils::{
+    sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, time_bucket_from_date,
+    SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
+};
 pub use types::*;
 
 pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<String> {
@@ -88,7 +91,7 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 &core_happ_cell_info,
                 AppBundleSource::Path(sl_bundle_path),
                 SL_BUCKET_SIZE_DAYS,
-                sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)
+                sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS),
             )
             .await?;
 
@@ -134,27 +137,47 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
     let apps = ws.admin.list_enabled_apps().await?;
 
     // It would be nice to only get the core_hap_cell_info if we are actually going to do an clone,
-    // but I cant put it in the loop because it make a double mutable borrow of ws, and I don't know how 
+    // but I cant put it in the loop because it make a double mutable borrow of ws, and I don't know how
     // to get around that.
     let core_app_connection: &mut AppConnection = ws.get_connection(ws.core_app_id.clone()).await?;
-    let core_happ_cell_info: std::collections::HashMap<String, Vec<CellInfo>> = core_app_connection.app_info().await?.cell_info;
+    let core_happ_cell_info: std::collections::HashMap<String, Vec<CellInfo>> =
+        core_app_connection.app_info().await?.cell_info;
 
     let mut maybe_sl_clone_data: Option<FixedDataForSlCloneCall> = None;
 
     let current_time_bucket = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
-    let current_time_bucket_name = format!("{}",current_time_bucket);
+    let current_time_bucket_name = format!("{}", current_time_bucket);
 
-    let clone_for_next = sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS,SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
-    let next_time_bucket_name = format!("{}",current_time_bucket+1);
+    let clone_for_next =
+        sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
+    let next_time_bucket_name = format!("{}", current_time_bucket + 1);
 
-    for happ_id in apps.into_iter().filter(|id| id.ends_with("::servicelogger")) {
+    for happ_id in apps
+        .into_iter()
+        .filter(|id| id.ends_with("::servicelogger"))
+    {
         let app_ws = ws.get_connection(happ_id.clone()).await?;
         let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
-        log::debug!("Checking {} for cells {:?} for bucket {}, clone_for_next {}",happ_id, clone_cells, current_time_bucket_name, clone_for_next);
+        log::debug!(
+            "Checking {} for cells {:?} for bucket {}, clone_for_next {}",
+            happ_id,
+            clone_cells,
+            current_time_bucket_name,
+            clone_for_next
+        );
         // if there is no clone cell for the current bucket, the we gotta make it!
-        if clone_cells.clone().into_iter().find(|cell| cell.name == current_time_bucket_name).is_none() {
+        if clone_cells
+            .clone()
+            .into_iter()
+            .find(|cell| cell.name == current_time_bucket_name)
+            .is_none()
+        {
             if maybe_sl_clone_data.is_none() {
-                maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket)?);
+                maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(
+                    &core_happ_cell_info,
+                    SL_BUCKET_SIZE_DAYS,
+                    current_time_bucket,
+                )?);
             }
             if let Some(ref sl_clone_data) = maybe_sl_clone_data {
                 if do_sl_cloning(app_ws, &happ_id, sl_clone_data).await? {
@@ -164,23 +187,32 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
         }
         if result.service_loggers_cloned > 0 {
             let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
-            log::debug!("CLONE CELLS AFTER: {:?}" , clone_cells);
+            log::debug!("CLONE CELLS AFTER: {:?}", clone_cells);
         }
 
         // if we are just before the next time bucket, and that bucket doesn't exist, also clone!
         if clone_for_next {
             // reset clone data
             maybe_sl_clone_data = None;
-            if clone_cells.clone().into_iter().find(|cell| cell.name == next_time_bucket_name).is_none() {
+            if clone_cells
+                .clone()
+                .into_iter()
+                .find(|cell| cell.name == next_time_bucket_name)
+                .is_none()
+            {
                 if maybe_sl_clone_data.is_none() {
-                    maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket+1)?);
+                    maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(
+                        &core_happ_cell_info,
+                        SL_BUCKET_SIZE_DAYS,
+                        current_time_bucket + 1,
+                    )?);
                 }
                 if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                    if do_sl_cloning(app_ws,&happ_id, sl_clone_data).await? {
+                    if do_sl_cloning(app_ws, &happ_id, sl_clone_data).await? {
                         result.service_loggers_cloned += 1;
                     }
                 }
-            } 
+            }
 
             let mut deleteable: Vec<CloneCellId> = Vec::new();
             // also, for any old cells, check to see if we can delete it by confirming that all the items are invoiced.
@@ -188,9 +220,13 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 let cell_time_bucket_result = cell.name.parse::<u32>();
                 if let Ok(cell_time_bucket) = cell_time_bucket_result {
                     // only query cells that are more than 2 time_buckets in the past (1 month)
-                    if cell_time_bucket < current_time_bucket-2 {
-                        log::debug!("Calling all_invoiced for happ: {}::servicelogger.{} ", happ_id, cell_time_bucket);
-                        let result: Result<bool,> = app_ws
+                    if cell_time_bucket < current_time_bucket - 2 {
+                        log::debug!(
+                            "Calling all_invoiced for happ: {}::servicelogger.{} ",
+                            happ_id,
+                            cell_time_bucket
+                        );
+                        let result: Result<bool> = app_ws
                             .clone_zome_call_typed(
                                 "servicelogger".into(),
                                 cell.name,
@@ -200,11 +236,18 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                             )
                             .await;
                         match result {
-                            Ok(all_invoiced) => if all_invoiced {
-                                deleteable.push( CloneCellId::CloneId(cell.clone_id));
-                            },
+                            Ok(all_invoiced) => {
+                                if all_invoiced {
+                                    deleteable.push(CloneCellId::CloneId(cell.clone_id));
+                                }
+                            }
                             Err(err) => {
-                                log::warn!("Error while checking service logger {}.{}: {:?}", happ_id, cell_time_bucket, err);
+                                log::warn!(
+                                    "Error while checking service logger {}.{}: {:?}",
+                                    happ_id,
+                                    cell_time_bucket,
+                                    err
+                                );
                             }
                         }
                     }
@@ -222,8 +265,12 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     app_id: happ_id.clone(),
                     clone_cell_id,
                 };
-                let x = ws.admin.delete_clone(payload).await.map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err));
-                log::debug!("DELETE CLONE RESULT {:?}",x);
+                let x = ws
+                    .admin
+                    .delete_clone(payload)
+                    .await
+                    .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err));
+                log::debug!("DELETE CLONE RESULT {:?}", x);
                 x?;
                 result.service_loggers_deleted += 1;
             }
@@ -231,5 +278,3 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
     }
     Ok(result)
 }
-
-

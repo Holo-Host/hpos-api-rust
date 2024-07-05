@@ -1,5 +1,6 @@
+use crate::routes::apps::hosted::install::CheckServiceLoggersResult;
 use crate::{
-    common::{types::{HappAndHost, HappInput, PresentedHappBundle, Transaction}},
+    common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
     handlers::{hosted_happs::*, install, register},
     hpos::{Ws, WsMutex},
 };
@@ -19,7 +20,6 @@ use rocket::{
     {get, post, State},
 };
 use std::{fmt, str::FromStr, time::Duration};
-use crate::routes::apps::hosted::install::CheckServiceLoggersResult;
 
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
@@ -115,9 +115,11 @@ pub async fn check_service_loggers(
     wsm: &State<WsMutex>,
 ) -> Result<Json<CheckServiceLoggersResult>, (Status, String)> {
     let mut ws = wsm.lock().await;
-    Ok(Json(install::handle_check_service_loggers(&mut ws)
-        .await
-        .map_err(|e| (Status::InternalServerError, e.to_string()))?))
+    Ok(Json(
+        install::handle_check_service_loggers(&mut ws)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
 }
 
 #[post("/hosted/register", format = "application/json", data = "<payload>")]
@@ -337,7 +339,8 @@ async fn get_usage(
         .get_connection(format!("{}::servicelogger", happ_id))
         .await?;
 
-    let (bucket_size, time_bucket, buckets_for_days_in_request) = sl_get_bucket_range(vec![], usage_interval);
+    let (bucket_size, time_bucket, buckets_for_days_in_request) =
+        sl_get_bucket_range(vec![], usage_interval);
 
     let mut stats = HappStats {
         cpu: 0,
@@ -345,14 +348,23 @@ async fn get_usage(
         disk_usage: 0,
     };
     let mut days_left = usage_interval;
-    for bucket in ((time_bucket-buckets_for_days_in_request)..=time_bucket).rev() {
-        let days = if days_left >  bucket_size {bucket_size} else {days_left};
+    for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
+        let days = if days_left > bucket_size {
+            bucket_size
+        } else {
+            days_left
+        };
         days_left -= days;
-        log::debug!("Calling get_stats for happ: {}::servicelogger.{} for {} days", happ_id, time_bucket, days);
-        let result: Result<HappStats,> = app_connection
+        log::debug!(
+            "Calling get_stats for happ: {}::servicelogger.{} for {} days",
+            happ_id,
+            time_bucket,
+            days
+        );
+        let result: Result<HappStats> = app_connection
             .clone_zome_call_typed(
                 "servicelogger".into(),
-                format!("{}",time_bucket),
+                format!("{}", time_bucket),
                 "service".into(),
                 "get_stats".into(),
                 UsageTimeInterval {
@@ -366,8 +378,12 @@ async fn get_usage(
                 stats.cpu += s.cpu;
                 stats.bandwidth += s.bandwidth;
                 stats.disk_usage += s.disk_usage;
-            },
-            Err(err) => log::debug!("Got error while getting stats in bucket {}: {}", bucket, err)
+            }
+            Err(err) => log::debug!(
+                "Got error while getting stats in bucket {}: {}",
+                bucket,
+                err
+            ),
         }
     }
     Ok(Some(stats))

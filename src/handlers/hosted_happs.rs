@@ -6,11 +6,11 @@ use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
 use crate::common::types::{HappAndHost, PresentedHappBundle, Transaction, POS};
-use hpos_hc_connect::sl_utils::sl_get_bucket_range;
 use crate::hpos::Ws;
 use crate::HappDetails;
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
+use hpos_hc_connect::sl_utils::sl_get_bucket_range;
 use log::debug;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -180,20 +180,20 @@ pub async fn handle_get_service_logs(
     let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
     let app_connection = ws.get_connection(format!("{}::servicelogger", id)).await?;
-    
+
     let role_name = String::from("servicelogger");
     let clone_cells = app_connection.clone_cells(role_name.clone()).await?;
-    if clone_cells.len() == 0{
-        return Ok(vec![])
+    if clone_cells.len() == 0 {
+        return Ok(vec![]);
     }
 
-    let (_bucket_size, time_bucket, buckets_for_days_in_request) = sl_get_bucket_range(clone_cells, days);
+    let (_bucket_size, time_bucket, buckets_for_days_in_request) =
+        sl_get_bucket_range(clone_cells, days);
 
     let mut logs: Vec<Record> = Vec::new();
-    for bucket in ((time_bucket-buckets_for_days_in_request)..=time_bucket).rev() {
-       
+    for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
         log::debug!("getting logs for happ: {}::servicelogger.{}", id, bucket);
-        let result: Result<Vec<Record>, > = app_connection
+        let result: Result<Vec<Record>> = app_connection
             .clone_zome_call_typed(
                 role_name.clone(),
                 format!("{}", bucket),
@@ -204,7 +204,11 @@ pub async fn handle_get_service_logs(
             .await;
         match result {
             Ok(mut records) => logs.append(&mut records),
-            Err(err) => log::debug!("Got error while searching for logs in bucket {}: {}", bucket, err)
+            Err(err) => log::debug!(
+                "Got error while searching for logs in bucket {}: {}",
+                bucket,
+                err
+            ),
         }
     }
 

@@ -14,10 +14,11 @@ use hpos_api_rust::common::types::{
     DnaResource, HappInput, LoginConfig, PresentedHappBundle, PublisherPricingPref,
 };
 use hpos_api_rust::handlers::install;
+use hpos_api_rust::handlers::install::helpers::handle_install_sl_clone;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
-use hpos_hc_connect::AppConnection;
 use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, SL_BUCKET_SIZE_DAYS};
+use hpos_hc_connect::AppConnection;
 use log::{debug, info};
 use rocket::http::{ContentType, Status};
 use rocket::local::asynchronous::Client;
@@ -26,7 +27,6 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
 use utils::{publish_and_enable_hosted_happ, sample_sl_props, Test};
-use hpos_api_rust::handlers::install::helpers::handle_install_sl_clone;
 
 #[tokio::test]
 async fn install_components() {
@@ -66,13 +66,15 @@ async fn install_components() {
 
     let time_bucket: u32 = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
     debug!("get_current_time_bucket {}", time_bucket);
-    let previous_time_bucket = time_bucket-1;
+    let previous_time_bucket = time_bucket - 1;
     debug!("previous_time_bucket {}", previous_time_bucket);
 
     for bucket in vec![previous_time_bucket.clone(), time_bucket.clone()] {
         let props = sample_sl_props(SL_BUCKET_SIZE_DAYS, bucket);
         debug!("cloning sl: {:#?}", &props);
-        let cloned_cell = handle_install_sl_clone(&mut sl_ws, props, bucket).await.unwrap();
+        let cloned_cell = handle_install_sl_clone(&mut sl_ws, props, bucket)
+            .await
+            .unwrap();
         debug!("sl_cloned_cell: {:#?}", &cloned_cell);
     }
     for bucket in vec![previous_time_bucket, time_bucket] {
@@ -83,7 +85,7 @@ async fn install_components() {
             let sl_response: ActionHashB64 = sl_ws
                 .clone_zome_call_typed(
                     "servicelogger".into(),
-                    format!("{}",bucket),
+                    format!("{}", bucket),
                     "service".into(),
                     "log_activity".into(),
                     payload,
@@ -283,7 +285,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":120,\"bandwidth\":120}}");
-    
+
     // Test installing a second hosted happ
     // Publish second hosted happ
     let mut hosted_happ_payload = HappInput::default();
@@ -419,9 +421,15 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no clones because still in same time bucket
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}");
-    
-    env::set_var("SL_TEST_TIME_BUCKET", format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)+1));
+    assert_eq!(
+        response_body,
+        "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}"
+    );
+
+    env::set_var(
+        "SL_TEST_TIME_BUCKET",
+        format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS) + 1),
+    );
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
@@ -430,7 +438,10 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // two clones because we are in the next time bucket
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}");
+    assert_eq!(
+        response_body,
+        "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}"
+    );
 
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
@@ -440,7 +451,10 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no more clones because we are in the next time bucket and they were just made
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}");
+    assert_eq!(
+        response_body,
+        "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}"
+    );
 
     env::set_var("SL_TEST_IS_BEFORE_NEXT_BUCKET", format!("true"));
     let path = format!("/apps/hosted/sl-check");
@@ -451,7 +465,10 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // two more clones because we are just before the next time bucket
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}");
+    assert_eq!(
+        response_body,
+        "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}"
+    );
 
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
@@ -461,10 +478,16 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no more clones because we already cloned them
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}");
+    assert_eq!(
+        response_body,
+        "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}"
+    );
 
     // Move the current time-bucket forward 2 buckets to test deleting
-    env::set_var("SL_TEST_TIME_BUCKET", format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)+2));
+    env::set_var(
+        "SL_TEST_TIME_BUCKET",
+        format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS) + 2),
+    );
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
@@ -473,10 +496,12 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // there should be some clones for the new time bucket, but no deleting because items are still not invoiced.
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":3,\"serviceLoggersDeleted\":0}");
+    assert_eq!(
+        response_body,
+        "{\"serviceLoggersCloned\":3,\"serviceLoggersDeleted\":0}"
+    );
 
     //TODO: find a way to run the invoicing here to make the final test that clones are deleted.
-
 }
 
 fn servicelogger_prefs_path() -> String {
