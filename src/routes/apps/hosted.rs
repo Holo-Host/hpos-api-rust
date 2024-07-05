@@ -57,11 +57,7 @@ pub async fn get_by_id(
 pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
 
-    let payload = HappAndHost::init(id, &mut ws)
-        .await
-        .map_err(|e| (Status::BadRequest, e.to_string()))?;
-
-    handle_enable(&mut ws, payload)
+    handle_enable(&mut ws, id)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }

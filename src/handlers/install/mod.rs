@@ -20,6 +20,7 @@ mod types;
 use anyhow::{anyhow, Result};
 use url::Url;
 
+use super::hosted_happs::handle_enable;
 use crate::common::types::PresentedHappBundle;
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
@@ -47,8 +48,8 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
         .await?
     {
         true => {
-            // NB: If app is already installed, then we only need to (re-)enable the happ bundle.
-            helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
+            // NB: If app is already installed, then we only need to make the happ as enable in hha.
+            handle_enable(ws, &data.happ_id).await?;
         }
         false => {
             // NB: If the happ has not yet been installed, we must take 4 steps: 1. install app's sl, 2. enable app's sl, 3. install app, 4. enable app
@@ -118,6 +119,7 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 // 4. Enable the hosted happ
                 helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
             }
+            handle_enable(ws, &data.happ_id).await?;
         }
     }
 
