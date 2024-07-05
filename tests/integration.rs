@@ -419,7 +419,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no clones because still in same time bucket
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}");
     
     env::set_var("SL_TEST_TIME_BUCKET", format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)+1));
     let path = format!("/apps/hosted/sl-check");
@@ -430,7 +430,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // two clones because we are in the next time bucket
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":2}");
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}");
 
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
@@ -440,7 +440,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no more clones because we are in the next time bucket and they were just made
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}");
 
     env::set_var("SL_TEST_IS_BEFORE_NEXT_BUCKET", format!("true"));
     let path = format!("/apps/hosted/sl-check");
@@ -451,7 +451,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // two more clones because we are just before the next time bucket
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":2}");
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}");
 
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
@@ -461,8 +461,21 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no more clones because we already cloned them
-    assert_eq!(response_body, "{\"serviceLoggersCloned\":0}");
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}");
 
+    // Move the current time-bucket forward 2 buckets to test deleting
+    env::set_var("SL_TEST_TIME_BUCKET", format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS)+2));
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // there should be some clones for the new time bucket, but no deleting because items are still not invoiced.
+    assert_eq!(response_body, "{\"serviceLoggersCloned\":3,\"serviceLoggersDeleted\":0}");
+
+    //TODO: find a way to run the invoicing here to make the final test that clones are deleted.
 
 }
 

@@ -122,7 +122,6 @@ pub async fn update_happ_bundle(
 
         role_manifest.dna.modifiers.properties = properties
     }
-    manifest.roles[0].provisioning = Some(holochain_types::app::CellProvisioning::Create { deferred: false });
     source = AppBundleSource::Bundle(
         bundle
             .update_manifest(AppManifest::V1(manifest))
@@ -194,6 +193,25 @@ pub async fn install_assigned_sl_instance(
 
     Ok(sl_app_id)
 
+}
+
+// do the cloning but ignore any duplicate cell errors
+pub async fn do_sl_cloning(app_ws: &mut AppConnection, happ_id: &str, sl_clone_data: &FixedDataForSlCloneCall) -> Result<bool> {
+    let sl_props_json = build_json_sl_props(
+        &happ_id,
+        sl_clone_data,
+    );
+    let r = handle_install_sl_clone(app_ws, sl_props_json, sl_clone_data.time_bucket).await;
+    match r {
+        Err(err) => {
+            let err_text = format!("{:?}",err);
+            if !err_text.contains("DuplicateCellId") {
+                return Err(err);
+            }
+            Ok(false)
+        },
+        Ok(_) => Ok(true)
+    }
 }
 
 pub async fn handle_install_sl_clone(app_ws: &mut AppConnection, sl_props_json: String, time_bucket: u32) -> Result<ClonedCell> {

@@ -18,17 +18,18 @@ pub mod helpers;
 mod types;
 
 use anyhow::{anyhow, Result};
-use helpers::{build_json_sl_props, handle_install_sl_clone, FixedDataForSlCloneCall};
+use helpers::{FixedDataForSlCloneCall, do_sl_cloning};
 use holochain_conductor_api::CellInfo;
+use holochain_types::app::{DeleteCloneCellPayload, DisableCloneCellPayload};
 use hpos_hc_connect::AppConnection;
 use url::Url;
 
 use crate::common::types::PresentedHappBundle;
-use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE};
+use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, time_bucket_from_date, SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE};
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::{AppBundleSource, ClonedCell};
+use holochain_types::prelude::{AppBundleSource, CloneCellId};
 pub use types::*;
 
 pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<String> {
@@ -125,28 +126,10 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     ))
 }
 
-// do the cloning but ignore any duplicate cell errors
-async fn do_cloning(app_ws: &mut AppConnection, happ_id: &str, sl_clone_data: &FixedDataForSlCloneCall) -> Result<bool> {
-    let sl_props_json = build_json_sl_props(
-        &happ_id,
-        sl_clone_data,
-    );
-    let x: std::prelude::v1::Result<holochain_types::prelude::ClonedCell, anyhow::Error> = handle_install_sl_clone(app_ws, sl_props_json, sl_clone_data.time_bucket).await;
-    match x {
-        Err(err) => {
-            let err_text = format!("{:?}",err);
-            if !err_text.contains("DuplicateCellId") {
-                return Err(err);
-            }
-            Ok(false)
-        },
-        Ok(_) => Ok(true)
-    }
-}
-
 pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLoggersResult> {
     let mut result = CheckServiceLoggersResult {
-        service_loggers_cloned: 0
+        service_loggers_cloned: 0,
+        service_loggers_deleted: 0,
     };
     let apps = ws.admin.list_enabled_apps().await?;
 
@@ -174,7 +157,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket)?);
             }
             if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                if do_cloning(app_ws, &happ_id, sl_clone_data).await? {
+                if do_sl_cloning(app_ws, &happ_id, sl_clone_data).await? {
                     result.service_loggers_cloned += 1;
                 }
             }
@@ -188,15 +171,61 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
         if clone_for_next {
             // reset clone data
             maybe_sl_clone_data = None;
-            if clone_cells.into_iter().find(|cell| cell.name == next_time_bucket_name).is_none() {
+            if clone_cells.clone().into_iter().find(|cell| cell.name == next_time_bucket_name).is_none() {
                 if maybe_sl_clone_data.is_none() {
                     maybe_sl_clone_data = Some(FixedDataForSlCloneCall::init(&core_happ_cell_info, SL_BUCKET_SIZE_DAYS, current_time_bucket+1)?);
                 }
                 if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                    if do_cloning(app_ws,&happ_id, sl_clone_data).await? {
+                    if do_sl_cloning(app_ws,&happ_id, sl_clone_data).await? {
                         result.service_loggers_cloned += 1;
                     }
                 }
+            } 
+
+            let mut deleteable: Vec<CloneCellId> = Vec::new();
+            // also, for any old cells, check to see if we can delete it by confirming that all the items are invoiced.
+            for cell in clone_cells {
+                let cell_time_bucket_result = cell.name.parse::<u32>();
+                if let Ok(cell_time_bucket) = cell_time_bucket_result {
+                    // only query cells that are more than 2 time_buckets in the past (1 month)
+                    if cell_time_bucket < current_time_bucket-2 {
+                        log::debug!("Calling all_invoiced for happ: {}::servicelogger.{} ", happ_id, cell_time_bucket);
+                        let result: Result<bool,> = app_ws
+                            .clone_zome_call_typed(
+                                "servicelogger".into(),
+                                cell.name,
+                                "service".into(),
+                                "all_invoiced".into(),
+                                (),
+                            )
+                            .await;
+                        match result {
+                            Ok(all_invoiced) => if all_invoiced {
+                                deleteable.push( CloneCellId::CloneId(cell.clone_id));
+                            },
+                            Err(err) => {
+                                log::warn!("Error while checking service logger {}.{}: {:?}", happ_id, cell_time_bucket, err);
+                            }
+                        }
+                    }
+                }
+            }
+            // cells muist be disabled before they can be deleted.
+            for clone_cell_id in deleteable.clone() {
+                let payload = DisableCloneCellPayload {
+                    clone_cell_id: clone_cell_id.clone(),
+                };
+                app_ws.disable_clone(payload).await?;
+            }
+            for clone_cell_id in deleteable {
+                let payload = DeleteCloneCellPayload {
+                    app_id: happ_id.clone(),
+                    clone_cell_id,
+                };
+                let x = ws.admin.delete_clone(payload).await.map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err));
+                log::debug!("DELETE CLONE RESULT {:?}",x);
+                x?;
+                result.service_loggers_deleted += 1;
             }
         }
     }

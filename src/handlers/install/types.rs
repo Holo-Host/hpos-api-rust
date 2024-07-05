@@ -85,4 +85,5 @@ impl<'r> FromData<'r> for InstallHappBody {
 #[serde(rename_all = "camelCase")]
 pub struct CheckServiceLoggersResult {
     pub service_loggers_cloned: u32,
+    pub service_loggers_deleted: u32,
 }
