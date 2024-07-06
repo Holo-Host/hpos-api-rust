@@ -17,23 +17,29 @@ Steps to install a happ bundle:
 pub mod helpers;
 mod types;
 
+use std::collections::HashSet;
+
 use anyhow::{anyhow, Result};
 use helpers::{do_sl_cloning, FixedDataForSlCloneCall};
 use holochain_conductor_api::CellInfo;
 use holochain_types::app::{DeleteCloneCellPayload, DisableCloneCellPayload};
+use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::holofuel_types::Pending;
 use hpos_hc_connect::AppConnection;
 use url::Url;
 
+use super::hosted_happs::handle_enable;
 use crate::common::types::PresentedHappBundle;
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{AppBundleSource, CapSecret, CloneCellId};
 use hpos_hc_connect::sl_utils::{
-    sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, time_bucket_from_date,
+    sl_get_current_time_bucket, sl_within_min_of_next_time_bucket,
     SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
 };
 pub use types::*;
+use std::iter::FromIterator;
 
 pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<String> {
     log::debug!("Calling zome hosted/install with payload: {:?}", &data);
@@ -54,8 +60,8 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
         .await?
     {
         true => {
-            // NB: If app is already installed, then we only need to (re-)enable the happ bundle.
-            helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
+            // NB: If app is already installed, then we only need to make the happ as enable in hha.
+            handle_enable(ws, &data.happ_id).await?;
         }
         false => {
             // NB: If the happ has not yet been installed, we must take 4 steps: 1. install app's sl, enable app's and clone sl, 2. install app, 3. enable app
@@ -120,6 +126,7 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 // 4. Enable the hosted happ
                 helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
             }
+            handle_enable(ws, &data.happ_id).await?;
         }
     }
 
@@ -151,6 +158,25 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
     let clone_for_next =
         sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
     let next_time_bucket_name = format!("{}", current_time_bucket + 1);
+
+    let mut pending_secrets: HashSet<CapSecret> = HashSet::new();
+    // we are going to need the pending transactions if we are going to be checking for deletability
+    if clone_for_next {
+        log::debug!("calling zome holofuel/transactor/get_pending_transactions");
+        let pending = core_app_connection
+            .zome_call_typed::<(), Pending>(
+                CoreAppRoleName::Holofuel.into(),
+                "transactor".into(),
+                "get_pending_transactions".into(),
+                (),
+            )
+            .await?;
+        for invoice in pending.invoice_pending {
+            if let Some(secret) = invoice.proof_of_service_token {
+                pending_secrets.insert(secret);
+            }
+        }
+    }
 
     for happ_id in apps
         .into_iter()
@@ -217,25 +243,6 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
             let mut deleteable: Vec<CloneCellId> = Vec::new();
             // also, for any old cells, check to see if we can delete it by confirming that all logs have
             // been invoiced, and all those invoices aren'd pending, by comparing the CapSecrets
-            debug!("calling zome holofuel/transactor/get_pending_invoices");
-            let core_app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
-
-            let pending = core_app_connection
-                .zome_call_typed::<(), RedemptionState>(
-                    CoreAppRoleName::Holofuel.into(),
-                    "transactor".into(),
-                    "get_pending_invoices".into(),
-                    (),
-                )
-                .await?;
-            let mut pending_secrets: HashSet<CapSecret> = HashSet::new();
-            for invoice in pending.invoice_pending {
-                if let Some(pos) = invoice.proof_of_service {
-                    if let POS::Hosting(secret) = pos {
-                        pending_secrets.insert(secret)
-                    }
-                }
-            }
 
             for cell in clone_cells {
                 let cell_time_bucket_result = cell.name.parse::<u32>();
@@ -259,8 +266,8 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                         match result {
                             Ok(all_invoiced) => {
                                 if let Some(secrets) = all_invoiced {
-                                    let s = HashSet::from_iter(secrets.into_iter());
-                                    if s.is_disjoint(s) {
+                                    let s:HashSet<CapSecret> = HashSet::from_iter(secrets);
+                                    if s.is_disjoint(&s) {
                                         deleteable.push(CloneCellId::CloneId(cell.clone_id));
                                     }
                                 }
