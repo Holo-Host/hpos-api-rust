@@ -28,7 +28,7 @@ use crate::common::types::PresentedHappBundle;
 use crate::hpos::Ws;
 pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
-use holochain_types::prelude::{AppBundleSource, CloneCellId};
+use holochain_types::prelude::{AppBundleSource, CapSecret, CloneCellId};
 use hpos_hc_connect::sl_utils::{
     sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, time_bucket_from_date,
     SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
@@ -215,7 +215,28 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
             }
 
             let mut deleteable: Vec<CloneCellId> = Vec::new();
-            // also, for any old cells, check to see if we can delete it by confirming that all the items are invoiced.
+            // also, for any old cells, check to see if we can delete it by confirming that all logs have
+            // been invoiced, and all those invoices aren'd pending, by comparing the CapSecrets
+            debug!("calling zome holofuel/transactor/get_pending_invoices");
+            let core_app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
+
+            let pending = core_app_connection
+                .zome_call_typed::<(), RedemptionState>(
+                    CoreAppRoleName::Holofuel.into(),
+                    "transactor".into(),
+                    "get_pending_invoices".into(),
+                    (),
+                )
+                .await?;
+            let mut pending_secrets: HashSet<CapSecret> = HashSet::new();
+            for invoice in pending.invoice_pending {
+                if let Some(pos) = invoice.proof_of_service {
+                    if let POS::Hosting(secret) = pos {
+                        pending_secrets.insert(secret)
+                    }
+                }
+            }
+
             for cell in clone_cells {
                 let cell_time_bucket_result = cell.name.parse::<u32>();
                 if let Ok(cell_time_bucket) = cell_time_bucket_result {
@@ -226,7 +247,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                             happ_id,
                             cell_time_bucket
                         );
-                        let result: Result<bool> = app_ws
+                        let result: Result<Option<Vec<CapSecret>>> = app_ws
                             .clone_zome_call_typed(
                                 "servicelogger".into(),
                                 cell.name,
@@ -237,8 +258,11 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                             .await;
                         match result {
                             Ok(all_invoiced) => {
-                                if all_invoiced {
-                                    deleteable.push(CloneCellId::CloneId(cell.clone_id));
+                                if let Some(secrets) = all_invoiced {
+                                    let s = HashSet::from_iter(secrets.into_iter());
+                                    if s.is_disjoint(s) {
+                                        deleteable.push(CloneCellId::CloneId(cell.clone_id));
+                                    }
                                 }
                             }
                             Err(err) => {
