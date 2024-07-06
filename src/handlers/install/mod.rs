@@ -35,11 +35,11 @@ pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{AppBundleSource, CapSecret, CloneCellId};
 use hpos_hc_connect::sl_utils::{
-    sl_get_current_time_bucket, sl_within_min_of_next_time_bucket,
-    SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
+    sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, SL_BUCKET_SIZE_DAYS,
+    SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
 };
-pub use types::*;
 use std::iter::FromIterator;
+pub use types::*;
 
 pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Result<String> {
     log::debug!("Calling zome hosted/install with payload: {:?}", &data);
@@ -266,7 +266,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                         match result {
                             Ok(all_invoiced) => {
                                 if let Some(secrets) = all_invoiced {
-                                    let s:HashSet<CapSecret> = HashSet::from_iter(secrets);
+                                    let s: HashSet<CapSecret> = HashSet::from_iter(secrets);
                                     if s.is_disjoint(&s) {
                                         deleteable.push(CloneCellId::CloneId(cell.clone_id));
                                     }
