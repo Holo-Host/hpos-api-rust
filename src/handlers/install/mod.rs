@@ -35,8 +35,8 @@ pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{AppBundleSource, CapSecret, CloneCellId};
 use hpos_hc_connect::sl_utils::{
-    sl_get_current_time_bucket, sl_within_min_of_next_time_bucket, SL_BUCKET_SIZE_DAYS,
-    SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
+    sl_get_current_time_bucket, sl_within_deleting_check_window, sl_within_min_of_next_time_bucket,
+    SL_BUCKET_SIZE_DAYS, SL_DELETING_LOG_WINDOW_SIZE_MIN, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
 };
 use std::iter::FromIterator;
 pub use types::*;
@@ -136,6 +136,10 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     ))
 }
 
+/// this function implements the things that need to be checked periodically about service loggers
+/// 1. cloning new instances
+/// 2. deleting old instances where all logs have been invoiced and paid.
+/// So we set up contexts and get the data we need, and then run a loop across all service-logger instances.
 pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLoggersResult> {
     let mut result = CheckServiceLoggersResult {
         service_loggers_cloned: 0,
@@ -155,14 +159,18 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
     let current_time_bucket = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
     let current_time_bucket_name = format!("{}", current_time_bucket);
 
-    let clone_for_next =
+    // find out if we are being run in the time right before the next clone so that we have to
+    // check for doing cloning for the next time bucket rather than just this one (which we still should do)
+    let check_cloning_for_next_bucket =
         sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
     let next_time_bucket_name = format!("{}", current_time_bucket + 1);
 
+    let check_for_deleting = sl_within_deleting_check_window(SL_DELETING_LOG_WINDOW_SIZE_MIN);
+
     let mut pending_secrets: HashSet<CapSecret> = HashSet::new();
-    // we are going to need the pending transactions if we are going to be checking for deletability
-    if clone_for_next {
-        log::debug!("calling zome holofuel/transactor/get_pending_transactions");
+    // we are likely going to need the pending transactions if we are going to be checking for deletability
+    // so get them once here outside the happ_id loop.
+    if check_for_deleting {
         let pending = core_app_connection
             .zome_call_typed::<(), Pending>(
                 CoreAppRoleName::Holofuel.into(),
@@ -185,11 +193,11 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
         let app_ws = ws.get_connection(happ_id.clone()).await?;
         let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
         log::debug!(
-            "Checking {} for cells {:?} for bucket {}, clone_for_next {}",
+            "Checking {} for cells {:?} for bucket {}, check_cloning_for_next_bucket {}",
             happ_id,
             clone_cells,
             current_time_bucket_name,
-            clone_for_next
+            check_cloning_for_next_bucket
         );
         // if there is no clone cell for the current bucket, the we gotta make it!
         if clone_cells
@@ -213,11 +221,10 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
         }
         if result.service_loggers_cloned > 0 {
             let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
-            log::debug!("CLONE CELLS AFTER: {:?}", clone_cells);
         }
 
         // if we are just before the next time bucket, and that bucket doesn't exist, also clone!
-        if clone_for_next {
+        if check_cloning_for_next_bucket {
             // reset clone data
             maybe_sl_clone_data = None;
             if clone_cells
@@ -239,21 +246,18 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     }
                 }
             }
+        }
 
+        if check_for_deleting {
             let mut deleteable: Vec<CloneCellId> = Vec::new();
             // also, for any old cells, check to see if we can delete it by confirming that all logs have
-            // been invoiced, and all those invoices aren'd pending, by comparing the CapSecrets
+            // been invoiced, and all those invoices aren't pending, by comparing the CapSecrets
 
             for cell in clone_cells {
                 let cell_time_bucket_result = cell.name.parse::<u32>();
                 if let Ok(cell_time_bucket) = cell_time_bucket_result {
                     // only query cells that are more than 2 time_buckets in the past (1 month)
                     if cell_time_bucket < current_time_bucket - 2 {
-                        log::debug!(
-                            "Calling all_invoiced for happ: {}::servicelogger.{} ",
-                            happ_id,
-                            cell_time_bucket
-                        );
                         let result: Result<Option<Vec<CapSecret>>> = app_ws
                             .clone_zome_call_typed(
                                 "servicelogger".into(),
@@ -267,6 +271,8 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                             Ok(all_invoiced) => {
                                 if let Some(secrets) = all_invoiced {
                                     let s: HashSet<CapSecret> = HashSet::from_iter(secrets);
+                                    // if there are no secrets in common in the two sets, we know 
+                                    // all the invoiced items aren't pending, so we can delete this cell.
                                     if s.is_disjoint(&s) {
                                         deleteable.push(CloneCellId::CloneId(cell.clone_id));
                                     }
@@ -284,7 +290,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     }
                 }
             }
-            // cells muist be disabled before they can be deleted.
+            // cells must be disabled before they can be deleted.
             for clone_cell_id in deleteable.clone() {
                 let payload = DisableCloneCellPayload {
                     clone_cell_id: clone_cell_id.clone(),
@@ -296,13 +302,11 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     app_id: happ_id.clone(),
                     clone_cell_id,
                 };
-                let x = ws
+                ws
                     .admin
                     .delete_clone(payload)
                     .await
-                    .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err));
-                log::debug!("DELETE CLONE RESULT {:?}", x);
-                x?;
+                    .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err))?;
                 result.service_loggers_deleted += 1;
             }
         }

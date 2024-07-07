@@ -484,10 +484,14 @@ async fn install_components() {
     );
 
     // Move the current time-bucket forward 2 buckets to test deleting
+    // And force the deleting window for the test because we can't set the clock
     env::set_var(
         "SL_TEST_TIME_BUCKET",
         format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS) + 2),
     );
+    env::set_var(
+        "SL_TEST_IS_IN_DELETING_WINDOW",
+        "true");
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
@@ -495,13 +499,13 @@ async fn install_components() {
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    // there should be some clones for the new time bucket, but no deleting because items are still not invoiced.
+    // there should be some clones for the new time bucket, but no deleting because items are still not invoice or paid.
     assert_eq!(
         response_body,
         "{\"serviceLoggersCloned\":3,\"serviceLoggersDeleted\":0}"
     );
 
-    //TODO: find a way to run the invoicing here to make the final test that clones are deleted.
+    //TODO: find a way to run the invoicing & payment here to make the final test that clones are deleted.
 }
 
 fn servicelogger_prefs_path() -> String {

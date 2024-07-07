@@ -2004,7 +2004,7 @@ dependencies = [
 [[package]]
 name = "holochain_env_setup"
 version = "0.1.1"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?branch=feat/service-logger-rotate#58e6a09fb6385b685ac09ad67ca475193fb14b87"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?branch=feat/service-logger-rotate#91539447c78d7e8d19412c91cb32e04219f3e4f5"
 dependencies = [
  "anyhow",
  "dotenv",
@@ -2426,7 +2426,7 @@ dependencies = [
 [[package]]
 name = "hpos_hc_connect"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?branch=feat/service-logger-rotate#58e6a09fb6385b685ac09ad67ca475193fb14b87"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?branch=feat/service-logger-rotate#91539447c78d7e8d19412c91cb32e04219f3e4f5"
 dependencies = [
  "again",
  "anyhow",
@@ -5381,7 +5381,7 @@ dependencies = [
 [[package]]
 name = "taskgroup_manager"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?branch=feat/service-logger-rotate#58e6a09fb6385b685ac09ad67ca475193fb14b87"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?branch=feat/service-logger-rotate#91539447c78d7e8d19412c91cb32e04219f3e4f5"
 dependencies = [
  "futures",
  "nix",
