@@ -271,7 +271,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                             Ok(all_invoiced) => {
                                 if let Some(secrets) = all_invoiced {
                                     let s: HashSet<CapSecret> = HashSet::from_iter(secrets);
-                                    // if there are no secrets in common in the two sets, we know 
+                                    // if there are no secrets in common in the two sets, we know
                                     // all the invoiced items aren't pending, so we can delete this cell.
                                     if s.is_disjoint(&s) {
                                         deleteable.push(CloneCellId::CloneId(cell.clone_id));
@@ -302,8 +302,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     app_id: happ_id.clone(),
                     clone_cell_id,
                 };
-                ws
-                    .admin
+                ws.admin
                     .delete_clone(payload)
                     .await
                     .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err))?;

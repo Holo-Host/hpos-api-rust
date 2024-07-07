@@ -489,9 +489,7 @@ async fn install_components() {
         "SL_TEST_TIME_BUCKET",
         format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS) + 2),
     );
-    env::set_var(
-        "SL_TEST_IS_IN_DELETING_WINDOW",
-        "true");
+    env::set_var("SL_TEST_IS_IN_DELETING_WINDOW", "true");
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
