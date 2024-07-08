@@ -18,8 +18,8 @@
       },
       {
         "app_id": "servicelogger",
-        "bundle_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_5_3/servicelogger.0_5_3.happ",
-        "sl_dna_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_5_3/servicelogger.0_5_3.dna",
+        "bundle_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_5_4/servicelogger.0_5_4.happ",
+        "sl_dna_url": "https://holo-host.github.io/servicelogger-rsm/releases/downloads/0_5_4/servicelogger.0_5_4.dna",
       },
     ],
   "self_hosted_happs": [],
