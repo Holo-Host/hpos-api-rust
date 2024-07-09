@@ -5,7 +5,7 @@ use holochain_conductor_api::CellInfo;
 use holochain_types::{
     app::AppBundleSource,
     dna::AgentPubKey,
-    prelude::{CloneCellId, MembraneProof, RoleName},
+    prelude::{MembraneProof, RoleName},
 };
 
 use holofuel_types::fuel::Fuel;

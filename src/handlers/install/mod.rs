@@ -36,7 +36,7 @@ use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{AppBundleSource, CapSecret, CloneCellId};
 use hpos_hc_connect::sl_utils::{
     sl_get_current_time_bucket, sl_within_deleting_check_window, sl_within_min_of_next_time_bucket,
-    SL_BUCKET_SIZE_DAYS, SL_DELETING_LOG_WINDOW_SIZE_MIN, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
+    SL_BUCKET_SIZE_DAYS, SL_DELETING_LOG_WINDOW_SIZE_MINUTES, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
 };
 use std::iter::FromIterator;
 pub use types::*;
@@ -165,7 +165,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
         sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
     let next_time_bucket_name = format!("{}", current_time_bucket + 1);
 
-    let check_for_deleting = sl_within_deleting_check_window(SL_DELETING_LOG_WINDOW_SIZE_MIN);
+    let check_for_deleting = sl_within_deleting_check_window(SL_DELETING_LOG_WINDOW_SIZE_MINUTES);
 
     let mut pending_secrets: HashSet<CapSecret> = HashSet::new();
     // we are likely going to need the pending transactions if we are going to be checking for deletability
