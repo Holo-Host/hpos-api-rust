@@ -142,8 +142,8 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
 /// So we set up contexts and get the data we need, and then run a loop across all service-logger instances.
 pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLoggersResult> {
     let mut result = CheckServiceLoggersResult {
-        service_loggers_cloned: 0,
-        service_loggers_deleted: 0,
+        service_loggers_cloned: Vec::new(),
+        service_loggers_deleted: Vec::new(),
     };
     let apps = ws.admin.list_enabled_apps().await?;
 
@@ -214,13 +214,11 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 )?);
             }
             if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                if do_sl_cloning(app_ws, &happ_id, sl_clone_data).await? {
-                    result.service_loggers_cloned += 1;
+                let cell: Option<holochain_types::prelude::ClonedCell> = do_sl_cloning(app_ws, &happ_id, sl_clone_data).await?;
+                if let Some(c) =  cell {
+                    result.service_loggers_cloned.push(format!("{}.{}", happ_id, c.name));
                 }
             }
-        }
-        if result.service_loggers_cloned > 0 {
-            let clone_cells = app_ws.clone_cells("servicelogger".into()).await?;
         }
 
         // if we are just before the next time bucket, and that bucket doesn't exist, also clone!
@@ -241,15 +239,16 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     )?);
                 }
                 if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                    if do_sl_cloning(app_ws, &happ_id, sl_clone_data).await? {
-                        result.service_loggers_cloned += 1;
+                    let cell = do_sl_cloning(app_ws, &happ_id, sl_clone_data).await?;
+                    if let Some(c) =  cell {
+                        result.service_loggers_cloned.push(format!("{}.{}", happ_id, c.name));
                     }
                 }
             }
         }
 
         if check_for_deleting {
-            let mut deleteable: Vec<CloneCellId> = Vec::new();
+            let mut deleteable: Vec<(CloneCellId,String)> = Vec::new();
             // also, for any old cells, check to see if we can delete it by confirming that all logs have
             // been invoiced, and all those invoices aren't pending, by comparing the CapSecrets
 
@@ -261,7 +260,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                         let result: Result<Option<Vec<CapSecret>>> = app_ws
                             .clone_zome_call_typed(
                                 "servicelogger".into(),
-                                cell.name,
+                                cell.name.clone(),
                                 "service".into(),
                                 "all_invoiced".into(),
                                 (),
@@ -274,7 +273,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                                     // if there are no secrets in common in the two sets, we know
                                     // all the invoiced items aren't pending, so we can delete this cell.
                                     if s.is_disjoint(&s) {
-                                        deleteable.push(CloneCellId::CloneId(cell.clone_id));
+                                        deleteable.push((CloneCellId::CloneId(cell.clone_id), cell.name));
                                     }
                                 }
                             }
@@ -291,22 +290,22 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 }
             }
             // cells must be disabled before they can be deleted.
-            for clone_cell_id in deleteable.clone() {
+            for cell_data in deleteable.clone() {
                 let payload = DisableCloneCellPayload {
-                    clone_cell_id: clone_cell_id.clone(),
+                    clone_cell_id: cell_data.0,
                 };
                 app_ws.disable_clone(payload).await?;
             }
-            for clone_cell_id in deleteable {
+            for cell_data in deleteable {
                 let payload = DeleteCloneCellPayload {
                     app_id: happ_id.clone(),
-                    clone_cell_id,
+                    clone_cell_id: cell_data.0,
                 };
                 ws.admin
                     .delete_clone(payload)
                     .await
                     .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err))?;
-                result.service_loggers_deleted += 1;
+                result.service_loggers_deleted.push(format!("{}.{}", happ_id, cell_data.1));
             }
         }
     }

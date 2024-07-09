@@ -28,6 +28,13 @@ use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
 use utils::{publish_and_enable_hosted_happ, sample_sl_props, Test};
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckServiceLoggersResult {
+    pub service_loggers_cloned: Vec<String>,
+    pub service_loggers_deleted: Vec<String>,
+}
+
 #[tokio::test]
 async fn install_components() {
     env_logger::init();
@@ -421,10 +428,9 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no clones because still in same time bucket
-    assert_eq!(
-        response_body,
-        "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}"
-    );
+    let r:CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(),0);
+    assert_eq!(r.service_loggers_deleted.len(),0);
 
     env::set_var(
         "SL_TEST_TIME_BUCKET",
@@ -438,10 +444,9 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // two clones because we are in the next time bucket
-    assert_eq!(
-        response_body,
-        "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}"
-    );
+    let r:CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(),2);
+    assert_eq!(r.service_loggers_deleted.len(),0);
 
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
@@ -451,10 +456,9 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no more clones because we are in the next time bucket and they were just made
-    assert_eq!(
-        response_body,
-        "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}"
-    );
+    let r:CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(),0);
+    assert_eq!(r.service_loggers_deleted.len(),0);
 
     env::set_var("SL_TEST_IS_BEFORE_NEXT_BUCKET", format!("true"));
     let path = format!("/apps/hosted/sl-check");
@@ -465,10 +469,9 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // two more clones because we are just before the next time bucket
-    assert_eq!(
-        response_body,
-        "{\"serviceLoggersCloned\":2,\"serviceLoggersDeleted\":0}"
-    );
+    let r:CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(),2);
+    assert_eq!(r.service_loggers_deleted.len(),0);
 
     let path = format!("/apps/hosted/sl-check");
     info!("calling {}", &path);
@@ -478,10 +481,9 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // no more clones because we already cloned them
-    assert_eq!(
-        response_body,
-        "{\"serviceLoggersCloned\":0,\"serviceLoggersDeleted\":0}"
-    );
+    let r:CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(),0);
+    assert_eq!(r.service_loggers_deleted.len(),0);
 
     // Move the current time-bucket forward 2 buckets to test deleting
     // And force the deleting window for the test because we can't set the clock
@@ -497,11 +499,15 @@ async fn install_components() {
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    // there should be some clones for the new time bucket, but no deleting because items are still not invoice or paid.
-    assert_eq!(
-        response_body,
-        "{\"serviceLoggersCloned\":3,\"serviceLoggersDeleted\":0}"
-    );
+    
+    // there should be two new clones for the new time buckets (13 & 14), and one deleted from
+    // time bucket 10 because it never had any activity logged.
+    let r:CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 3);
+    assert_eq!(r.service_loggers_deleted.len(), 1);
+    let x:Vec<&str>= r.service_loggers_deleted[0].split(".").into_iter().collect();
+    assert_eq!(x[1], "10");
+
 
     //TODO: find a way to run the invoicing & payment here to make the final test that clones are deleted.
 }

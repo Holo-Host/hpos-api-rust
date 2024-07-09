@@ -201,7 +201,7 @@ pub async fn do_sl_cloning(
     app_ws: &mut AppConnection,
     happ_id: &str,
     sl_clone_data: &FixedDataForSlCloneCall,
-) -> Result<bool> {
+) -> Result<Option<ClonedCell>> {
     let sl_props_json = build_json_sl_props(&happ_id, sl_clone_data);
     let r = handle_install_sl_clone(app_ws, sl_props_json, sl_clone_data.time_bucket).await;
     match r {
@@ -210,9 +210,9 @@ pub async fn do_sl_cloning(
             if !err_text.contains("DuplicateCellId") {
                 return Err(err);
             }
-            Ok(false)
+            Ok(None)
         }
-        Ok(_) => Ok(true),
+        Ok(cell) => Ok(Some(cell)),
     }
 }
 

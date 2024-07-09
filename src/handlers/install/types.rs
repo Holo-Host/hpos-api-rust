@@ -5,7 +5,7 @@ use holochain_conductor_api::CellInfo;
 use holochain_types::{
     app::AppBundleSource,
     dna::AgentPubKey,
-    prelude::{MembraneProof, RoleName},
+    prelude::{CloneCellId, MembraneProof, RoleName},
 };
 
 use holofuel_types::fuel::Fuel;
@@ -84,6 +84,6 @@ impl<'r> FromData<'r> for InstallHappBody {
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 pub struct CheckServiceLoggersResult {
-    pub service_loggers_cloned: u32,
-    pub service_loggers_deleted: u32,
+    pub service_loggers_cloned: Vec<String>,
+    pub service_loggers_deleted: Vec<String>,
 }
