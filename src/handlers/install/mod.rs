@@ -214,9 +214,12 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 )?);
             }
             if let Some(ref sl_clone_data) = maybe_sl_clone_data {
-                let cell: Option<holochain_types::prelude::ClonedCell> = do_sl_cloning(app_ws, &happ_id, sl_clone_data).await?;
-                if let Some(c) =  cell {
-                    result.service_loggers_cloned.push(format!("{}.{}", happ_id, c.name));
+                let cell: Option<holochain_types::prelude::ClonedCell> =
+                    do_sl_cloning(app_ws, &happ_id, sl_clone_data).await?;
+                if let Some(c) = cell {
+                    result
+                        .service_loggers_cloned
+                        .push(format!("{}.{}", happ_id, c.name));
                 }
             }
         }
@@ -240,15 +243,17 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 }
                 if let Some(ref sl_clone_data) = maybe_sl_clone_data {
                     let cell = do_sl_cloning(app_ws, &happ_id, sl_clone_data).await?;
-                    if let Some(c) =  cell {
-                        result.service_loggers_cloned.push(format!("{}.{}", happ_id, c.name));
+                    if let Some(c) = cell {
+                        result
+                            .service_loggers_cloned
+                            .push(format!("{}.{}", happ_id, c.name));
                     }
                 }
             }
         }
 
         if check_for_deleting {
-            let mut deleteable: Vec<(CloneCellId,String)> = Vec::new();
+            let mut deleteable: Vec<(CloneCellId, String)> = Vec::new();
             // also, for any old cells, check to see if we can delete it by confirming that all logs have
             // been invoiced, and all those invoices aren't pending, by comparing the CapSecrets
 
@@ -273,7 +278,8 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                                     // if there are no secrets in common in the two sets, we know
                                     // all the invoiced items aren't pending, so we can delete this cell.
                                     if s.is_disjoint(&s) {
-                                        deleteable.push((CloneCellId::CloneId(cell.clone_id), cell.name));
+                                        deleteable
+                                            .push((CloneCellId::CloneId(cell.clone_id), cell.name));
                                     }
                                 }
                             }
@@ -305,7 +311,9 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     .delete_clone(payload)
                     .await
                     .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err))?;
-                result.service_loggers_deleted.push(format!("{}.{}", happ_id, cell_data.1));
+                result
+                    .service_loggers_deleted
+                    .push(format!("{}.{}", happ_id, cell_data.1));
             }
         }
     }
