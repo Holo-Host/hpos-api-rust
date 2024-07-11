@@ -337,8 +337,8 @@ async fn get_usage(
         .get_connection(format!("{}::servicelogger", happ_id))
         .await?;
 
-    let (bucket_size, time_bucket, buckets_for_days_in_request) =
-        sl_get_bucket_range(vec![], usage_interval);
+    let (time_bucket, buckets_for_days_in_request) =
+        sl_get_bucket_range(SL_BUCKET_SIZE_DAYS, usage_interval);
 
     let mut stats = HappStats {
         cpu: 0,
@@ -347,8 +347,8 @@ async fn get_usage(
     };
     let mut days_left = usage_interval;
     for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
-        let days = if days_left > bucket_size {
-            bucket_size
+        let days = if days_left > SL_BUCKET_SIZE_DAYS {
+            SL_BUCKET_SIZE_DAYS
         } else {
             days_left
         };

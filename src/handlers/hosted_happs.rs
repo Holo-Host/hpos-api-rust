@@ -191,8 +191,9 @@ pub async fn handle_get_service_logs(
         return Ok(vec![]);
     }
 
-    let (_bucket_size, time_bucket, buckets_for_days_in_request) =
-        sl_get_bucket_range(cloned_cells, days);
+    // TODO: in the future when we implement different log rotation schedules per app then we want to pull the bucket size
+    // from the cloned cells, not use the global
+    let (time_bucket, buckets_for_days_in_request) = sl_get_bucket_range(SL_BUCKET_SIZE_DAYS, days);
 
     let mut logs: Vec<Record> = Vec::new();
     for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
