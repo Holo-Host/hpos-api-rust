@@ -35,7 +35,9 @@ pub use helpers::update_happ_bundle;
 use holochain_types::dna::ActionHashB64;
 use holochain_types::prelude::{AppBundleSource, CapSecret, CloneCellId};
 use hpos_hc_connect::sl_utils::{
-    sl_clone_name, sl_clone_name_spec, sl_get_current_time_bucket, sl_within_deleting_check_window, sl_within_min_of_next_time_bucket, SlCloneSpec, SL_BUCKET_SIZE_DAYS, SL_DELETING_LOG_WINDOW_SIZE_MINUTES, SL_MINUTES_BEFORE_BUCKET_TO_CLONE
+    sl_clone_name, sl_clone_name_spec, sl_get_current_time_bucket, sl_within_deleting_check_window,
+    sl_within_min_of_next_time_bucket, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
+    SL_DELETING_LOG_WINDOW_SIZE_MINUTES, SL_MINUTES_BEFORE_BUCKET_TO_CLONE,
 };
 use std::iter::FromIterator;
 pub use types::*;
@@ -156,13 +158,19 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
     let mut maybe_sl_clone_data: Option<FixedDataForSlCloneCall> = None;
 
     let current_time_bucket = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
-    let current_time_bucket_name = sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket: current_time_bucket});
+    let current_time_bucket_name = sl_clone_name(SlCloneSpec {
+        days_in_bucket: SL_BUCKET_SIZE_DAYS,
+        time_bucket: current_time_bucket,
+    });
 
     // find out if we are being run in the time right before the next clone so that we have to
     // check for doing cloning for the next time bucket rather than just this one (which we still should do)
     let check_cloning_for_next_bucket =
         sl_within_min_of_next_time_bucket(SL_BUCKET_SIZE_DAYS, SL_MINUTES_BEFORE_BUCKET_TO_CLONE);
-    let next_time_bucket_name = sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket: current_time_bucket + 1});
+    let next_time_bucket_name = sl_clone_name(SlCloneSpec {
+        days_in_bucket: SL_BUCKET_SIZE_DAYS,
+        time_bucket: current_time_bucket + 1,
+    });
 
     let check_for_deleting = sl_within_deleting_check_window(SL_DELETING_LOG_WINDOW_SIZE_MINUTES);
 
@@ -258,7 +266,11 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
 
             for cell in cloned_cells {
                 let spec_result = sl_clone_name_spec(&cell.name);
-                if let Ok(SlCloneSpec{time_bucket: cell_time_bucket, days_in_bucket:_}) = spec_result {
+                if let Ok(SlCloneSpec {
+                    time_bucket: cell_time_bucket,
+                    days_in_bucket: _,
+                }) = spec_result
+                {
                     // only query cells that are more than 2 time_buckets in the past (1 month)
                     if cell_time_bucket < current_time_bucket - 2 {
                         let result: Result<Option<Vec<CapSecret>>> = app_ws

@@ -10,7 +10,9 @@ use crate::hpos::Ws;
 use crate::HappDetails;
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
-use hpos_hc_connect::sl_utils::{sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS};
+use hpos_hc_connect::sl_utils::{
+    sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
+};
 use log::debug;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -198,7 +200,10 @@ pub async fn handle_get_service_logs(
         let result: Result<Vec<Record>> = app_connection
             .clone_zome_call_typed(
                 role_name.clone(),
-                sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket: bucket}),
+                sl_clone_name(SlCloneSpec {
+                    days_in_bucket: SL_BUCKET_SIZE_DAYS,
+                    time_bucket: bucket,
+                }),
                 "service".into(),
                 "querying_chain".into(),
                 filter.clone(),

@@ -12,7 +12,9 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
-use hpos_hc_connect::sl_utils::{sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS};
+use hpos_hc_connect::sl_utils::{
+    sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
+};
 use log::warn;
 use rocket::{
     http::Status,
@@ -360,7 +362,10 @@ async fn get_usage(
         let result: Result<HappStats> = app_connection
             .clone_zome_call_typed(
                 "servicelogger".into(),
-                sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket}),
+                sl_clone_name(SlCloneSpec {
+                    days_in_bucket: SL_BUCKET_SIZE_DAYS,
+                    time_bucket,
+                }),
                 "service".into(),
                 "get_stats".into(),
                 UsageTimeInterval {
