@@ -10,7 +10,7 @@ use crate::hpos::Ws;
 use crate::HappDetails;
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
-use hpos_hc_connect::sl_utils::sl_get_bucket_range;
+use hpos_hc_connect::sl_utils::{sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS};
 use log::debug;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -184,13 +184,13 @@ pub async fn handle_get_service_logs(
     let app_connection = ws.get_connection(format!("{}::servicelogger", id)).await?;
 
     let role_name = String::from("servicelogger");
-    let clone_cells = app_connection.clone_cells(role_name.clone()).await?;
-    if clone_cells.len() == 0 {
+    let cloned_cells = app_connection.cloned_cells(role_name.clone()).await?;
+    if cloned_cells.len() == 0 {
         return Ok(vec![]);
     }
 
     let (_bucket_size, time_bucket, buckets_for_days_in_request) =
-        sl_get_bucket_range(clone_cells, days);
+        sl_get_bucket_range(cloned_cells, days);
 
     let mut logs: Vec<Record> = Vec::new();
     for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
@@ -198,7 +198,7 @@ pub async fn handle_get_service_logs(
         let result: Result<Vec<Record>> = app_connection
             .clone_zome_call_typed(
                 role_name.clone(),
-                format!("{}", bucket),
+                sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket: bucket}),
                 "service".into(),
                 "querying_chain".into(),
                 filter.clone(),

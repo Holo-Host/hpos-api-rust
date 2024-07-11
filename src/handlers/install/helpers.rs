@@ -10,6 +10,7 @@ use holochain_types::prelude::{
     AppBundleSource, ClonedCell, DnaModifiersOpt, RoleName, YamlProperties,
 };
 use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::sl_utils::{sl_clone_name, SlCloneSpec, SL_BUCKET_SIZE_DAYS};
 use hpos_hc_connect::AppConnection;
 use mr_bundle::Bundle;
 use std::collections::HashMap;
@@ -227,7 +228,7 @@ pub async fn handle_install_sl_clone(
             serde_yaml::from_str(&sl_props_json).unwrap(),
         )),
         membrane_proof: None,
-        name: Some(format!("{}", time_bucket)),
+        name: Some(sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket})),
     };
     app_ws.create_clone(payload).await
 }

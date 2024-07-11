@@ -17,7 +17,7 @@ use hpos_api_rust::handlers::install;
 use hpos_api_rust::handlers::install::helpers::handle_install_sl_clone;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
-use hpos_hc_connect::sl_utils::{sl_get_current_time_bucket, SL_BUCKET_SIZE_DAYS};
+use hpos_hc_connect::sl_utils::{sl_clone_name, sl_get_current_time_bucket, SlCloneSpec, SL_BUCKET_SIZE_DAYS};
 use hpos_hc_connect::AppConnection;
 use log::{debug, info};
 use rocket::http::{ContentType, Status};
@@ -92,7 +92,7 @@ async fn install_components() {
             let sl_response: ActionHashB64 = sl_ws
                 .clone_zome_call_typed(
                     "servicelogger".into(),
-                    format!("{}", bucket),
+                    sl_clone_name(SlCloneSpec{days_in_bucket: SL_BUCKET_SIZE_DAYS, time_bucket: bucket}),
                     "service".into(),
                     "log_activity".into(),
                     payload,
@@ -509,7 +509,8 @@ async fn install_components() {
         .split(".")
         .into_iter()
         .collect();
-    assert_eq!(x[1], "10");
+    assert_eq!(x[1], "14"); // bucket size
+    assert_eq!(x[2], "10"); // bucket deleted
 
     //TODO: find a way to run the invoicing & payment here to make the final test that clones are deleted.
 }
