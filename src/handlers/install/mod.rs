@@ -52,17 +52,14 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
     // Note: We will be installing the hosted happ and their associated sl cells with the host pubkey
     let host_pub_key = helpers::get_host_pub_key(maybe_pubkey, core_app_connection).await?;
 
-    let happ_bundle_details: PresentedHappBundle = helpers::get_app_details(
-        core_app_connection,
-        ActionHashB64::from_b64_str(&data.happ_id)?.into(),
-    )
-    .await?;
+    let happ_bundle_details: PresentedHappBundle =
+        helpers::get_app_details(core_app_connection, data.happ_id.clone().into()).await?;
     match helpers::is_already_installed(&mut admin_connection, happ_bundle_details.id.to_string())
         .await?
     {
         true => {
             // NB: If app is already installed, then we only need to make the happ as enable in hha.
-            handle_enable(ws, &data.happ_id).await?;
+            handle_enable(ws, data.happ_id.clone()).await?;
         }
         false => {
             // NB: If the happ has not yet been installed, we must take 4 steps: 1. install app's sl, enable app's and clone sl, 2. install app, 3. enable app
@@ -125,9 +122,10 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                 helpers::handle_install_app_raw(&mut admin_connection, raw_payload).await?;
 
                 // 4. Enable the hosted happ
-                helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id).await?;
+                helpers::handle_holochain_enable(&mut admin_connection, &data.happ_id.to_string())
+                    .await?;
             }
-            handle_enable(ws, &data.happ_id).await?;
+            handle_enable(ws, data.happ_id.clone()).await?;
         }
     }
 
@@ -193,19 +191,22 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
         }
     }
 
-    for happ_id in apps
+    for installed_happ_id in apps
         .into_iter()
         .filter(|id| id.ends_with("::servicelogger"))
     {
-        let app_ws = ws.get_connection(happ_id.clone()).await?;
+        let app_ws = ws.get_connection(installed_happ_id.clone()).await?;
         let cloned_cells = app_ws.cloned_cells("servicelogger".into()).await?;
         log::debug!(
             "Checking {} for cells {:?} for bucket {}, check_cloning_for_next_bucket {}",
-            happ_id,
+            installed_happ_id,
             cloned_cells,
             current_time_bucket_name,
             check_cloning_for_next_bucket
         );
+        let happ_id_str = installed_happ_id.split("::").next().unwrap(); // safe because id is checked in the loop.
+        let happ_id = ActionHashB64::from_b64_str(happ_id_str)?;
+
         // if there is no clone cell for the current bucket, the we gotta make it!
         if cloned_cells
             .clone()
@@ -226,7 +227,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                 if let Some(c) = cell {
                     result
                         .service_loggers_cloned
-                        .push(format!("{}.{}", happ_id, c.name));
+                        .push((happ_id.to_string(), c.name));
                 }
             }
         }
@@ -253,7 +254,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     if let Some(c) = cell {
                         result
                             .service_loggers_cloned
-                            .push(format!("{}.{}", happ_id, c.name));
+                            .push((happ_id.to_string(), c.name));
                     }
                 }
             }
@@ -315,7 +316,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
             }
             for cell_data in deleteable {
                 let payload = DeleteCloneCellPayload {
-                    app_id: happ_id.clone(),
+                    app_id: installed_happ_id.clone(),
                     clone_cell_id: cell_data.0,
                 };
                 ws.admin
@@ -324,7 +325,7 @@ pub async fn handle_check_service_loggers(ws: &mut Ws) -> Result<CheckServiceLog
                     .map_err(|err| anyhow!("Failed to delete clone cell: {:?}", err))?;
                 result
                     .service_loggers_deleted
-                    .push(format!("{}.{}", happ_id, cell_data.1));
+                    .push((happ_id.to_string(), cell_data.1));
             }
         }
     }

@@ -13,6 +13,7 @@ use holochain_env_setup::{
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
     AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp, UnsafeBytes,
+    YamlProperties,
 };
 use hpos_api_rust::common::consts::ADMIN_PORT;
 use hpos_api_rust::handlers::hosted_happs::{
@@ -22,7 +23,7 @@ use hpos_api_rust::handlers::hosted_happs::{
 use hpos_api_rust::handlers::install;
 
 use hpos_api_rust::common::types::{HappAndHost, HappInput, PresentedHappBundle};
-use hpos_api_rust::handlers::install::helpers::{build_json_sl_props, FixedDataForSlCloneCall};
+use hpos_api_rust::handlers::install::helpers::{build_sl_props, FixedDataForSlCloneCall};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
@@ -34,24 +35,24 @@ use rocket::serde::json::serde_json;
 use std::{collections::HashMap, env, fs::File, path::PathBuf, sync::Arc};
 use url::Url;
 
-pub fn sample_sl_props(bucket_size: u32, time_bucket: u32) -> String {
+pub fn sample_sl_props(bucket_size: u32, time_bucket: u32) -> YamlProperties {
     let placeholder_data = FixedDataForSlCloneCall {
         bound_hha_dna: DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
             .unwrap()
-            .to_string(),
+            .into(),
         bound_hf_dna: DnaHash::try_from("uhC0kGNBsMPAi8Amjsa5tEVsRHZWaK-E7Fl8kLvuBvNuYtfuG1gkP")
             .unwrap()
-            .to_string(),
+            .into(),
         holo_admin: AgentPubKey::try_from("uhCAk76ikqpgxdisc5bRJcCY-lOTVB8osHEkiGj8hP4kxA01jSrjC")
             .unwrap()
-            .to_string(),
+            .into(),
         bucket_size,
         time_bucket,
     };
 
     let place_holder_happ_id =
         ActionHash::try_from("uhCkkNEufiBrVmH-INOLgb6W2OBpa3v0xTIMilD8PIA4vmRtg8jSy").unwrap();
-    build_json_sl_props(&place_holder_happ_id.to_string(), &placeholder_data)
+    build_sl_props(&place_holder_happ_id.into(), &placeholder_data)
 }
 
 pub struct Test {
@@ -197,11 +198,11 @@ impl Test {
 
         let (installed_app_id, source) = match happ_id {
             Some(id) => {
-                let sl_props_json = sample_sl_props(0, 0);
+                let sl_props = sample_sl_props(0, 0);
 
                 // Constructs AppBundleSource::Bundle(AppBundle) from scratch for servicelogger
                 let sl_source =
-                    install::update_happ_bundle(AppBundleSource::Path(happ_path), sl_props_json)
+                    install::update_happ_bundle(AppBundleSource::Path(happ_path), &sl_props)
                         .await
                         .unwrap();
 

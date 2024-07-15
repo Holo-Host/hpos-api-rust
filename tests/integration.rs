@@ -33,8 +33,8 @@ use utils::{publish_and_enable_hosted_happ, sample_sl_props, Test};
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckServiceLoggersResult {
-    pub service_loggers_cloned: Vec<String>,
-    pub service_loggers_deleted: Vec<String>,
+    pub service_loggers_cloned: Vec<(String, String)>,
+    pub service_loggers_deleted: Vec<(String, String)>,
 }
 
 #[tokio::test]
@@ -81,7 +81,7 @@ async fn install_components() {
     for bucket in vec![previous_time_bucket.clone(), time_bucket.clone()] {
         let props = sample_sl_props(SL_BUCKET_SIZE_DAYS, bucket);
         debug!("cloning sl: {:#?}", &props);
-        let cloned_cell = handle_install_sl_clone(&mut sl_ws, props, bucket)
+        let cloned_cell = handle_install_sl_clone(&mut sl_ws, &props, bucket)
             .await
             .unwrap();
         debug!("sl_cloned_cell: {:#?}", &cloned_cell);
@@ -313,9 +313,10 @@ async fn install_components() {
     let path = format!("/apps/hosted/install");
     info!("calling {}", &path);
     let install_payload = install::InstallHappBody {
-        happ_id: second_test_hosted_happ_id.to_string(),
+        happ_id: second_test_hosted_happ_id.clone(),
         membrane_proofs: HashMap::new(),
     };
+
     let response = client
         .post(path)
         .body(serde_json::to_string(&install_payload).unwrap())
@@ -511,11 +512,12 @@ async fn install_components() {
     assert_eq!(r.service_loggers_cloned.len(), 3);
     assert_eq!(r.service_loggers_deleted.len(), 1);
     let x: Vec<&str> = r.service_loggers_deleted[0]
+        .1
         .split(".")
         .into_iter()
         .collect();
-    assert_eq!(x[1], "14"); // bucket size
-    assert_eq!(x[2], "10"); // bucket deleted
+    assert_eq!(x[0], "14"); // bucket size
+    assert_eq!(x[1], "10"); // bucket deleted
 
     //TODO: find a way to run the invoicing & payment here to make the final test that clones are deleted.
 }

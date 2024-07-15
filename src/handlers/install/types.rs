@@ -4,7 +4,7 @@ use holochain_client::AppInfo;
 use holochain_conductor_api::CellInfo;
 use holochain_types::{
     app::AppBundleSource,
-    dna::AgentPubKey,
+    dna::{ActionHashB64, AgentPubKey},
     prelude::{MembraneProof, RoleName},
 };
 
@@ -55,18 +55,28 @@ pub struct ServiceLoggerTimeBucket {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct InstallHappBody {
+    pub happ_id: ActionHashB64,
+    pub membrane_proofs: HashMap<String, MembraneProof>,
+}
+
+// We do this extra type for the serialization and deserialization through
+// JSON because ActionHashB64 currently doesn't deserialize correctly from
+// a b64 string.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(crate = "rocket::serde")]
+pub struct InstallHappBodyStr {
     pub happ_id: String,
     pub membrane_proofs: HashMap<String, MembraneProof>,
 }
 
 #[rocket::async_trait]
-impl<'r> FromData<'r> for InstallHappBody {
+impl<'r> FromData<'r> for InstallHappBodyStr {
     type Error = anyhow::Error;
 
     async fn from_data(_request: &'r Request<'_>, data: Data<'r>) -> data::Outcome<'r, Self> {
         let byte_unit_data = data.open(data::ByteUnit::max_value());
         let decoded_data = byte_unit_data.into_bytes().await.unwrap();
-        let install_payload: InstallHappBody = match rocket::serde::json::serde_json::from_slice(&decoded_data.value) {
+        let install_payload: InstallHappBodyStr = match rocket::serde::json::serde_json::from_slice(&decoded_data.value) {
             Ok(payload) => payload,
             Err(e) => {
                 return Outcome::Error((
@@ -84,6 +94,6 @@ impl<'r> FromData<'r> for InstallHappBody {
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 pub struct CheckServiceLoggersResult {
-    pub service_loggers_cloned: Vec<String>,
-    pub service_loggers_deleted: Vec<String>,
+    pub service_loggers_cloned: Vec<(String, String)>, // would like this to be an ActionHashB64, but deserialization in broken
+    pub service_loggers_deleted: Vec<(String, String)>,
 }

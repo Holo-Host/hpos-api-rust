@@ -87,7 +87,7 @@ pub struct Ledger {
 }
 
 impl HappAndHost {
-    pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
+    pub async fn init(happ_id: ActionHashB64, ws: &mut Ws) -> Result<Self> {
         // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
         // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
         let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
@@ -99,7 +99,7 @@ impl HappAndHost {
         let holoport_id = base36::encode(a);
 
         Ok(HappAndHost {
-            happ_id: ActionHashB64::from_b64_str(happ_id)?,
+            happ_id: happ_id,
             holoport_id,
         })
     }

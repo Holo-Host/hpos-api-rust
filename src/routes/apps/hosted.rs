@@ -1,3 +1,4 @@
+use crate::handlers::install::InstallHappBody;
 use crate::routes::apps::hosted::install::CheckServiceLoggersResult;
 use crate::{
     common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
@@ -48,10 +49,11 @@ pub async fn get_by_id(
     let mut ws = wsm.lock().await;
 
     // Validate format of happ id
-    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let happ_id =
+        ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let usage_interval = usage_interval.unwrap_or(7); // 7 days
     Ok(Json(
-        handle_get_one(id, usage_interval, &mut ws)
+        handle_get_one(happ_id, usage_interval, &mut ws)
             .await
             .map_err(|e| (Status::InternalServerError, e.to_string()))?,
     ))
@@ -60,8 +62,9 @@ pub async fn get_by_id(
 #[post("/hosted/<id>/enable")]
 pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    handle_enable(&mut ws, id)
+    let happ_id =
+        ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    handle_enable(&mut ws, happ_id)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
@@ -69,8 +72,9 @@ pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Strin
 #[post("/hosted/<id>/disable")]
 pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    let payload = HappAndHost::init(id, &mut ws)
+    let happ_id =
+        ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let payload = HappAndHost::init(happ_id, &mut ws)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
@@ -87,11 +91,12 @@ pub async fn logs(
 ) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
-    let id = ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let happ_id =
+        ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let days = days.unwrap_or(7); // 7 days
 
     Ok(Json(
-        handle_get_service_logs(&mut ws, id, days)
+        handle_get_service_logs(&mut ws, happ_id, days)
             .await
             .map_err(|e| (Status::InternalServerError, e.to_string()))?,
     ))
@@ -100,10 +105,15 @@ pub async fn logs(
 #[post("/hosted/install", format = "application/json", data = "<payload>")]
 pub async fn install_app(
     wsm: &State<WsMutex>,
-    payload: install::InstallHappBody,
+    payload: install::InstallHappBodyStr,
 ) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
-    install::handle_install_app(&mut ws, payload)
+    let x = InstallHappBody {
+        happ_id: ActionHashB64::from_b64_str(&payload.happ_id)
+            .map_err(|e| (Status::BadRequest, e.to_string()))?,
+        membrane_proofs: payload.membrane_proofs,
+    };
+    install::handle_install_app(&mut ws, x)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }

@@ -140,7 +140,7 @@ async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
 }
 
 /// Enable happ for hosting in core happ
-pub async fn handle_enable(ws: &mut Ws, id: &str) -> Result<()> {
+pub async fn handle_enable(ws: &mut Ws, id: ActionHashB64) -> Result<()> {
     let payload = HappAndHost::init(id, ws).await?;
 
     debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
