@@ -25,7 +25,7 @@ use hpos_api_rust::common::types::{HappAndHost, HappInput, PresentedHappBundle};
 use hpos_config_core::*;
 use hpos_config_seed_bundle_explorer::unlock;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
-use hpos_hc_connect::hha_agent::HHAAgent;
+use hpos_hc_connect::hha_agent::CoreAppAgent;
 use hpos_hc_connect::AdminWebsocket;
 use hpos_hc_connect::AppConnection;
 use log::{debug, info, trace};
@@ -264,7 +264,7 @@ async fn from_config(config_path: PathBuf, password: String) -> Result<(String, 
 }
 
 pub async fn publish_and_enable_hosted_happ(
-    hha: &mut HHAAgent,
+    hha: &mut CoreAppAgent,
     payload: HappInput,
 ) -> Result<ActionHashB64> {
     // howto: https://github.com/Holo-Host/holo-hosting-app-rsm/blob/develop/tests/unit-test/provider-init.ts#L52
