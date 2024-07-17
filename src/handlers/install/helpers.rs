@@ -64,7 +64,9 @@ pub async fn handle_install_app_raw(
             log::warn!("Warning while installing app {:?} : {:?}", installed_app_id, e);
 
             // Don't return installation error whenever app is already installed
-            if !(e.to_string().contains("AppAlreadyInstalled") || e.to_string().contains("CellAlreadyExists")) {
+            if e.to_string().contains("CellAlreadyExists") {
+                return Err(anyhow!("Failed to install happ, as it includes an existing cell for current agent."));
+            } else if !(e.to_string().contains("AppAlreadyInstalled")) {
                 return Err(e);
             }
 
