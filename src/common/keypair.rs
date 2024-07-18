@@ -13,16 +13,20 @@ pub struct Keys {
     pub email: String,
     keypair: SigningKey,
     pub pubkey_base36: String,
+    pub holoport_id: String,
 }
 
 impl Keys {
     pub async fn new() -> Result<Self> {
         let (keypair, email) = from_config().await?;
         let pubkey_base36 = public_key::to_holochain_encoded_agent_key(&keypair.verifying_key());
+        let holoport_id = public_key::to_base36_id(&keypair.verifying_key());
+
         Ok(Self {
             email,
             keypair,
             pubkey_base36,
+            holoport_id,
         })
     }
 
