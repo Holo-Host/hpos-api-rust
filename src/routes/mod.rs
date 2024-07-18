@@ -1,5 +1,6 @@
 use crate::common::types::HappAndHost;
 use crate::hpos::WsMutex;
+use holochain_types::dna::ActionHashB64;
 use rocket::{get, State};
 
 pub mod apps;
@@ -13,7 +14,8 @@ pub async fn index(wsm: &State<WsMutex>) -> String {
 
     // Construct sample HappAndHost just to retrieve holoport_id
     let sample = HappAndHost::init(
-        "uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC",
+        ActionHashB64::from_b64_str("uhCkklkJVx4u17eCaaKg_phRJsHOj9u57v_4cHQR-Bd9tb-vePRyC")
+            .unwrap(),
         &mut ws,
     )
     .await

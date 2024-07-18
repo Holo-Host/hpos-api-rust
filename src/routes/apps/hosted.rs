@@ -1,3 +1,5 @@
+use crate::handlers::install::InstallHappBody;
+use crate::routes::apps::hosted::install::CheckServiceLoggersResult;
 use crate::{
     common::types::{HappAndHost, HappInput, PresentedHappBundle, Transaction},
     handlers::{hosted_happs::*, install, register},
@@ -11,6 +13,9 @@ use holochain_types::{
 };
 use holofuel_types::fuel::Fuel;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::sl_utils::{
+    sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
+};
 use log::warn;
 use rocket::{
     http::Status,
@@ -21,7 +26,7 @@ use std::{fmt, str::FromStr, time::Duration};
 
 #[get("/hosted?<usage_interval>&<quantity>")]
 pub async fn get_all(
-    usage_interval: i64,
+    usage_interval: u32,
     quantity: Option<usize>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<Vec<HappDetails>>, (Status, String)> {
@@ -38,16 +43,17 @@ pub async fn get_all(
 #[get("/hosted/<id>?<usage_interval>")]
 pub async fn get_by_id(
     id: String,
-    usage_interval: Option<i64>,
+    usage_interval: Option<u32>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<HappDetails>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
     // Validate format of happ id
-    let id = ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let happ_id =
+        ActionHashB64::from_b64_str(&id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let usage_interval = usage_interval.unwrap_or(7); // 7 days
     Ok(Json(
-        handle_get_one(id, usage_interval, &mut ws)
+        handle_get_one(happ_id, usage_interval, &mut ws)
             .await
             .map_err(|e| (Status::InternalServerError, e.to_string()))?,
     ))
@@ -56,8 +62,9 @@ pub async fn get_by_id(
 #[post("/hosted/<id>/enable")]
 pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    handle_enable(&mut ws, id)
+    let happ_id =
+        ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    handle_enable(&mut ws, happ_id)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))
 }
@@ -65,8 +72,9 @@ pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Strin
 #[post("/hosted/<id>/disable")]
 pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    let payload = HappAndHost::init(id, &mut ws)
+    let happ_id =
+        ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let payload = HappAndHost::init(happ_id, &mut ws)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
@@ -78,16 +86,17 @@ pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Stri
 #[get("/hosted/<id>/logs?<days>")]
 pub async fn logs(
     id: &str,
-    days: Option<i32>,
+    days: Option<u32>,
     wsm: &State<WsMutex>,
 ) -> Result<Json<Vec<LogEntry>>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
-    let id = ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
+    let happ_id =
+        ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
     let days = days.unwrap_or(7); // 7 days
 
     Ok(Json(
-        handle_get_service_logs(&mut ws, id, days)
+        handle_get_service_logs(&mut ws, happ_id, days)
             .await
             .map_err(|e| (Status::InternalServerError, e.to_string()))?,
     ))
@@ -96,12 +105,29 @@ pub async fn logs(
 #[post("/hosted/install", format = "application/json", data = "<payload>")]
 pub async fn install_app(
     wsm: &State<WsMutex>,
-    payload: install::InstallHappBody,
+    payload: install::InstallHappBodyStr,
 ) -> Result<String, (Status, String)> {
     let mut ws = wsm.lock().await;
-    install::handle_install_app(&mut ws, payload)
+    let x = InstallHappBody {
+        happ_id: ActionHashB64::from_b64_str(&payload.happ_id)
+            .map_err(|e| (Status::BadRequest, e.to_string()))?,
+        membrane_proofs: payload.membrane_proofs,
+    };
+    install::handle_install_app(&mut ws, x)
         .await
         .map_err(|e| (Status::InternalServerError, e.to_string()))
+}
+
+#[get("/hosted/sl-check")]
+pub async fn check_service_loggers(
+    wsm: &State<WsMutex>,
+) -> Result<Json<CheckServiceLoggersResult>, (Status, String)> {
+    let mut ws = wsm.lock().await;
+    Ok(Json(
+        install::handle_check_service_loggers(&mut ws)
+            .await
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+    ))
 }
 
 #[post("/hosted/register", format = "application/json", data = "<payload>")]
@@ -148,7 +174,7 @@ impl HappDetails {
     pub async fn init(
         happ: &PresentedHappBundle,
         transactions: Vec<Transaction>,
-        usage_interval: i64,
+        usage_interval: u32,
         ws: &mut Ws,
     ) -> Self {
         HappDetails {
@@ -314,24 +340,62 @@ pub fn count_days_hosted(since: Timestamp) -> Result<Option<u16>> {
 
 async fn get_usage(
     happ_id: ActionHashB64,
-    usage_interval: i64,
+    usage_interval: u32,
     ws: &mut Ws,
 ) -> Result<Option<HappStats>> {
     let app_connection = ws
         .get_connection(format!("{}::servicelogger", happ_id))
         .await?;
 
-    log::debug!("Calling get_stats for happ: {}::servicelogger", happ_id);
-    let result: HappStats = app_connection
-        .zome_call_typed(
-            "servicelogger".into(),
-            "service".into(),
-            "get_stats".into(),
-            UsageTimeInterval {
-                duration_unit: "DAY".to_string(),
-                amount: usage_interval,
-            },
-        )
-        .await?;
-    Ok(Some(result))
+    let (time_bucket, buckets_for_days_in_request) =
+        sl_get_bucket_range(SL_BUCKET_SIZE_DAYS, usage_interval);
+
+    let mut stats = HappStats {
+        cpu: 0,
+        bandwidth: 0,
+        disk_usage: 0,
+    };
+    let mut days_left = usage_interval;
+    for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
+        let days = if days_left > SL_BUCKET_SIZE_DAYS {
+            SL_BUCKET_SIZE_DAYS
+        } else {
+            days_left
+        };
+        days_left -= days;
+        log::debug!(
+            "Calling get_stats for happ: {}::servicelogger.{} for {} days",
+            happ_id,
+            time_bucket,
+            days
+        );
+        let result: Result<HappStats> = app_connection
+            .clone_zome_call_typed(
+                "servicelogger".into(),
+                sl_clone_name(SlCloneSpec {
+                    days_in_bucket: SL_BUCKET_SIZE_DAYS,
+                    time_bucket,
+                }),
+                "service".into(),
+                "get_stats".into(),
+                UsageTimeInterval {
+                    duration_unit: "DAY".to_string(),
+                    amount: days.into(),
+                },
+            )
+            .await;
+        match result {
+            Ok(s) => {
+                stats.cpu += s.cpu;
+                stats.bandwidth += s.bandwidth;
+                stats.disk_usage += s.disk_usage;
+            }
+            Err(err) => log::debug!(
+                "Got error while getting stats in bucket {}: {}",
+                bucket,
+                err
+            ),
+        }
+    }
+    Ok(Some(stats))
 }

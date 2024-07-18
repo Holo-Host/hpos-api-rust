@@ -10,6 +10,9 @@ use crate::hpos::Ws;
 use crate::HappDetails;
 use anyhow::Result;
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHashB64};
+use hpos_hc_connect::sl_utils::{
+    sl_clone_name, sl_get_bucket_range, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
+};
 use log::debug;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -24,7 +27,7 @@ pub struct InvoiceNote {
 
 // fetch all transactions for every hApp
 pub async fn handle_get_all(
-    usage_interval: i64,
+    usage_interval: u32,
     quantity: Option<usize>,
     ws: &mut Ws,
 ) -> Result<Vec<HappDetails>> {
@@ -74,7 +77,7 @@ pub async fn handle_get_all(
 // fetch all transactions for 1 happ
 pub async fn handle_get_one(
     id: ActionHashB64,
-    usage_interval: i64,
+    usage_interval: u32,
     ws: &mut Ws,
 ) -> Result<HappDetails> {
     let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
@@ -137,7 +140,7 @@ async fn get_all_transactions(ws: &mut Ws) -> Result<AllTransactions> {
 }
 
 /// Enable happ for hosting in core happ
-pub async fn handle_enable(ws: &mut Ws, id: &str) -> Result<()> {
+pub async fn handle_enable(ws: &mut Ws, id: ActionHashB64) -> Result<()> {
     let payload = HappAndHost::init(id, ws).await?;
 
     debug!("calling zome hha/enable_happ with payload: {:?}", &payload);
@@ -176,21 +179,46 @@ pub async fn handle_disable(ws: &mut Ws, payload: HappAndHost) -> Result<()> {
 pub async fn handle_get_service_logs(
     ws: &mut Ws,
     id: ActionHashB64,
-    days: i32,
+    days: u32,
 ) -> Result<Vec<LogEntry>> {
     let filter = holochain_types::prelude::ChainQueryFilter::new().include_entries(true);
 
     let app_connection = ws.get_connection(format!("{}::servicelogger", id)).await?;
 
-    log::debug!("getting logs for happ: {:?}::servicelogger", id);
-    let result: Vec<Record> = app_connection
-        .zome_call_typed(
-            "servicelogger".into(),
-            "service".into(),
-            "querying_chain".into(),
-            filter,
-        )
-        .await?;
+    let role_name = String::from("servicelogger");
+    let cloned_cells = app_connection.cloned_cells(role_name.clone()).await?;
+    if cloned_cells.len() == 0 {
+        return Ok(vec![]);
+    }
+
+    // TODO: in the future when we implement different log rotation schedules per app then we want to pull the bucket size
+    // from the cloned cells, not use the global
+    let (time_bucket, buckets_for_days_in_request) = sl_get_bucket_range(SL_BUCKET_SIZE_DAYS, days);
+
+    let mut logs: Vec<Record> = Vec::new();
+    for bucket in ((time_bucket - buckets_for_days_in_request)..=time_bucket).rev() {
+        log::debug!("getting logs for happ: {}::servicelogger.{}", id, bucket);
+        let result: Result<Vec<Record>> = app_connection
+            .clone_zome_call_typed(
+                role_name.clone(),
+                sl_clone_name(SlCloneSpec {
+                    days_in_bucket: SL_BUCKET_SIZE_DAYS,
+                    time_bucket: bucket,
+                }),
+                "service".into(),
+                "querying_chain".into(),
+                filter.clone(),
+            )
+            .await;
+        match result {
+            Ok(mut records) => logs.append(&mut records),
+            Err(err) => log::debug!(
+                "Got error while searching for logs in bucket {}: {}",
+                bucket,
+                err
+            ),
+        }
+    }
 
     let four_weeks_ago = (SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -200,7 +228,7 @@ pub async fn handle_get_service_logs(
 
     log::debug!("filtering logs from {}", id);
 
-    let filtered_result: Vec<LogEntry> = result
+    let filtered_result: Vec<LogEntry> = logs
         .into_iter()
         .filter(|record| record.action().timestamp().as_seconds_and_nanos().0 > four_weeks_ago)
         // include only App Entries (those listed in #[hdk_entry_defs] in DNA code),

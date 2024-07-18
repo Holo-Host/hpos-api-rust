@@ -1,6 +1,7 @@
 mod utils;
 
 use std::collections::HashMap;
+use std::env;
 
 use holochain_types::dna::{ActionHashB64, DnaHash, DnaHashB64};
 use holochain_types::prelude::ExternIO;
@@ -13,8 +14,12 @@ use hpos_api_rust::common::types::{
     DnaResource, HappInput, LoginConfig, PresentedHappBundle, PublisherPricingPref,
 };
 use hpos_api_rust::handlers::install;
+use hpos_api_rust::handlers::install::helpers::handle_install_sl_clone;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::HHAAgent;
+use hpos_hc_connect::sl_utils::{
+    sl_clone_name, sl_get_current_time_bucket, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
+};
 use hpos_hc_connect::AppConnection;
 use log::{debug, info};
 use rocket::http::{ContentType, Status};
@@ -23,12 +28,18 @@ use rocket::serde::json::{serde_json, Value};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::tokio;
 use utils::core_apps::{Happ, HHA_URL};
-use utils::{publish_and_enable_hosted_happ, Test};
+use utils::{publish_and_enable_hosted_happ, sample_sl_props, Test};
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckServiceLoggersResult {
+    pub service_loggers_cloned: Vec<(String, String)>,
+    pub service_loggers_deleted: Vec<(String, String)>,
+}
 
 #[tokio::test]
 async fn install_components() {
     env_logger::init();
-
     let mut test = Test::init().await;
 
     // Install hha
@@ -60,19 +71,41 @@ async fn install_components() {
     .await
     .unwrap();
 
-    // Generate some SL activity
-    for _ in 1..10 {
-        let payload = test.generate_sl_payload(&mut sl_ws).await;
-        let sl_response: ActionHashB64 = sl_ws
-            .zome_call_typed(
-                "servicelogger".into(),
-                "service".into(),
-                "log_activity".into(),
-                payload,
-            )
+    // create two time buckets into which sampl activity is logged.
+
+    let time_bucket: u32 = sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS);
+    debug!("get_current_time_bucket {}", time_bucket);
+    let previous_time_bucket = time_bucket - 1;
+    debug!("previous_time_bucket {}", previous_time_bucket);
+
+    for bucket in vec![previous_time_bucket.clone(), time_bucket.clone()] {
+        let props = sample_sl_props(SL_BUCKET_SIZE_DAYS, bucket);
+        debug!("cloning sl: {:#?}", &props);
+        let cloned_cell = handle_install_sl_clone(&mut sl_ws, &props, bucket)
             .await
             .unwrap();
-        debug!("logged activity: {}", sl_response);
+        debug!("sl_cloned_cell: {:#?}", &cloned_cell);
+    }
+    for bucket in vec![previous_time_bucket, time_bucket] {
+        // Generate some SL activity
+        for _ in 1..=5 {
+            debug!("BUCKET {}", bucket);
+            let payload = test.generate_sl_payload(&mut sl_ws).await;
+            let sl_response: ActionHashB64 = sl_ws
+                .clone_zome_call_typed(
+                    "servicelogger".into(),
+                    sl_clone_name(SlCloneSpec {
+                        days_in_bucket: SL_BUCKET_SIZE_DAYS,
+                        time_bucket: bucket,
+                    }),
+                    "service".into(),
+                    "log_activity".into(),
+                    payload,
+                )
+                .await
+                .unwrap();
+            debug!("logged activity: {}", sl_response);
+        }
     }
 
     // Test API
@@ -142,7 +175,7 @@ async fn install_components() {
     assert!(response_body.contains(&format!("{}", &test_hosted_happ_id)));
 
     // get service logs for happ
-    let path = format!("/apps/hosted/{}/logs", &test_hosted_happ_id);
+    let path = format!("/apps/hosted/{}/logs?days=30", &test_hosted_happ_id);
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
@@ -245,15 +278,25 @@ async fn install_components() {
     // debug!("status: {}", response.status());
     // assert_eq!(response.status(), Status::Ok);
 
-    //  get usage report
-    let path = format!("/holoport/usage?usage_interval=5");
+    //  get usage report for 6 days
+    let path = format!("/holoport/usage?usage_interval=6");
     info!("calling {}", &path);
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
-    assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":108,\"bandwidth\":108}}");
+    assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":60,\"bandwidth\":60}}");
+
+    //  get usage report for 15 days
+    let path = format!("/holoport/usage?usage_interval=15");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    assert_eq!(response_body, "{\"totalHostedAgents\":0,\"currentTotalStorage\":0,\"totalHostedHapps\":1,\"totalUsage\":{\"cpu\":120,\"bandwidth\":120}}");
 
     // Test installing a second hosted happ
     // Publish second hosted happ
@@ -270,9 +313,10 @@ async fn install_components() {
     let path = format!("/apps/hosted/install");
     info!("calling {}", &path);
     let install_payload = install::InstallHappBody {
-        happ_id: second_test_hosted_happ_id.to_string(),
+        happ_id: second_test_hosted_happ_id.clone(),
         membrane_proofs: HashMap::new(),
     };
+
     let response = client
         .post(path)
         .body(serde_json::to_string(&install_payload).unwrap())
@@ -380,6 +424,102 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     // matches the contents of './servicelogger_prefs'
     assert_eq!(response_body, "{\"max_fuel_before_invoice\":\"1000\",\"price_compute\":\"0.025\",\"price_storage\":\"0.025\",\"price_bandwidth\":\"0.025\",\"max_time_before_invoice\":{\"secs\":0,\"nanos\":0}}");
+
+    // test cloning of service loggers
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // no clones because still in same time bucket
+    let r: CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 0);
+    assert_eq!(r.service_loggers_deleted.len(), 0);
+
+    env::set_var(
+        "SL_TEST_TIME_BUCKET",
+        format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS) + 1),
+    );
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // two clones because we are in the next time bucket
+    let r: CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 2);
+    assert_eq!(r.service_loggers_deleted.len(), 0);
+
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // no more clones because we are in the next time bucket and they were just made
+    let r: CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 0);
+    assert_eq!(r.service_loggers_deleted.len(), 0);
+
+    env::set_var("SL_TEST_IS_BEFORE_NEXT_BUCKET", format!("true"));
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // two more clones because we are just before the next time bucket
+    let r: CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 2);
+    assert_eq!(r.service_loggers_deleted.len(), 0);
+
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+    // no more clones because we already cloned them
+    let r: CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 0);
+    assert_eq!(r.service_loggers_deleted.len(), 0);
+
+    // Move the current time-bucket forward 2 buckets to test deleting
+    // And force the deleting window for the test because we can't set the clock
+    env::set_var(
+        "SL_TEST_TIME_BUCKET",
+        format!("{}", sl_get_current_time_bucket(SL_BUCKET_SIZE_DAYS) + 2),
+    );
+    env::set_var("SL_TEST_IS_IN_DELETING_WINDOW", "true");
+    let path = format!("/apps/hosted/sl-check");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
+    let response_body = response.into_string().await.unwrap();
+    debug!("body: {:#?}", response_body);
+
+    // there should be two new clones for the new time buckets (13 & 14), and one deleted from
+    // time bucket 10 because it never had any activity logged.
+    let r: CheckServiceLoggersResult = serde_json::from_str(&response_body).unwrap();
+    assert_eq!(r.service_loggers_cloned.len(), 3);
+    assert_eq!(r.service_loggers_deleted.len(), 1);
+    let x: Vec<&str> = r.service_loggers_deleted[0]
+        .1
+        .split(".")
+        .into_iter()
+        .collect();
+    assert_eq!(x[0], "14"); // bucket size
+    assert_eq!(x[1], "10"); // bucket deleted
+
+    //TODO: find a way to run the invoicing & payment here to make the final test that clones are deleted.
 }
 
 fn servicelogger_prefs_path() -> String {

@@ -23,7 +23,7 @@ This API is relying on an authentication mechanism [hp-admin-crypto](https://git
 
 ## API
 
-This API is mounted on HPOS at v2 path of API, so all the calls should be of a format `/api/v2/<path>`, e.g. to get all hosted happs with usage calculated over last 7 days you would call `/api/v2/hosted_happs/?usage_interval=604800`.
+This API is mounted on HPOS at v2 path of API, so all the calls should be of a format `/api/v2/<path>`, e.g. to get all hosted happs with usage calculated over last 7 days you would call `/api/v2/hosted/?usage_interval=7`.
 
 ## Integration Tests
 
@@ -33,14 +33,14 @@ RUST_LOG=hpos-api-rust=trace,integration=trace cargo test -- --nocapture --test-
 
 ### Endpoints
 
-#### GET `/hosted_happs/?quantity=<quantity>&usage_interval=<usage_interval>`
+#### GET `/hosted/?quantity=<quantity>&usage_interval=<usage_interval>`
 - `quantity: u32` - max number of happs to return ordered by earnings within last 7 days, if omitted all happs will be returned
-- `usage_interval: u32` - (required) include statistics from last `<usage_interval>` seconds
+- `usage_interval: u32` - (required) include statistics from last `<usage_interval>` in days
 ```
 Vec<HappDetails>
 ```
 
-#### GET `/hosted_happs/<id>?usage_interval=<usage_interval>`
+#### GET `/hosted/<id>?usage_interval=<usage_interval>`
 ```
 HappDetails {
   id: string
@@ -65,13 +65,13 @@ HappDetails {
 }
 ```
 
-#### POST `/hosted_happs/<id>/disable`
+#### POST `/hosted/<id>/disable`
 200 OK
 
-#### POST `/hosted_happs/<id>/enable`
+#### POST `/hosted/<id>/enable`
 200 OK
 
-#### GET `/hosted_happs/<id>/logs?<days>`
+#### GET `/hosted/<id>/logs?<days>`
 ```
 Record {
     /// The signed action for this record

@@ -46,6 +46,7 @@ pub async fn rocket() -> Rocket<Build> {
         .mount(
             "/apps",
             routes![
+                check_service_loggers,
                 get_all,      // done
                 get_by_id,    // done
                 enable,       // done

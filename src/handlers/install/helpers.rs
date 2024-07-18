@@ -1,17 +1,65 @@
 use crate::common::types::PresentedHappBundle;
+use crate::hpos::Ws;
 use anyhow::{anyhow, Result};
 use holochain_client::{AdminResponse, InstalledAppId};
 use holochain_client::{AgentPubKey, AppInfo};
 use holochain_conductor_api::{AppStatusFilter, CellInfo};
-use holochain_types::app::{AppManifest, InstallAppPayload};
-use holochain_types::dna::{ActionHash, DnaHashB64};
-use holochain_types::prelude::{AppBundleSource, RoleName, YamlProperties};
+use holochain_types::app::{AppManifest, CreateCloneCellPayload, InstallAppPayload};
+use holochain_types::dna::{ActionHash, ActionHashB64, AgentPubKeyB64, DnaHashB64};
+use holochain_types::prelude::{
+    AppBundleSource, ClonedCell, DnaModifiersOpt, RoleName, YamlProperties,
+};
 use hpos_hc_connect::app_connection::CoreAppRoleName;
+use hpos_hc_connect::sl_utils::{
+    sl_clone_name, sl_serialized_props, SlCloneSpec, SlDnaProperties, SL_BUCKET_SIZE_DAYS,
+};
 use hpos_hc_connect::AppConnection;
 use mr_bundle::Bundle;
 use std::collections::HashMap;
 
 use super::types::{CellInfoMap, RawInstallAppPayload, SuccessfulInstallResult};
+
+pub struct FixedDataForSlCloneCall {
+    pub bound_hha_dna: DnaHashB64,
+    pub bound_hf_dna: DnaHashB64,
+    pub holo_admin: AgentPubKeyB64,
+    pub bucket_size: u32,
+    pub time_bucket: u32,
+}
+impl FixedDataForSlCloneCall {
+    pub fn init(
+        core_happ_cell_info: &CellInfoMap,
+        bucket_size: u32,
+        time_bucket: u32,
+    ) -> Result<Self> {
+        Ok(Self {
+            bound_hha_dna: get_base_dna_hash(&core_happ_cell_info, CoreAppRoleName::HHA.into())?,
+            bound_hf_dna: get_base_dna_hash(
+                &core_happ_cell_info,
+                CoreAppRoleName::Holofuel.into(),
+            )?,
+            holo_admin: get_sl_collector_pubkey(),
+            bucket_size,
+            time_bucket,
+        })
+    }
+}
+
+pub fn build_sl_props(
+    bound_happ_id: &ActionHashB64,
+    data: &FixedDataForSlCloneCall,
+) -> YamlProperties {
+    let props = SlDnaProperties {
+        cron_schedule: None,
+        bound_happ_id: Some(bound_happ_id.clone()),
+        bound_hha_dna: Some(data.bound_hha_dna.clone()),
+        bound_hf_dna: Some(data.bound_hf_dna.clone()),
+        holo_admin: Some(data.holo_admin.clone()),
+        bucket_size: Some(data.bucket_size),
+        time_bucket: Some(data.time_bucket),
+    };
+    sl_serialized_props(&props)
+}
 
 pub async fn handle_holochain_enable(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
@@ -75,7 +123,7 @@ pub async fn handle_install_app_raw(
 
 pub async fn update_happ_bundle(
     mut source: AppBundleSource,
-    modifier_props_json: String,
+    modifier_props: &YamlProperties,
 ) -> Result<AppBundleSource> {
     let bundle = match source {
         AppBundleSource::Bundle(bundle) => bundle.into_inner(),
@@ -83,9 +131,7 @@ pub async fn update_happ_bundle(
     };
     let AppManifest::V1(mut manifest) = bundle.manifest().clone();
     for role_manifest in &mut manifest.roles {
-        let properties = Some(YamlProperties::new(
-            serde_yaml::from_str(&modifier_props_json).unwrap(),
-        ));
+        let properties = Some(modifier_props.clone());
         log::trace!("Updated app manifest properties: {:#?}", properties);
 
         role_manifest.dna.modifiers.properties = properties
@@ -100,29 +146,33 @@ pub async fn update_happ_bundle(
     Ok(source)
 }
 
+// Install & enable the sl instance and create the first time-bucket clone.  Returns the sl app id.
 pub async fn install_assigned_sl_instance(
-    admin_connection: &mut hpos_hc_connect::AdminWebsocket,
-    happ_id: &String,
+    ws: &mut Ws,
+    //    admin_connection: &mut hpos_hc_connect::AdminWebsocket,
+    happ_id: &ActionHashB64,
     host_pub_key: AgentPubKey,
     core_happ_cell_info: &CellInfoMap,
     sl_path_source: AppBundleSource,
-) -> Result<SuccessfulInstallResult> {
+    bucket_size: u32,
+    time_bucket: u32,
+) -> Result<String> {
     log::debug!(
         "Starting installation process of servicelogger for hosted happ: {:?}",
         happ_id
     );
 
-    let sl_props_json = format!(
-        r#"{{"bound_happ_id":"{}", "bound_hha_dna":"{}", "bound_hf_dna":"{}", "holo_admin": "{}"}}"#,
-        happ_id,
-        get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::HHA.into())?,
-        get_base_dna_hash(core_happ_cell_info, CoreAppRoleName::Holofuel.into())?,
-        get_sl_collector_pubkey()
-    );
+    let mut admin_connection = ws.admin.clone();
 
-    let sl_source = update_happ_bundle(sl_path_source, sl_props_json)
-        .await
-        .unwrap();
+    let mut data = FixedDataForSlCloneCall::init(&core_happ_cell_info, bucket_size, 0)?;
+
+    // base instance uses 0 timebucket for now.  This will be removed when we can do CloneOnly install.
+    let sl_props = build_sl_props(happ_id, &data);
+
+    let sl_source = update_happ_bundle(sl_path_source, &sl_props).await.unwrap();
+
+    data.time_bucket = time_bucket;
+    let sl_props = build_sl_props(happ_id, &data);
 
     // Note: Assigned sl apps are those associated with a hosted happ
     // This is different than the baseline core sl app stored in WS.
@@ -136,7 +186,54 @@ pub async fn install_assigned_sl_instance(
         uid: None, // sl apps should use the pure `DEV_UID_OVERRIDE` env var as the network id
     };
 
-    handle_install_app_raw(admin_connection, sl_install_payload).await
+    let sl_app_id = match handle_install_app_raw(&mut admin_connection, sl_install_payload).await? {
+        SuccessfulInstallResult::New(a) => a.installed_app_id,
+        SuccessfulInstallResult::AlreadyInstalled => get_sl_id(&happ_id),
+    };
+
+    handle_holochain_enable(&mut admin_connection, &sl_app_id).await?;
+
+    let app_ws = ws.get_connection(sl_app_id.clone()).await?;
+    handle_install_sl_clone(app_ws, &sl_props, time_bucket).await?;
+
+    Ok(sl_app_id)
+}
+
+// do the cloning but ignore any duplicate cell errors
+pub async fn do_sl_cloning(
+    app_ws: &mut AppConnection,
+    happ_id: &ActionHashB64,
+    sl_clone_data: &FixedDataForSlCloneCall,
+) -> Result<Option<ClonedCell>> {
+    let sl_props = build_sl_props(happ_id, sl_clone_data);
+    let r = handle_install_sl_clone(app_ws, &sl_props, sl_clone_data.time_bucket).await;
+    match r {
+        Err(err) => {
+            let err_text = format!("{:?}", err);
+            if !err_text.contains("DuplicateCellId") {
+                return Err(err);
+            }
+            Ok(None)
+        }
+        Ok(cell) => Ok(Some(cell)),
+    }
+}
+
+pub async fn handle_install_sl_clone(
+    app_ws: &mut AppConnection,
+    sl_props: &YamlProperties,
+    time_bucket: u32,
+) -> Result<ClonedCell> {
+    let payload = CreateCloneCellPayload {
+        role_name: "servicelogger".into(),
+        modifiers: DnaModifiersOpt::none().with_properties(sl_props.clone()),
+        membrane_proof: None,
+        name: Some(sl_clone_name(SlCloneSpec {
+            days_in_bucket: SL_BUCKET_SIZE_DAYS,
+            time_bucket,
+        })),
+    };
+    app_ws.create_clone(payload).await
 }
 
 pub async fn get_app_details(
@@ -174,7 +271,7 @@ pub async fn is_already_installed(
         }
 }
 
-pub fn get_base_dna_hash(cell_map: &CellInfoMap, role_name: RoleName) -> Result<String> {
+pub fn get_base_dna_hash(cell_map: &CellInfoMap, role_name: RoleName) -> Result<DnaHashB64> {
     let dna = match cell_map.get_key_value(&role_name) {
         Some((_name, cells)) => cells.iter().find_map(|c| match c {
             CellInfo::Provisioned(c) => Some(c.cell_id.dna_hash()),
@@ -191,7 +288,7 @@ pub fn get_base_dna_hash(cell_map: &CellInfoMap, role_name: RoleName) -> Result<
     match dna {
         Some(dna_hash) => {
             let hash_b64: DnaHashB64 = dna_hash.to_owned().into();
-            Ok(hash_b64.to_string())
+            Ok(hash_b64)
         }
         None => Err(anyhow!(
             "Failed to install. Unable to locate cell info for {}",
@@ -213,15 +310,17 @@ pub async fn get_host_pub_key(
     }
 }
 
-pub fn get_sl_id(happ_id: &String) -> String {
-    format!("{:?}::servicelogger", happ_id)
+pub fn get_sl_id(happ_id: &ActionHashB64) -> String {
+    format!("{}::servicelogger", happ_id.to_string())
 }
 
 pub fn get_uid_override() -> Option<String> {
     std::env::var("DEV_UID_OVERRIDE").ok()
 }
 
-pub fn get_sl_collector_pubkey() -> String {
-    std::env::var("SL_COLLECTOR_PUB_KEY")
-        .expect("Failed to read SL_COLLECTOR_PUB_KEY. Is it set in env?")
+pub fn get_sl_collector_pubkey() -> AgentPubKeyB64 {
+    let pub_key_str = std::env::var("SL_COLLECTOR_PUB_KEY")
+        .expect("Failed to read SL_COLLECTOR_PUB_KEY. Is it set in env?");
+    let pub_key = AgentPubKey::try_from(pub_key_str).expect("should be a valid agent pubkey");
+    pub_key.into()
 }

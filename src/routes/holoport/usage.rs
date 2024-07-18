@@ -12,7 +12,7 @@ use crate::hpos::{Ws, WsMutex};
 #[get("/usage?<usage_interval>")]
 pub async fn usage(
     wsm: &State<WsMutex>,
-    usage_interval: i64,
+    usage_interval: u32,
 ) -> Result<Json<UsageResponse>, (Status, String)> {
     let mut ws = wsm.lock().await;
 
@@ -21,7 +21,7 @@ pub async fn usage(
     )?))
 }
 
-async fn handle_usage(ws: &mut Ws, usage_interval: i64) -> Result<UsageResponse> {
+async fn handle_usage(ws: &mut Ws, usage_interval: u32) -> Result<UsageResponse> {
     let all_hosted_happs =
         crate::handlers::hosted_happs::handle_get_all(usage_interval, None, ws).await?;
 
