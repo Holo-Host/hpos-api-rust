@@ -16,7 +16,7 @@ use hpos_api_rust::common::types::{
 use hpos_api_rust::handlers::install;
 use hpos_api_rust::handlers::install::helpers::handle_install_sl_clone;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
-use hpos_hc_connect::hha_agent::HHAAgent;
+use hpos_hc_connect::hha_agent::CoreAppAgent;
 use hpos_hc_connect::sl_utils::{
     sl_clone_name, sl_get_current_time_bucket, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
 };
@@ -46,7 +46,7 @@ async fn install_components() {
     let _ = test.install_app(Happ::HHA, None).await;
 
     // Connect to hha
-    let mut hha = HHAAgent::spawn(None).await.unwrap();
+    let mut hha = CoreAppAgent::spawn(None).await.unwrap();
 
     let hha_app_id = hha.app.id();
 
