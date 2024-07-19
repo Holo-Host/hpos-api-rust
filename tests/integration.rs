@@ -203,9 +203,15 @@ async fn install_components() {
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-    let response_body = response.into_string().await.unwrap();
-    debug!("body: {:#?}", response_body);
-    assert_eq!(response_body, Happ::HHA.to_string());
+    let body_str = response
+        .into_string()
+        .await
+        .expect("Failed to read response body");
+    let json: serde_json::Value = serde_json::from_str(&body_str).expect("Failed to parse JSON");
+    let version = json["version"].as_str().ok_or("Version not found").unwrap();
+    debug!("body: {:#?}", body_str);
+    debug!("version: {:#?}", version);
+    assert_eq!(version.to_string(), Happ::HHA.to_string());
 
     // get earnings report
     let path = format!("/host/earnings");
