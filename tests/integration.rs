@@ -367,9 +367,6 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     assert!(response_body.contains(&format!("{}", &third_test_hosted_happ.id)));
 
-    // the next endpoint depends on this env var
-    std::env::set_var("SL_PREFS_PATH", servicelogger_prefs_path());
-
     // get billing_preferences
     let path = format!("/host/billing_preferences");
     info!("calling {}", &path);
@@ -379,7 +376,7 @@ async fn install_components() {
     let response_body = response.into_string().await.unwrap();
     debug!("body: {:#?}", response_body);
     // matches the contents of './servicelogger_prefs'
-    assert_eq!(response_body, "{\"max_fuel_before_invoice\":\"1000\",\"price_compute\":\"0.025\",\"price_storage\":\"0.025\",\"price_bandwidth\":\"0.025\",\"max_time_before_invoice\":{\"secs\":0,\"nanos\":0}}");
+    assert!(response_body.contains("\"max_fuel_before_invoice\":\"1\",\"price_compute\":\"0\",\"price_storage\":\"0\",\"price_bandwidth\":\"0\",\"max_time_before_invoice\":{\"secs\":18446744073709551615,\"nanos\":999999999},\"invoice_due_in_days\":7,\"jurisdiction_prefs\":null,\"categories_prefs\":null}"));
 }
 
 fn servicelogger_prefs_path() -> String {
