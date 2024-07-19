@@ -1,4 +1,4 @@
-use crate::hpos::Ws;
+use super::keypair::Keys;
 use anyhow::Result;
 use core::fmt::Debug;
 use holochain_types::{
@@ -6,7 +6,6 @@ use holochain_types::{
     prelude::{holochain_serial, CapSecret, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
-use hpos_hc_connect::app_connection::CoreAppRoleName;
 use rocket::serde::{Deserialize, Serialize};
 
 // Return type of zome call holofuel/transactor/get_completed_transactions
@@ -87,16 +86,10 @@ pub struct Ledger {
 }
 
 impl HappAndHost {
-    pub async fn init(happ_id: &str, ws: &mut Ws) -> Result<Self> {
+    pub async fn init(happ_id: &str) -> Result<Self> {
         // AgentKey used for installation of hha is a HoloHash created from Holoport owner's public key.
         // This public key encoded in base36 is also holoport's id in `https://<holoport_id>.holohost.net`
-        let app_connection = ws.get_connection(ws.core_app_id.clone()).await?;
-
-        let cell = app_connection.cell(CoreAppRoleName::HHA.into()).await?;
-
-        let a = cell.agent_pubkey().get_raw_32();
-
-        let holoport_id = base36::encode(a);
+        let holoport_id = Keys::new().await?.holoport_id;
 
         Ok(HappAndHost {
             happ_id: ActionHashB64::from_b64_str(happ_id)?,

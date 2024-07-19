@@ -65,8 +65,7 @@ pub async fn enable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Strin
 #[post("/hosted/<id>/disable")]
 pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, String)> {
     let mut ws = wsm.lock().await;
-
-    let payload = HappAndHost::init(id, &mut ws)
+    let payload = HappAndHost::init(id)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
