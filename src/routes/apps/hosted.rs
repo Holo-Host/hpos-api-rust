@@ -74,7 +74,7 @@ pub async fn disable(id: &str, wsm: &State<WsMutex>) -> Result<(), (Status, Stri
     let mut ws = wsm.lock().await;
     let happ_id =
         ActionHashB64::from_b64_str(id).map_err(|e| (Status::BadRequest, e.to_string()))?;
-    let payload = HappAndHost::init(happ_id, &mut ws)
+    let payload = HappAndHost::init(happ_id)
         .await
         .map_err(|e| (Status::BadRequest, e.to_string()))?;
 
