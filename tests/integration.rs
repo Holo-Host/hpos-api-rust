@@ -233,7 +233,10 @@ async fn install_components() {
     let response = client.get(path).dispatch().await;
     debug!("status: {}", response.status());
     assert_eq!(response.status(), Status::Ok);
-    let body_str = response.into_string().await.expect("Failed to read response body");
+    let body_str = response
+        .into_string()
+        .await
+        .expect("Failed to read response body");
     let json: serde_json::Value = serde_json::from_str(&body_str).expect("Failed to parse JSON");
     let version = json["version"].as_str().ok_or("Version not found").unwrap();
     debug!("body: {:#?}", body_str);

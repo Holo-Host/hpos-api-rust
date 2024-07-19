@@ -1,10 +1,10 @@
+use crate::hpos::WsMutex;
 use rocket::{
     http::Status,
     serde::json::Json,
     {get, State},
 };
 use serde::Serialize;
-use crate::hpos::WsMutex;
 
 #[derive(Serialize)]
 pub struct VersionResponse {
