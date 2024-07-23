@@ -214,7 +214,7 @@ pub async fn get_host_pub_key(
 }
 
 pub fn get_sl_id(happ_id: &String) -> String {
-    format!("{:?}::servicelogger", happ_id)
+    format!("{}::servicelogger", happ_id)
 }
 
 pub fn get_uid_override() -> Option<String> {
