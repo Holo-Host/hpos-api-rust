@@ -387,17 +387,3 @@ async fn install_components() {
     // matches the contents of './servicelogger_prefs'
     assert!(response_body.contains("\"max_fuel_before_invoice\":\"1\",\"price_compute\":\"0\",\"price_storage\":\"0\",\"price_bandwidth\":\"0\",\"max_time_before_invoice\":{\"secs\":18446744073709551615,\"nanos\":999999999},\"invoice_due_in_days\":7,\"jurisdiction_prefs\":null,\"categories_prefs\":null}"));
 }
-
-fn servicelogger_prefs_path() -> String {
-    let relative_path = std::path::Path::new("tests/servicelogger_prefs.yaml");
-
-    let current_dir = std::env::current_dir().expect("Failed to get current dir");
-
-    let combined_path = current_dir.join(relative_path);
-
-    std::fs::canonicalize(&combined_path)
-        .expect(&format!("Failed to canonicalize {:?}", combined_path))
-        .to_str()
-        .unwrap()
-        .to_string()
-}
