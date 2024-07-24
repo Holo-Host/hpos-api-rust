@@ -524,17 +524,3 @@ async fn install_components() {
 
     //TODO: find a way to run the invoicing & payment here to make the final test that clones are deleted.
 }
-
-fn servicelogger_prefs_path() -> String {
-    let relative_path = std::path::Path::new("tests/servicelogger_prefs.yaml");
-
-    let current_dir = std::env::current_dir().expect("Failed to get current dir");
-
-    let combined_path = current_dir.join(relative_path);
-
-    std::fs::canonicalize(&combined_path)
-        .expect(&format!("Failed to canonicalize {:?}", combined_path))
-        .to_str()
-        .unwrap()
-        .to_string()
-}
