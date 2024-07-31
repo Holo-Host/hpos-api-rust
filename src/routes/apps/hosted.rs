@@ -8,7 +8,7 @@ use crate::{
 use anyhow::{anyhow, Result};
 use holochain_client::AgentPubKey;
 use holochain_types::{
-    dna::ActionHashB64,
+    dna::{ActionHashB64, AgentPubKeyB64},
     prelude::{holochain_serial, SerializedBytes, Timestamp},
 };
 use holofuel_types::fuel::Fuel;
@@ -158,6 +158,7 @@ pub struct HappDetails {
     pub id: ActionHashB64,
     pub name: String,
     pub description: String,
+    pub provider_pubkey: AgentPubKeyB64,
     pub categories: Vec<String>,
     pub enabled: bool,
     pub is_auto_disabled: bool,
@@ -169,6 +170,7 @@ pub struct HappDetails {
     pub hosting_plan: Option<HostingPlan>,
     pub bundle_url: String,
     pub hosted_urls: Vec<String>,
+    pub network_seed: Option<String>,
 }
 impl HappDetails {
     pub async fn init(
@@ -181,6 +183,7 @@ impl HappDetails {
             id: happ.id.clone(),
             name: happ.name.clone(),
             description: happ.name.clone(),
+            provider_pubkey: happ.provider_pubkey.clone(),
             categories: happ.categories.clone(),
             enabled: happ.host_settings.is_enabled,
             is_auto_disabled: happ.host_settings.is_auto_disabled,
@@ -211,6 +214,7 @@ impl HappDetails {
             }),
             bundle_url: happ.bundle_url.clone(),
             hosted_urls: happ.hosted_urls.clone(),
+            network_seed: happ.uid.clone(),
         }
     }
 }
