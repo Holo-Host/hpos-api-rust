@@ -215,7 +215,7 @@ impl HappDetails {
             }),
             bundle_url: happ.bundle_url.clone(),
             hosted_urls: happ.hosted_urls.clone(),
-            uid_override,
+            network_seed: happ.uid ,
         }
     }
 }
