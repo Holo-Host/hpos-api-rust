@@ -187,7 +187,7 @@ pub async fn handle_get_service_logs(
 
     let role_name = String::from("servicelogger");
     let cloned_cells = app_connection.cloned_cells(role_name.clone()).await?;
-    if cloned_cells.len() == 0 {
+    if cloned_cells.is_empty() {
         return Ok(vec![]);
     }
 

@@ -92,7 +92,7 @@ impl HappAndHost {
         let holoport_id = Keys::new().await?.holoport_id;
 
         Ok(HappAndHost {
-            happ_id: happ_id,
+            happ_id,
             holoport_id,
         })
     }
