@@ -170,7 +170,7 @@ pub struct HappDetails {
     pub hosting_plan: Option<HostingPlan>,
     pub bundle_url: String,
     pub hosted_urls: Vec<String>,
-    pub uid_override: Option<String>,
+    pub network_seed: Option<String>,
 }
 impl HappDetails {
     pub async fn init(
@@ -179,7 +179,6 @@ impl HappDetails {
         usage_interval: u32,
         ws: &mut Ws,
     ) -> Self {
-        let uid_override = install::helpers::get_uid_override();
         HappDetails {
             id: happ.id.clone(),
             name: happ.name.clone(),
@@ -215,7 +214,7 @@ impl HappDetails {
             }),
             bundle_url: happ.bundle_url.clone(),
             hosted_urls: happ.hosted_urls.clone(),
-            network_seed: happ.uid,
+            network_seed: happ.uid.clone(),
         }
     }
 }
