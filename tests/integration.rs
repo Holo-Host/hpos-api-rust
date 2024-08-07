@@ -247,12 +247,12 @@ async fn install_components() {
     debug!("body: {:#?}", response_body);
     assert_eq!(response_body, "[]");
 
-    // // get redemptions
-    // let path = format!("/host/redemptions");
-    // info!("calling {}", &path);
-    // let response = client.get(path).dispatch().await;
-    // debug!("status: {}", response.status());
-    // assert_eq!(response.status(), Status::Ok);
+    // get redemptions
+    let path = format!("/host/redemptions");
+    info!("calling {}", &path);
+    let response = client.get(path).dispatch().await;
+    debug!("status: {}", response.status());
+    assert_eq!(response.status(), Status::Ok);
 
     //  get usage report
     let path = format!("/holoport/usage?usage_interval=5");
