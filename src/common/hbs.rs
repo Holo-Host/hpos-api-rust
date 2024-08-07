@@ -21,6 +21,11 @@ pub struct HBS {
     token_created: Timestamp,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Deserialize, Serialize)]
+pub struct HBSRedemptionGetRequest {
+    ids: Vec<EntryHashB64>,
+}
+
 impl HBS {
     pub fn new() -> HbSMutex {
         Mutex::new(HBS {
@@ -112,14 +117,19 @@ impl HBS {
         ids: Vec<EntryHashB64>,
     ) -> Result<Vec<RedemptionRecord>> {
         let client = Client::new();
+        let token = self.token().await?;
+        let body = HBSRedemptionGetRequest { ids };
         let res = client
             .post(format!("{}/reserve/api/v2/redemptions/get", self.url()?))
-            .json(&ids)
-            .header("Authorization", format!("Bearer {}", self.token().await?))
+            .json(&body)
+            .header("Authorization", format!("Bearer {}", token))
             .send()
             .await?;
 
         debug!("API response: {:?}", res);
+        if res.status() != 200 {
+            log::error!("got an invalid response from hbs: {}", res.status());
+        }
 
         res.json().await.context("Failed to parse response body")
     }
