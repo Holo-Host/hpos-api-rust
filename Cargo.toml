@@ -11,13 +11,13 @@ ed25519-dalek = { version = "2.1.1" }
 env_logger = "0.11.3"
 getrandom = "0.2.7"
 
-holochain_client = "0.6.0-dev.2"
-holochain_keystore = "0.4.0-dev.2"
-holochain_types = { version = "0.4.0-dev.11", features = ["chc"] }
-holochain_conductor_api = "0.4.0-dev.11"
-holochain_websocket = "0.4.0-dev.11"
-holofuel_types = "0.5.11"
-mr_bundle = "0.4.0-dev.4"
+holochain_client = "0.6.0-dev.4"
+holochain_keystore = "0.4.0-dev.16"
+holochain_types = { version = "0.4.0-dev.18", features = ["chc"] }
+holochain_conductor_api = "0.4.0-dev.18"
+holochain_websocket = "0.4.0-dev.16"
+holofuel_types = "0.5.12"
+mr_bundle = "0.4.0-dev.5"
 
 hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "b128ddf45a80954917dd3b8713b7f2ae666e3613" }
 holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "b128ddf45a80954917dd3b8713b7f2ae666e3613" }

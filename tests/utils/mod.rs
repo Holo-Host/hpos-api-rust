@@ -209,9 +209,10 @@ impl Test {
             agent_key: self.agent.clone(),
             installed_app_id: installed_app_id.clone(),
             source,
-            membrane_proofs,
+            membrane_proofs: Some(membrane_proofs),
             network_seed: None,
             ignore_genesis_failure: false,
+            existing_cells: HashMap::new(),
         };
 
         let app_info = if let AdminResponse::AppInstalled(app_info) = self

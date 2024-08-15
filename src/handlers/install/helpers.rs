@@ -43,7 +43,7 @@ pub async fn handle_install_app_raw(
         source: payload.source,
         agent_key: payload.agent_key,
         installed_app_id: Some(payload.installed_app_id),
-        membrane_proofs: payload.membrane_proofs,
+        membrane_proofs: Some(payload.membrane_proofs),
         network_seed: if payload.uid.is_some() {
             match &uid_override {
                 Some(uid) => Some(format!("{:?}::{:?}", payload.uid.unwrap(), uid)),
@@ -52,6 +52,7 @@ pub async fn handle_install_app_raw(
         } else {
             uid_override
         },
+        existing_cells: HashMap::new(),
     };
     log::trace!("Starting installation of app with bundle: {:?}", p.source);
 
