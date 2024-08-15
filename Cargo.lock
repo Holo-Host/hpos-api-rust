@@ -1975,8 +1975,9 @@ dependencies = [
 
 [[package]]
 name = "holochain_client"
-version = "0.6.0-dev.3"
-source = "git+https://github.com/holochain/holochain-client-rust/?rev=83dd95949d4bebbd86c3684f604f10c0b710a453#83dd95949d4bebbd86c3684f604f10c0b710a453"
+version = "0.6.0-dev.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b15f81a7878a0f1f3d8e0884024a8168ff6e8876bed53d6681658d29ff8a75d"
 dependencies = [
  "again",
  "anyhow",

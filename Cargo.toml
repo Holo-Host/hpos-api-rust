@@ -11,9 +11,7 @@ ed25519-dalek = { version = "2.1.1" }
 env_logger = "0.11.3"
 getrandom = "0.2.7"
 
-# holochain_client = "0.6.0-dev.3"
-# using the git version of holochain_client since there is no release version yet
-holochain_client = { git = "https://github.com/holochain/holochain-client-rust/", package = "holochain_client" , rev = "83dd95949d4bebbd86c3684f604f10c0b710a453" }
+holochain_client = "0.6.0-dev.4"
 holochain_keystore = "0.4.0-dev.16"
 holochain_types = { version = "0.4.0-dev.18", features = ["chc"] }
 holochain_conductor_api = "0.4.0-dev.18"
