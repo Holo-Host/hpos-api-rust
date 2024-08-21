@@ -58,6 +58,11 @@ async fn from_config() -> Result<(SigningKey, String)> {
             device_bundle,
             settings,
             ..
+        }
+        | Config::V3 {
+            device_bundle,
+            settings,
+            ..
         } => {
             // take in password
             let signing_key = unlock(&device_bundle, Some(password))
