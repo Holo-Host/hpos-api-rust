@@ -2024,7 +2024,7 @@ dependencies = [
 [[package]]
 name = "holochain_env_setup"
 version = "0.1.1"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=c48e1f17fe4ced00e52b07ea55f2e1e76e52fa62#c48e1f17fe4ced00e52b07ea55f2e1e76e52fa62"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b128ddf45a80954917dd3b8713b7f2ae666e3613#b128ddf45a80954917dd3b8713b7f2ae666e3613"
 dependencies = [
  "anyhow",
  "dotenv",
@@ -2394,8 +2394,8 @@ dependencies = [
  "holochain_types",
  "holochain_websocket",
  "holofuel_types",
- "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328)",
- "hpos-config-seed-bundle-explorer 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328)",
+ "hpos-config-core",
+ "hpos-config-seed-bundle-explorer",
  "hpos_hc_connect",
  "log",
  "mr_bundle",
@@ -2429,24 +2429,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hpos-config-core"
-version = "0.2.1"
-source = "git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc#86411bdaabe7061a4b150d36c062fddc2c6c74cc"
-dependencies = [
- "argon2min",
- "arrayref",
- "base36",
- "base64 0.13.1",
- "blake2b_simd",
- "ed25519-dalek",
- "failure",
- "lazy_static",
- "rand 0.6.5",
- "serde",
- "url",
-]
-
-[[package]]
 name = "hpos-config-seed-bundle-explorer"
 version = "0.2.1"
 source = "git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328#77d740c83a02e322e670e360eb450076b593b328"
@@ -2455,24 +2437,7 @@ dependencies = [
  "base64 0.13.1",
  "ed25519-dalek",
  "hc_seed_bundle",
- "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328)",
- "one_err",
- "rmp-serde",
- "serde_json",
- "sodoken",
- "thiserror",
-]
-
-[[package]]
-name = "hpos-config-seed-bundle-explorer"
-version = "0.2.1"
-source = "git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc#86411bdaabe7061a4b150d36c062fddc2c6c74cc"
-dependencies = [
- "base36",
- "base64 0.13.1",
- "ed25519-dalek",
- "hc_seed_bundle",
- "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc)",
+ "hpos-config-core",
  "one_err",
  "rmp-serde",
  "serde_json",
@@ -2483,7 +2448,7 @@ dependencies = [
 [[package]]
 name = "hpos_hc_connect"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=c48e1f17fe4ced00e52b07ea55f2e1e76e52fa62#c48e1f17fe4ced00e52b07ea55f2e1e76e52fa62"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b128ddf45a80954917dd3b8713b7f2ae666e3613#b128ddf45a80954917dd3b8713b7f2ae666e3613"
 dependencies = [
  "again",
  "anyhow",
@@ -2497,8 +2462,8 @@ dependencies = [
  "holochain_types",
  "holochain_websocket",
  "holofuel_types",
- "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc)",
- "hpos-config-seed-bundle-explorer 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc)",
+ "hpos-config-core",
+ "hpos-config-seed-bundle-explorer",
  "isahc",
  "lair_keystore_api",
  "lazy_static",
@@ -5450,7 +5415,7 @@ dependencies = [
 [[package]]
 name = "taskgroup_manager"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=c48e1f17fe4ced00e52b07ea55f2e1e76e52fa62#c48e1f17fe4ced00e52b07ea55f2e1e76e52fa62"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b128ddf45a80954917dd3b8713b7f2ae666e3613#b128ddf45a80954917dd3b8713b7f2ae666e3613"
 dependencies = [
  "futures",
  "nix",
