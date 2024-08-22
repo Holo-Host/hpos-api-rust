@@ -2016,7 +2016,7 @@ dependencies = [
 [[package]]
 name = "holochain_env_setup"
 version = "0.1.1"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=2618edaaea4552713a8818dcd13b05805b5854c6#2618edaaea4552713a8818dcd13b05805b5854c6"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b128ddf45a80954917dd3b8713b7f2ae666e3613#b128ddf45a80954917dd3b8713b7f2ae666e3613"
 dependencies = [
  "anyhow",
  "dotenv",
@@ -2403,8 +2403,8 @@ dependencies = [
 
 [[package]]
 name = "hpos-config-core"
-version = "0.2.0"
-source = "git+https://github.com/holo-host/hpos-config.git?rev=a36f862869cc162c843ac27ed617910d68f480cc#a36f862869cc162c843ac27ed617910d68f480cc"
+version = "0.2.1"
+source = "git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328#77d740c83a02e322e670e360eb450076b593b328"
 dependencies = [
  "argon2min",
  "arrayref",
@@ -2421,8 +2421,8 @@ dependencies = [
 
 [[package]]
 name = "hpos-config-seed-bundle-explorer"
-version = "0.2.0"
-source = "git+https://github.com/holo-host/hpos-config.git?rev=a36f862869cc162c843ac27ed617910d68f480cc#a36f862869cc162c843ac27ed617910d68f480cc"
+version = "0.2.1"
+source = "git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328#77d740c83a02e322e670e360eb450076b593b328"
 dependencies = [
  "base64 0.13.1",
  "ed25519-dalek",
@@ -2438,7 +2438,7 @@ dependencies = [
 [[package]]
 name = "hpos_hc_connect"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=2618edaaea4552713a8818dcd13b05805b5854c6#2618edaaea4552713a8818dcd13b05805b5854c6"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b128ddf45a80954917dd3b8713b7f2ae666e3613#b128ddf45a80954917dd3b8713b7f2ae666e3613"
 dependencies = [
  "again",
  "anyhow",
@@ -5387,7 +5387,7 @@ dependencies = [
 [[package]]
 name = "taskgroup_manager"
 version = "0.1.0"
-source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=2618edaaea4552713a8818dcd13b05805b5854c6#2618edaaea4552713a8818dcd13b05805b5854c6"
+source = "git+https://github.com/holo-host/hpos-service-crates.git?rev=b128ddf45a80954917dd3b8713b7f2ae666e3613#b128ddf45a80954917dd3b8713b7f2ae666e3613"
 dependencies = [
  "futures",
  "nix",
