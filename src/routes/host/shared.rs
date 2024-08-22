@@ -66,7 +66,7 @@ pub async fn get_hosting_invoices(
             (),
         )
         .await;
-    println!("Raw get_pending_transactions result: {:?}", result_pending_txs);
+    println!("Raw get_pending_transactions result");
     let pending_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
         match result_pending_txs {
             Ok(pending_response) => {
@@ -93,7 +93,7 @@ pub async fn get_hosting_invoices(
             (),
         )
         .await;
-    println!("Raw get_actionable_transactions result: {:?}", result_actionable_txs);
+    println!("Raw get_actionable_transactions result");
     let actionable_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
         match result_actionable_txs {
             Ok(actionable_response) => {
