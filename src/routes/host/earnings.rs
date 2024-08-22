@@ -44,11 +44,13 @@ async fn handle_earnings(ws: &mut Ws, quantity: u16) -> Result<HostEarningsRespo
     let core_app_connection: &mut AppConnection =
         ws.get_connection(ws.core_app_id.clone()).await.unwrap();
 
+    println!("Calling get_hosting_invoices...");
     let HostingInvoicesResponse {
         paid_hosting_invoices,
         transaction_and_invoice_details,
         ..
     } = get_hosting_invoices(core_app_connection.to_owned(), InvoiceSet::All).await?;
+    println!("get_hosting_invoices returned successfully with {} paid invoices.", paid_hosting_invoices.len());
 
     let transaction_and_invoice_details = if quantity > 0 {
         transaction_and_invoice_details
@@ -59,28 +61,40 @@ async fn handle_earnings(ws: &mut Ws, quantity: u16) -> Result<HostEarningsRespo
         transaction_and_invoice_details
     };
 
-    let earnings = calculate_earnings(paid_hosting_invoices)?;
-
-    let ledger: Ledger = core_app_connection
-        .zome_call_typed(
+    println!("Calling get_ledger zome function...");
+    let ledger_result = core_app_connection
+        .zome_call_typed::<(), Ledger>(
             CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_ledger".into(),
             (),
         )
-        .await?;
+        .await;
+    println!("Raw get_ledger result: {:?}", ledger_result);
+    let ledger: Ledger = ledger_result.map_err(|err| {
+        println!("Error in get_ledger zome call: {:?}", err);
+        err
+    })?;
+    println!("get_ledger returned successfully with balance: {}", ledger.balance);
 
-    let redemption_state: RedemptionState = core_app_connection
-        .zome_call_typed(
+    println!("Calling get_redeemable zome function...");
+    let redemption_state_result = core_app_connection
+        .zome_call_typed::<(), RedemptionState>(
             CoreAppRoleName::Holofuel.into(),
             "transactor".into(),
             "get_redeemable".into(),
             (),
         )
-        .await?;
+        .await;
+    println!("Raw get_redeemable result: {:?}", redemption_state_result);
+    let redemption_state: RedemptionState = redemption_state_result.map_err(|err| {
+        println!("Error in get_redeemable zome call: {:?}", err);
+        err
+    })?;
+    println!("get_redeemable returned successfully with available: {}", redemption_state.available);
 
     Ok(HostEarningsResponse {
-        earnings,
+        earnings: calculate_earnings(paid_hosting_invoices)?,
         holofuel: HolofuelBalances {
             redeemable: redemption_state.available,
             balance: ledger.balance,
@@ -89,6 +103,7 @@ async fn handle_earnings(ws: &mut Ws, quantity: u16) -> Result<HostEarningsRespo
         recent_payments: transaction_and_invoice_details,
     })
 }
+
 
 fn calculate_earnings(transactions: Vec<Transaction>) -> Result<Earnings> {
     // this is ineffecient, we loop over `transactions` 3 times. If we care we could speed this up

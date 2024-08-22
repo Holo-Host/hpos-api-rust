@@ -30,61 +30,93 @@ pub async fn get_hosting_invoices(
         }
     }
 
+    println!("Calling get_completed_transactions zome function...");
+    let result_completed_txs = core_app_connection
+        .zome_call_typed::<(), Vec<Transaction>>(
+            CoreAppRoleName::Holofuel.into(),
+            "transactor".into(),
+            "get_completed_transactions".into(),
+            (),
+        )
+        .await;
+    println!("Raw get_completed_transactions result: {:?}", result_completed_txs);
     let paid_hosting_invoices: Vec<Transaction> = if invoice_set.includes_paid() {
-        core_app_connection
-            .zome_call_typed::<(), Vec<Transaction>>(
-                CoreAppRoleName::Holofuel.into(),
-                "transactor".into(),
-                "get_completed_transactions".into(),
-                (),
-            )
-            .await?
-            .into_iter()
-            .filter(is_hosting_invoice)
-            .collect()
+        match result_completed_txs {
+            Ok(transactions) => {
+                let filtered = transactions.into_iter().filter(is_hosting_invoice).collect::<Vec<_>>();
+                println!("Filtered {} paid hosting invoices.", filtered.len());
+                filtered
+            }
+            Err(err) => {
+                println!("Error in get_completed_transactions zome call: {:?}", err);
+                return Err(err.into());
+            }
+        }
     } else {
         Vec::new()
     };
+    println!("get_completed_transactions returned successfully.");
 
+    println!("Calling get_pending_transactions zome function...");
+    let result_pending_txs = core_app_connection
+        .zome_call_typed::<(), PendingResponse>(
+            CoreAppRoleName::Holofuel.into(),
+            "transactor".into(),
+            "get_pending_transactions".into(),
+            (),
+        )
+        .await;
+    println!("Raw get_pending_transactions result: {:?}", result_pending_txs);
     let pending_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
-        core_app_connection
-            .zome_call_typed::<(), PendingResponse>(
-                CoreAppRoleName::Holofuel.into(),
-                "transactor".into(),
-                "get_pending_transactions".into(),
-                (),
-            )
-            .await?
-            .flatten()
-            .into_iter()
-            .filter(is_hosting_invoice)
-            .collect()
+        match result_pending_txs {
+            Ok(pending_response) => {
+                let filtered = pending_response.flatten().into_iter().filter(is_hosting_invoice).collect::<Vec<_>>();
+                println!("Filtered {} pending hosting invoices.", filtered.len());
+                filtered
+            }
+            Err(err) => {
+                println!("Error in get_pending_transactions zome call: {:?}", err);
+                return Err(err.into());
+            }
+        }
     } else {
         Vec::new()
     };
+    println!("get_pending_transactions returned successfully.");
 
+    println!("Calling get_actionable_transactions zome function...");
+    let result_actionable_txs = core_app_connection
+        .zome_call_typed::<(), ActionableResponse>(
+            CoreAppRoleName::Holofuel.into(),
+            "transactor".into(),
+            "get_actionable_transactions".into(),
+            (),
+        )
+        .await;
+    println!("Raw get_actionable_transactions result: {:?}", result_actionable_txs);
     let actionable_txs: Vec<Transaction> = if invoice_set.includes_unpaid() {
-        core_app_connection
-            .zome_call_typed::<(), ActionableResponse>(
-                CoreAppRoleName::Holofuel.into(),
-                "transactor".into(),
-                "get_actionable_transactions".into(),
-                (),
-            )
-            .await?
-            .flatten()
-            .into_iter()
-            .filter(is_hosting_invoice)
-            .collect()
+        match result_actionable_txs {
+            Ok(actionable_response) => {
+                let filtered = actionable_response.flatten().into_iter().filter(is_hosting_invoice).collect::<Vec<_>>();
+                println!("Filtered {} actionable hosting invoices.", filtered.len());
+                filtered
+            }
+            Err(err) => {
+                println!("Error in get_actionable_transactions zome call: {:?}", err);
+                return Err(err.into());
+            }
+        }
     } else {
         Vec::new()
     };
+    println!("get_actionable_transactions returned successfully.");
 
     let unpaid_hosting_invoices: Vec<Transaction> = pending_txs
         .into_iter()
         .chain(actionable_txs.into_iter())
         .filter(is_hosting_invoice)
         .collect();
+    println!("Total unpaid hosting invoices: {}", unpaid_hosting_invoices.len());
 
     let transaction_and_invoice_details = get_hosted_happ_invoice_details(
         paid_hosting_invoices
@@ -100,6 +132,7 @@ pub async fn get_hosting_invoices(
         transaction_and_invoice_details,
     })
 }
+
 
 fn get_hosted_happ_invoice_details(
     transactions: Vec<Transaction>,
