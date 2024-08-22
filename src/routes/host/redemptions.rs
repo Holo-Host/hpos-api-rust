@@ -210,7 +210,7 @@ impl From<TransactionStatus> for TransactionWithRedemptionStatus {
         match status {
             TransactionStatus::Actionable => TransactionWithRedemptionStatus::Actionable,
             TransactionStatus::Pending => TransactionWithRedemptionStatus::Pending,
-            TransactionStatus::Accepted => TransactionWithRedemptionStatus::Accepted,
+            TransactionStatus::Accepted(_) => TransactionWithRedemptionStatus::Accepted,
             TransactionStatus::Completed => TransactionWithRedemptionStatus::Completed,
             TransactionStatus::Declined => TransactionWithRedemptionStatus::Declined,
             TransactionStatus::Expired => TransactionWithRedemptionStatus::Expired,
