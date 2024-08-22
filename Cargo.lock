@@ -2394,8 +2394,8 @@ dependencies = [
  "holochain_types",
  "holochain_websocket",
  "holofuel_types",
- "hpos-config-core",
- "hpos-config-seed-bundle-explorer",
+ "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328)",
+ "hpos-config-seed-bundle-explorer 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328)",
  "hpos_hc_connect",
  "log",
  "mr_bundle",
@@ -2408,6 +2408,24 @@ dependencies = [
  "sodoken",
  "url",
  "url2",
+]
+
+[[package]]
+name = "hpos-config-core"
+version = "0.2.1"
+source = "git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328#77d740c83a02e322e670e360eb450076b593b328"
+dependencies = [
+ "argon2min",
+ "arrayref",
+ "base36",
+ "base64 0.13.1",
+ "blake2b_simd",
+ "ed25519-dalek",
+ "failure",
+ "lazy_static",
+ "rand 0.6.5",
+ "serde",
+ "url",
 ]
 
 [[package]]
@@ -2431,13 +2449,30 @@ dependencies = [
 [[package]]
 name = "hpos-config-seed-bundle-explorer"
 version = "0.2.1"
+source = "git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328#77d740c83a02e322e670e360eb450076b593b328"
+dependencies = [
+ "base36",
+ "base64 0.13.1",
+ "ed25519-dalek",
+ "hc_seed_bundle",
+ "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=77d740c83a02e322e670e360eb450076b593b328)",
+ "one_err",
+ "rmp-serde",
+ "serde_json",
+ "sodoken",
+ "thiserror",
+]
+
+[[package]]
+name = "hpos-config-seed-bundle-explorer"
+version = "0.2.1"
 source = "git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc#86411bdaabe7061a4b150d36c062fddc2c6c74cc"
 dependencies = [
  "base36",
  "base64 0.13.1",
  "ed25519-dalek",
  "hc_seed_bundle",
- "hpos-config-core",
+ "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc)",
  "one_err",
  "rmp-serde",
  "serde_json",
@@ -2462,8 +2497,8 @@ dependencies = [
  "holochain_types",
  "holochain_websocket",
  "holofuel_types",
- "hpos-config-core",
- "hpos-config-seed-bundle-explorer",
+ "hpos-config-core 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc)",
+ "hpos-config-seed-bundle-explorer 0.2.1 (git+https://github.com/holo-host/hpos-config.git?rev=86411bdaabe7061a4b150d36c062fddc2c6c74cc)",
  "isahc",
  "lair_keystore_api",
  "lazy_static",
