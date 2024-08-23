@@ -148,6 +148,14 @@ fn get_hosted_happ_invoice_details(
                     }
                 };
 
+                let hha_id_holohash =  match ActionHashB64::from_b64_str(&hha_id) {
+                    Ok(hha_id_holohash) => hha_id_holohash,
+                    Err(e) => {
+                        warn!("Could not cast the hha_id_string in the invoice note into an ActionHash: {:?}", e);
+                        return None;
+                    }
+                };
+
                 Some(TransactionAndInvoiceDetails {
                     id,
                     amount,
@@ -163,7 +171,7 @@ fn get_hosted_happ_invoice_details(
                     url,
                     happ: HappNameAndId {
                         name: happ_name,
-                        id: hha_id,
+                        id: hha_id_holohash,
                     },
                     invoice_details: InvoiceDetails {
                         start: invoice_period_start,
@@ -368,7 +376,7 @@ struct Note(String, InvoiceNote);
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 struct InvoiceNote {
-    hha_id: ActionHashB64,
+    hha_id: String, // Would prefer to rename this but the invoice note strings already have this as hha_id
     invoice_period_start: Timestamp,
     invoice_period_end: Timestamp,
     #[serde(flatten)]
