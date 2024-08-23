@@ -41,7 +41,7 @@ pub async fn handle_install_app_raw(
     let p = InstallAppPayload {
         ignore_genesis_failure: false,
         source: payload.source,
-        agent_key: payload.agent_key,
+        agent_key: Some(payload.agent_key),
         installed_app_id: Some(payload.installed_app_id),
         membrane_proofs: Some(payload.membrane_proofs),
         network_seed: if payload.uid.is_some() {
