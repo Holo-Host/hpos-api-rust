@@ -129,7 +129,7 @@ fn get_hosted_happ_invoice_details(
                 let happ_name = read_happ_name(&human_readable_note).to_owned();
 
                 let InvoiceNote {
-                    hha_id,
+                    hha_id_string,
                     invoice_period_start,
                     invoice_period_end,
                     invoiced_items,
@@ -144,6 +144,14 @@ fn get_hosted_happ_invoice_details(
                             "Failed to parse invoiced_items {:?} with error {:?}",
                             invoiced_items, e
                         );
+                        return None;
+                    }
+                };
+
+                let hha_id =  match ActionHashB64::from_b64_str(&hha_id_string) {
+                    Ok(hha_id) => hha_id,
+                    Err(e) => {
+                        warn!("Could not cast the hha_id_string in the invoice note into an ActionHash: {:?}", e);
                         return None;
                     }
                 };
@@ -368,7 +376,7 @@ struct Note(String, InvoiceNote);
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]
 struct InvoiceNote {
-    hha_id: ActionHashB64,
+    hha_id_string: String,
     invoice_period_start: Timestamp,
     invoice_period_end: Timestamp,
     #[serde(flatten)]
