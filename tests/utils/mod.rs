@@ -74,9 +74,10 @@ impl Test {
         info!("agent: {}, bundle: {}", agent, device_bundle);
 
         let tmp_dir = create_tmp_dir();
+        let lair_dir = tmp_dir.join("lair-keystore");
         let log_dir = create_log_dir();
 
-        env::set_var("HOLOCHAIN_WORKING_DIR", &tmp_dir);
+        env::set_var("LAIR_WORKING_DIR", &lair_dir);
 
         // Set up holochain environment
         let hc_env = setup_environment(&tmp_dir, &log_dir, Some(&device_bundle), None)

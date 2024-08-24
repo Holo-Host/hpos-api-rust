@@ -20,7 +20,7 @@ pub type WsMutex = Mutex<Ws>;
 /// Env vars required:
 /// - CORE_HAPP_FILE
 /// - HOLOCHAIN_DEFAULT_PASSWORD
-/// - HOLOCHAIN_WORKING_DIR
+/// - LAIR_WORKING_DIR
 /// - DEV_UID_OVERRIDE
 /// - SL_COLLECTOR_PUB_KEY
 /// - HOST_PUBKEY_PATH (only required in non-test envs)
