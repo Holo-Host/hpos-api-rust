@@ -16,13 +16,15 @@ pub struct Transaction {
     pub fee: String,
     pub created_date: Timestamp,
     pub completed_date: Option<Timestamp>,
-    pub transaction_type: TransactionType,
+    pub transaction_type: TransactionType, // The type returned will be the type of the initial transaction
     pub counterparty: AgentPubKeyB64,
     pub direction: TransactionDirection,
     pub status: TransactionStatus,
     pub note: Option<String>,
     pub proof_of_service: Option<POS>,
     pub url: Option<String>,
+    pub spender_payload: Option<Payload>,
+    pub receiver_payload: Option<Payload>,
     pub expiration_date: Option<Timestamp>,
 }
 
