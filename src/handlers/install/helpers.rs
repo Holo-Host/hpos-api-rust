@@ -46,7 +46,7 @@ pub async fn handle_install_app_raw(
         membrane_proofs: Some(payload.membrane_proofs),
         network_seed: if payload.uid.is_some() {
             match &uid_override {
-                Some(uid) => Some(format!("{:?}::{:?}", payload.uid.unwrap(), uid)),
+                Some(uid) => Some(format!("{}::{}", payload.uid.unwrap(), uid)),
                 None => Some(payload.uid.unwrap()),
             }
         } else {
