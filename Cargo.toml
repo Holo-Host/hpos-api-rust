@@ -19,8 +19,8 @@ holochain_conductor_api = "=0.4.0-dev.20"
 holofuel_types = "0.5.13"
 mr_bundle = "=0.4.0-dev.7"
 
-hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "6a58c8de95b0b38fed3bf9db2c93eeebd3f3c480" }
-holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "6a58c8de95b0b38fed3bf9db2c93eeebd3f3c480" }
+hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "b60c6e3c8419f55048af734c80f54456de7a10be" }
+holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "b60c6e3c8419f55048af734c80f54456de7a10be" }
 hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev = "77d740c83a02e322e670e360eb450076b593b328" }
 hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "77d740c83a02e322e670e360eb450076b593b328" }
 
