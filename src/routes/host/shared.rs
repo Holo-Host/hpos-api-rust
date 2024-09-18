@@ -132,6 +132,7 @@ fn get_hosted_happ_invoice_details(
                     hha_id,
                     invoice_period_start,
                     invoice_period_end,
+                    invoice_due_date,
                     invoiced_items,
                 } = invoice_note;
 
@@ -176,6 +177,7 @@ fn get_hosted_happ_invoice_details(
                     invoice_details: InvoiceDetails {
                         start: invoice_period_start,
                         end: invoice_period_end,
+                        due: invoice_due_date,
                         bandwidth: QuantityAndPrice {
                             quantity: invoice_usage.bandwidth,
                             price: invoice_prices.bandwidth,
@@ -312,6 +314,7 @@ pub struct HappNameAndId {
 pub struct InvoiceDetails {
     start: Timestamp,
     end: Timestamp,
+    due: Timestamp,
     bandwidth: QuantityAndPrice,
     compute: QuantityAndPrice,
     storage: QuantityAndPrice,
@@ -379,6 +382,7 @@ struct InvoiceNote {
     hha_id: String, // Would prefer to rename this but the invoice note strings already have this as hha_id
     invoice_period_start: Timestamp,
     invoice_period_end: Timestamp,
+    invoice_due_date: Timestamp,
     #[serde(flatten)]
     invoiced_items: InvoicedItems,
 }
