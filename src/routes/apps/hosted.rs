@@ -30,7 +30,11 @@ pub async fn get_all(
     Ok(Json(
         handle_get_all(usage_interval, quantity, &mut ws)
             .await
-            .map_err(|e| (Status::InternalServerError, e.to_string()))?,
+            .map_err(|e| (Status::InternalServerError, e.to_string()))?
+
+            // filter out cloud console hApp for host console ui
+            .into_iter()
+            .filter(|happ| happ.name != "Cloud Console"),
     ))
 }
 
