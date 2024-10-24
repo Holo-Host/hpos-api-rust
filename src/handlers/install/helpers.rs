@@ -53,6 +53,7 @@ pub async fn handle_install_app_raw(
             uid_override
         },
         existing_cells: HashMap::new(),
+        allow_throwaway_random_agent_key: false,
     };
     log::trace!("Starting installation of app with bundle: {:?}", p.source);
 

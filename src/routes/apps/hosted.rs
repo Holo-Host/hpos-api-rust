@@ -33,7 +33,8 @@ pub async fn get_all(
             .map_err(|e| (Status::InternalServerError, e.to_string()))?
             // filter out cloud console hApp for host console ui
             .into_iter()
-            .filter(|happ| happ.name != "Cloud Console"),
+            .filter(|happ| happ.name != "Cloud Console")
+            .collect(),
     ))
 }
 
