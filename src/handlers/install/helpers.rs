@@ -44,14 +44,7 @@ pub async fn handle_install_app_raw(
         agent_key: Some(payload.agent_key),
         installed_app_id: Some(payload.installed_app_id),
         membrane_proofs: Some(payload.membrane_proofs),
-        network_seed: if payload.uid.is_some() {
-            match &uid_override {
-                Some(uid) => Some(format!("{}::{}", payload.uid.unwrap(), uid)),
-                None => Some(payload.uid.unwrap()),
-            }
-        } else {
-            uid_override
-        },
+        network_seed: payload.uid,
         existing_cells: HashMap::new(),
         allow_throwaway_random_agent_key: false,
     };
