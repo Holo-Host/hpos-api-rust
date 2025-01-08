@@ -35,7 +35,6 @@ pub async fn handle_install_app_raw(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
     payload: RawInstallAppPayload,
 ) -> Result<SuccessfulInstallResult> {
-    let uid_override = get_uid_override();
     let installed_app_id = payload.installed_app_id.clone();
 
     let p = InstallAppPayload {
@@ -210,10 +209,6 @@ pub async fn get_host_pub_key(
 
 pub fn get_sl_id(happ_id: &String) -> String {
     format!("{}::servicelogger", happ_id)
-}
-
-pub fn get_uid_override() -> Option<String> {
-    std::env::var("DEV_UID_OVERRIDE").ok()
 }
 
 pub fn get_sl_collector_pubkey() -> String {

@@ -15,9 +15,6 @@ use hpos_api_rust::common::types::{
 use hpos_api_rust::handlers::install;
 use hpos_hc_connect::app_connection::CoreAppRoleName;
 use hpos_hc_connect::hha_agent::CoreAppAgent;
-use hpos_hc_connect::sl_utils::{
-    sl_clone_name, sl_get_current_time_bucket, SlCloneSpec, SL_BUCKET_SIZE_DAYS,
-};
 use hpos_hc_connect::AppConnection;
 use log::{debug, info};
 use rocket::http::{ContentType, Status};
