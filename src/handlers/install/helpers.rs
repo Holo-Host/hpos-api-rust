@@ -35,7 +35,6 @@ pub async fn handle_install_app_raw(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
     payload: RawInstallAppPayload,
 ) -> Result<SuccessfulInstallResult> {
-    let uid_override = get_uid_override();
     let installed_app_id = payload.installed_app_id.clone();
 
     let p = InstallAppPayload {
@@ -44,14 +43,7 @@ pub async fn handle_install_app_raw(
         agent_key: Some(payload.agent_key),
         installed_app_id: Some(payload.installed_app_id),
         membrane_proofs: Some(payload.membrane_proofs),
-        network_seed: if payload.uid.is_some() {
-            match &uid_override {
-                Some(uid) => Some(format!("{}::{}", payload.uid.unwrap(), uid)),
-                None => Some(payload.uid.unwrap()),
-            }
-        } else {
-            uid_override
-        },
+        network_seed: payload.uid,
         existing_cells: HashMap::new(),
         allow_throwaway_random_agent_key: false,
     };
@@ -217,10 +209,6 @@ pub async fn get_host_pub_key(
 
 pub fn get_sl_id(happ_id: &String) -> String {
     format!("{}::servicelogger", happ_id)
-}
-
-pub fn get_uid_override() -> Option<String> {
-    std::env::var("DEV_UID_OVERRIDE").ok()
 }
 
 pub fn get_sl_collector_pubkey() -> String {
