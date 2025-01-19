@@ -10,6 +10,7 @@ use holochain_env_setup::{
     holochain::{create_log_dir, create_tmp_dir},
     storage_helpers::download_file,
 };
+use holochain_types::app::{RoleSettings, RoleSettingsMap};
 use holochain_types::dna::{ActionHash, ActionHashB64, DnaHash};
 use holochain_types::prelude::{
     AgentPubKey, AppBundleSource, SerializedBytes, Signature, Timestamp, UnsafeBytes,
@@ -206,14 +207,29 @@ impl Test {
             None => (Some(happ.to_string()), AppBundleSource::Path(happ_path)),
         };
 
+        let roles_settings: RoleSettingsMap = membrane_proofs
+        .into_iter()
+        .map(|(role_name, serialized)| {
+            // Convert SerializedBytes into MembraneProof.
+            let membrane_proof = serialized;
+            
+            (
+                role_name,
+                RoleSettings::Provisioned {
+                    membrane_proof: Some(membrane_proof),
+                    modifiers: None,
+                },
+            )
+        })
+        .collect();
+
         let payload = InstallAppPayload {
             agent_key: Some(self.agent.clone()),
             installed_app_id: installed_app_id.clone(),
             source,
-            membrane_proofs: Some(membrane_proofs),
+            roles_settings: Some(roles_settings),
             network_seed: None,
             ignore_genesis_failure: false,
-            existing_cells: HashMap::new(),
             allow_throwaway_random_agent_key: false,
         };
 

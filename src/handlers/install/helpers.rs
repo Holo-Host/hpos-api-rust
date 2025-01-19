@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use holochain_client::{AdminResponse, InstalledAppId};
 use holochain_client::{AgentPubKey, AppInfo};
 use holochain_conductor_api::{AppStatusFilter, CellInfo};
-use holochain_types::app::{AppManifest, InstallAppPayload};
+use holochain_types::app::{AppManifest, InstallAppPayload, RoleSettings, RoleSettingsMap};
 use holochain_types::dna::{ActionHash, DnaHashB64};
 use holochain_types::prelude::{AppBundleSource, RoleName, YamlProperties};
 use hpos_hc_connect::app_connection::CoreAppRoleName;
@@ -35,16 +35,40 @@ pub async fn handle_install_app_raw(
     admin_connection: &mut hpos_hc_connect::AdminWebsocket,
     payload: RawInstallAppPayload,
 ) -> Result<SuccessfulInstallResult> {
+    let uid_override = get_uid_override();
     let installed_app_id = payload.installed_app_id.clone();
+
+    let roles_settings: RoleSettingsMap = payload.membrane_proofs
+        .into_iter()
+        .map(|(role_name, serialized)| {
+            // Convert SerializedBytes into MembraneProof.
+            let membrane_proof = serialized;
+            
+            (
+                role_name,
+                RoleSettings::Provisioned {
+                    membrane_proof: Some(membrane_proof),
+                    modifiers: None,
+                },
+            )
+        })
+        .collect();
 
     let p = InstallAppPayload {
         ignore_genesis_failure: false,
         source: payload.source,
         agent_key: Some(payload.agent_key),
         installed_app_id: Some(payload.installed_app_id),
-        membrane_proofs: Some(payload.membrane_proofs),
-        network_seed: payload.uid,
-        existing_cells: HashMap::new(),
+        roles_settings: Some(roles_settings),
+        network_seed: if payload.uid.is_some() {
+            match &uid_override {
+                Some(uid) => Some(format!("{}::{}", payload.uid.unwrap(), uid)),
+                None => Some(payload.uid.unwrap()),
+            }
+        } else {
+            uid_override
+        },
+        // network_seed: payload.uid,
         allow_throwaway_random_agent_key: false,
     };
     log::trace!("Starting installation of app with bundle: {:?}", p.source);
@@ -209,6 +233,10 @@ pub async fn get_host_pub_key(
 
 pub fn get_sl_id(happ_id: &String) -> String {
     format!("{}::servicelogger", happ_id)
+}
+
+pub fn get_uid_override() -> Option<String> {
+    std::env::var("DEV_UID_OVERRIDE").ok()
 }
 
 pub fn get_sl_collector_pubkey() -> String {
