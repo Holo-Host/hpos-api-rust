@@ -114,6 +114,10 @@ pub async fn handle_install_app(ws: &mut Ws, data: types::InstallHappBody) -> Re
                     uid: happ_bundle_details.uid,
                 };
 
+                log::debug!(
+                    "Installing app with payload: {:?}", &raw_payload
+                );
+
                 helpers::handle_install_app_raw(&mut admin_connection, raw_payload).await?;
 
                 // 4. Enable the hosted happ

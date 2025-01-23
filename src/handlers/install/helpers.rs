@@ -61,10 +61,7 @@ pub async fn handle_install_app_raw(
         installed_app_id: Some(payload.installed_app_id),
         roles_settings: Some(roles_settings),
         network_seed: if payload.uid.is_some() {
-            match &uid_override {
-                Some(uid) => Some(format!("{}::{}", payload.uid.unwrap(), uid)),
-                None => Some(payload.uid.unwrap()),
-            }
+            payload.uid.clone()
         } else {
             uid_override
         },
