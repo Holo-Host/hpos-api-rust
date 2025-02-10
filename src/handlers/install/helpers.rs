@@ -64,8 +64,7 @@ pub async fn handle_install_app_raw(
             if uid == "none" {
                 // If the UID is the string "none", treat it as if it were None.
                 None
-            } else {
-                // Otherwise, use the provided UID.
+            } else {ß
                 Some(uid.clone())
             }
         } else {
