@@ -61,10 +61,12 @@ pub async fn handle_install_app_raw(
         installed_app_id: Some(payload.installed_app_id),
         roles_settings: Some(roles_settings),
         network_seed: if let Some(ref uid) = payload.uid {
+            println!("UID: {:?}", uid);
             if uid == "none" {
                 // If the UID is the string "none", treat it as if it were None.
+                println!("UID is none");
                 None
-            } else {ß
+            } else {
                 Some(uid.clone())
             }
         } else {
