@@ -60,9 +60,16 @@ pub async fn handle_install_app_raw(
         agent_key: Some(payload.agent_key),
         installed_app_id: Some(payload.installed_app_id),
         roles_settings: Some(roles_settings),
-        network_seed: if payload.uid.is_some() {
-            payload.uid.clone()
+        network_seed: if let Some(ref uid) = payload.uid {
+            if uid == "none" {
+                // If the UID is the string "none", treat it as if it were None.
+                None
+            } else {
+                // Otherwise, use the provided UID.
+                Some(uid.clone())
+            }
         } else {
+            // If no UID was provided at all, use the uid_override.
             uid_override
         },
         // network_seed: payload.uid,
