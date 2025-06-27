@@ -17,6 +17,7 @@ use rocket::{
     serde::{Deserialize, Serialize},
 };
 use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::time::Duration;
 
 pub enum SuccessfulInstallResult {
@@ -24,7 +25,7 @@ pub enum SuccessfulInstallResult {
     AlreadyInstalled,
 }
 
-pub type CellInfoMap = HashMap<RoleName, Vec<CellInfo>>;
+pub type CellInfoMap = IndexMap<RoleName, Vec<CellInfo>>;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "rocket::serde")]

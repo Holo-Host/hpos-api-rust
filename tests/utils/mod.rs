@@ -70,7 +70,7 @@ impl Test {
             .unwrap();
 
         let bytes = base64::decode_config(&agent_string[1..], base64::URL_SAFE_NO_PAD).unwrap();
-        let agent: AgentPubKey = AgentPubKey::from_raw_39(bytes).unwrap();
+        let agent: AgentPubKey = AgentPubKey::from_raw_39(bytes);
 
         info!("agent: {}, bundle: {}", agent, device_bundle);
 

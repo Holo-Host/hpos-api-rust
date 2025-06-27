@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::common::consts::ADMIN_PORT;
 use anyhow::{anyhow, Context, Result};
@@ -43,8 +44,10 @@ impl Ws {
             .await
             .context("failed to connect to holochain's app interface")?;
 
-        let passphrase =
-            sodoken::BufRead::from(holo_config::default_password()?.as_bytes().to_vec());
+        let passphrase = sodoken::LockedArray::from(
+            holo_config::default_password()?.as_bytes().to_vec(),
+        );
+        let passphrase = Arc::new(std::sync::Mutex::new(passphrase));
         let keystore = holochain_keystore::lair_keystore::spawn_lair_keystore(
             url2::url2!("{}", holo_config::get_lair_url(None)?),
             passphrase,
@@ -116,7 +119,7 @@ pub fn get_host_pubkey() -> Result<Option<AgentPubKey>> {
         }
     };
 
-    let host_pub_key = AgentPubKey::from_raw_39(std::fs::read(host_pub_key_path)?)?;
+    let host_pub_key = AgentPubKey::from_raw_39(std::fs::read(host_pub_key_path)?);
 
     Ok(Some(host_pub_key))
 }

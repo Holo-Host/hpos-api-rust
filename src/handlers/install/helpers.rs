@@ -97,11 +97,11 @@ pub async fn handle_install_app_raw(
 }
 
 pub async fn update_happ_bundle(
-    mut source: AppBundleSource,
+    source: AppBundleSource,
     modifier_props_json: String,
 ) -> Result<AppBundleSource> {
-    let bundle = match source {
-        AppBundleSource::Bundle(bundle) => bundle.into_inner(),
+    let bundle: Bundle<AppManifest> = match source {
+        AppBundleSource::Bytes(bytes) => Bundle::decode(&bytes).unwrap(),
         AppBundleSource::Path(path) => Bundle::read_from_file(&path).await.unwrap(),
     };
     let AppManifest::V1(mut manifest) = bundle.manifest().clone();
@@ -113,14 +113,12 @@ pub async fn update_happ_bundle(
 
         role_manifest.dna.modifiers.properties = properties
     }
-    source = AppBundleSource::Bundle(
-        bundle
-            .update_manifest(AppManifest::V1(manifest))
-            .unwrap()
-            .into(),
-    );
-
-    Ok(source)
+    let updated_bundle = bundle
+        .update_manifest(AppManifest::V1(manifest))
+        .unwrap();
+    let bundle_bytes = updated_bundle.encode().unwrap();
+    
+    Ok(AppBundleSource::Bytes(bundle_bytes))
 }
 
 pub async fn install_assigned_sl_instance(
