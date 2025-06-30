@@ -11,16 +11,16 @@ ed25519-dalek = { version = "2.1.1" }
 env_logger = "0.11.3"
 getrandom = "0.2.7"
 
-holochain_websocket = "=0.5.2"
-holochain_client = "=0.7.0"
-holochain_keystore = "=0.5.2"
-holochain_types = { version = "=0.5.2"}
-holochain_conductor_api = "=0.5.2"
-holofuel_types = { git = "https://github.com/holo-host/holofuel", rev = "ca256cbb6cacf40c841e8017610628663ab321c5" }
-mr_bundle = "=0.5.2"
+holochain_websocket = "=0.5.3"
+holochain_client = "=0.7.1"
+holochain_keystore = "=0.5.3"
+holochain_types = { version = "=0.5.3"}
+holochain_conductor_api = "=0.5.3"
+holofuel_types = { git = "https://github.com/holo-host/holofuel", rev = "b8832eaadfd858440fa780d212882cc68913381f" }
+mr_bundle = "=0.5.3"
 
-hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "2041a8ba6e9e001fbc679d988777d96fe98ce643" }
-holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "2041a8ba6e9e001fbc679d988777d96fe98ce643" }
+hpos_hc_connect = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "4dd8e429e72c4ed28a822a4aa206965597ccc539" }
+holochain_env_setup = { git = "https://github.com/holo-host/hpos-service-crates.git", rev = "4dd8e429e72c4ed28a822a4aa206965597ccc539" }
 hpos-config-core = { git = "https://github.com/holo-host/hpos-config.git", rev = "77d740c83a02e322e670e360eb450076b593b328" }
 hpos-config-seed-bundle-explorer = { git = "https://github.com/holo-host/hpos-config.git", rev = "77d740c83a02e322e670e360eb450076b593b328" }
 
@@ -36,3 +36,4 @@ url = "2.4.0"
 chrono = "0.4.19"
 reqwest = "0.12.5"
 indexmap = "2.0"
+holochain_serialized_bytes = "*"
